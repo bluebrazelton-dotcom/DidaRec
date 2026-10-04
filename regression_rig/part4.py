@@ -4,20 +4,29 @@ import json, os, subprocess, sys, threading, time
 from harness import run, summarize
 
 MAIN_MIN = float(sys.argv[2]) if len(sys.argv) > 2 else 30
-CRASH_MIN = float(sys.argv[3]) if len(sys.argv) > 3 else 12
+# The crash-recovery recording must be long too. A streamed save uses a roughly fixed
+# 55-75 MB of working memory whatever the file size; on a 12-minute (~140 MB) file that
+# alone sits on the 50% pass line, on a 30-minute (~350 MB) file it is ~16%.
+CRASH_MIN = float(sys.argv[3]) if len(sys.argv) > 3 else 30
 RECOVER = "#recoveryBanner button.btn-save"
 
 
 def tree_mem_mb(fragment):
-    """Working-set total (MB) of the browser process tree launched on the given profile dir."""
-    ps = ("$all = Get-CimInstance Win32_Process | Select-Object Name, ProcessId, ParentProcessId, WorkingSetSize, CommandLine; "
+    """(private MB, working-set MB) summed over the browser process tree launched on the given profile dir.
+
+    Private (committed) memory is what the pass/fail uses: a save that buffered the file would
+    have to commit the file's size, whatever Windows is doing with resident pages. Working set
+    is reported alongside for reference. On 2026-10-04 the two agreed to within a few MB."""
+    ps = ("$all = Get-CimInstance Win32_Process | Select-Object Name, ProcessId, ParentProcessId, WorkingSetSize, PrivatePageCount, CommandLine; "
           "$roots = @($all | Where-Object { $_.CommandLine -like '*" + fragment + "*' -and $_.Name -notlike 'powershell*' -and $_.Name -notlike 'python*' } | ForEach-Object { $_.ProcessId }); "
           "$set = New-Object System.Collections.Generic.HashSet[int]; foreach ($p in $roots) { [void]$set.Add([int]$p) }; "
           "$grew = $true; while ($grew) { $grew = $false; foreach ($p in $all) { if ($set.Contains([int]$p.ParentProcessId) -and -not $set.Contains([int]$p.ProcessId)) { [void]$set.Add([int]$p.ProcessId); $grew = $true } } }; "
-          "$sum = 0; foreach ($p in $all) { if ($set.Contains([int]$p.ProcessId)) { $sum += $p.WorkingSetSize } }; [math]::Round($sum / 1MB)")
+          "$ws = 0; $pv = 0; foreach ($p in $all) { if ($set.Contains([int]$p.ProcessId)) { $ws += $p.WorkingSetSize; $pv += $p.PrivatePageCount } }; "
+          "'' + [math]::Round($pv / 1MB) + ' ' + [math]::Round($ws / 1MB)")
     try:
         out = subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True, timeout=60).stdout.strip()
-        return int(out)
+        pv, ws = out.split()
+        return int(pv), int(ws)
     except Exception:
         return None
 
@@ -34,14 +43,31 @@ class Sampler:
         while self.on:
             m = tree_mem_mb(self.fragment)
             if m is not None:
-                self.samples.append((time.time(), m))
+                self.samples.append((time.time(), m[0], m[1]))   # (time, private MB, working-set MB)
             time.sleep(1.5)
 
     def stop(self):
         self.on = False; self.th.join(timeout=70)
 
-    def window(self, t0, t1):
-        return [m for t, m in self.samples if t0 <= t <= t1]
+    def window(self, t0, t1, col=1):
+        return [s[col] for s in self.samples if t0 <= s[0] <= t1]
+
+    def rise(self, t0, t1, lead=20):
+        """Memory during [t0, t1] against the median of the `lead` seconds before t0, for both measures."""
+        out = {}
+        for name, col in (("private", 1), ("ws", 2)):
+            base = sorted(self.window(t0 - lead, t0, col)); during = self.window(t0, t1, col)
+            b = base[len(base) // 2] if base else 0
+            peak = max(during or [b])
+            out[name] = {"before": b, "peak": peak, "rise": peak - b}
+        return out
+
+
+def mem_text(m, size_mb):
+    p, w = m["private"], m["ws"]
+    return ("committed memory (whole process tree) %d MB before -> peak %d MB (%+d MB = %.0f%% of the file size; a buffered save would add 100%%+). "
+            "For reference, resident memory (working set, drifts with the machine): %d -> %d MB (%+d MB)"
+            % (p["before"], p["peak"], p["rise"], 100 * p["rise"] / size_mb, w["before"], w["peak"], w["rise"]))
 
 
 def long_record(r, minutes):
@@ -99,16 +125,17 @@ def s14_long(r):
             return main_phase(r, samp)
         r.kill_tab(); r.wait(3000)
         info = r.ui()["recoveryInfo"]
-        time.sleep(8)
-        t0 = time.time(); base = samp.window(t0 - 8, t0)
+        time.sleep(22)   # let the reopened page settle so the "before" level is a resting one
+        info = r.ui()["recoveryInfo"]
+        t0 = time.time()
         r.stop_save("14_3_recovered_long.webm", button=RECOVER, timeout=1200000)
         t1 = time.time(); time.sleep(3)
-        during = samp.window(t0, t1 + 3)
+        mem = samp.rise(t0, t1 + 3)
         size, dur, ok, worst, serr, pr = check_file(r, "14_3_recovered_long.webm")
-        b = sum(base) / max(1, len(base)); peak = max(during or [b]); rise = peak - b
-        r.check("14.3", ok and dur > CRASH_MIN * 60 * 0.95 and rise < 0.5 * size / 1048576 and not errs,
-                "%.0f-min Best-quality session, tab killed, reopened ('%s'), Recover & save took %.0fs: file %.0f MB / %.1f min, plays and seeks (slowest of 8 jumps %dms). Browser memory (whole process tree): %.0f MB before -> peak %.0f MB during the save (+%.0f MB, i.e. %.0f%% of the file size)"
-                % (CRASH_MIN, info, t1 - t0, size / 1048576, dur / 60, worst, b, peak, rise, 100 * rise / (size / 1048576)))
+        size_mb = size / 1048576
+        r.check("14.3", ok and dur > CRASH_MIN * 60 * 0.95 and mem["private"]["rise"] < 0.5 * size_mb and not errs,
+                "%.0f-min Best-quality session, tab killed, reopened ('%s'), Recover & save took %.0fs: file %.0f MB / %.1f min, plays and seeks (slowest of 8 jumps %dms). During the save: %s"
+                % (CRASH_MIN, info, t1 - t0, size_mb, dur / 60, worst, mem_text(mem, size_mb)))
         r.reload(); r.wait(1000)
         main_phase(r, samp)
     finally:
@@ -124,20 +151,19 @@ def main_phase(r, samp):
         start_wait = r.start_wait
         chunks = r.ui()["chunks"]
         time.sleep(6)
-        t0 = time.time(); base = samp.window(t0 - 8, t0)
-        seen = []
+        t0 = time.time()
 
         def trig():
             r.page.click("#btnStop")
 
         r.save_via("14_1_long.webm", trig, timeout=1800000)
         t1 = time.time(); time.sleep(3)
-        during = samp.window(t0, t1 + 3)
+        mem = samp.rise(t0, t1 + 3)
         size, dur, ok, worst, serr, pr = check_file(r, "14_1_long.webm")
-        b = sum(base) / max(1, len(base)); peak = max(during or [b]); rise = peak - b
-        r.check("14.1", dur > MAIN_MIN * 60 * 0.95 and rise < 0.5 * size / 1048576 and not errs,
-                "%.0f-min Best-quality recording (%s), Stop & save took %.0fs: file %.0f MB. Browser memory (whole process tree): %.0f MB while recording -> peak %.0f MB during 'Preparing/Saving' (+%.0f MB = %.0f%% of the file size; a buffered save would add 100%%+). Banners during the run: %s"
-                % (MAIN_MIN, chunks, t1 - t0, size / 1048576, b, peak, rise, 100 * rise / (size / 1048576), sorted(errs) or "none"))
+        size_mb = size / 1048576
+        r.check("14.1", dur > MAIN_MIN * 60 * 0.95 and mem["private"]["rise"] < 0.5 * size_mb and not errs,
+                "%.0f-min Best-quality recording (%s), Stop & save took %.0fs: file %.0f MB. During 'Preparing/Saving': %s. Banners during the run: %s"
+                % (MAIN_MIN, chunks, t1 - t0, size_mb, mem_text(mem, size_mb), sorted(errs) or "none"))
         r.check("14.2", ok and worst < 5000 and pr["seekableEnd"] and abs(pr["seekableEnd"] - dur) < 1,
                 "long file: player shows the full %.1f min up front; 8 jumps across the whole length (50%%, 5%%, 95%%, 25%% ...) each land on the right frame (content-vs-time drift %s s), slowest %dms" % (dur / 60, serr, worst))
         r.rec("13.1L", "PASS" if (dur and dur != float("inf")) else "FAIL", "longer-file half of 13.1/13.2: %.1f-min file reports its total length and seeks (see 14.2)" % (dur / 60))

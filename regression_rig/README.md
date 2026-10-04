@@ -15,7 +15,7 @@ Run from this folder. One browser per command; `cr` = installed Chrome,
     python part1.py cr        # sections 1-9, 17, 18
     python part2.py cr        # sections 10-13, 15 (crash, stitch, cancel-save, seek, review pane)
     python part3.py cr        # section 16 (caption editor)
-    python part4.py cr 30 12  # section 14 (30-min recording + 12-min crash recovery)
+    python part4.py cr        # section 14 (30-min crash recovery, then 30-min recording; ~75 min)
     python merge.py           # non-pass summary across both browsers -> merged.json
     python build_artifact.py  # results page -> didarec_short_list.html
 
@@ -28,11 +28,18 @@ timing-sensitive checks fail for reasons that have nothing to do with the app
 frame, Firefox storage stalls). If a check fails, re-run its scenario alone
 before believing it.
 
-The memory checks (14.1, 14.3) measure the whole browser process tree and
-drift with the machine's state: on 2026-10-04 the unfixed app's 14.3 rise went
-from -6 MB in the morning to +70 MB in the afternoon. Before reading a memory
-change as an app change, run the same check against the last commit as a
-control: `python make_head_copy.py`, set `DIDAREC_APP` to `app_head`, re-run.
+The memory checks (14.1, 14.3) judge committed memory across the whole browser
+process tree: the rise during the save must stay under 50% of the file size.
+Chrome's streamed save uses a roughly fixed 55-75 MB of working memory whatever
+the file size (measured 2026-10-04: +74 MB on a 139 MB file, +56 MB on a 347 MB
+file), so the recording has to be long for the percentage to mean anything —
+keep both phases at 30 minutes. A 12-minute recovery file sits right on the
+line and will flip between pass and fail. Firefox's download save measured
++1.1 to +2.1 GB on 100-400 MB files (REVIEW #30).
+
+Before reading any change as an app change, run the same check against the last
+commit as a control: `python make_head_copy.py`, set `DIDAREC_APP` to
+`app_head`, re-run.
 
 `python compare.py results_2026-10-04` (after `merge.py`) lists what changed
 against a saved baseline.
