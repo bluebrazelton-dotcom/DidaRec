@@ -1,0 +1,27 @@
+{
+ "14.3": {
+  "status": "FAIL",
+  "evidence": "12-min Best-quality session, tab killed, reopened ('A previous recording was interrupted. You can recover it or discard it.'), Recover & save took 64s: file 101 MB / 11.8 min, plays and seeks (slowest of 8 jumps 964ms). Browser memory (whole process tree): 674 MB before -> peak 1762 MB during the save (+1088 MB, i.e. 1082% of the file size)",
+  "at": "2026-10-04 10:44:57"
+ },
+ "14.1": {
+  "status": "FAIL",
+  "evidence": "30-min Best-quality recording (1750 chunks saved), Stop & save took 174s: file 400 MB. Browser memory (whole process tree): 562 MB while recording -> peak 2351 MB during 'Preparing/Saving' (+1789 MB = 447% of the file size; a buffered save would add 100%+). Banners during the run: none",
+  "at": "2026-10-04 11:20:06"
+ },
+ "14.2": {
+  "status": "PASS",
+  "evidence": "long file: player shows the full 30.1 min up front; 8 jumps across the whole length (50%, 5%, 95%, 25% ...) each land on the right frame (content-vs-time drift [0.0, -0.1, 0.0, -0.1, -0.0, -0.1, -0.0, 0.0] s), slowest 2481ms",
+  "at": "2026-10-04 11:20:06"
+ },
+ "13.1L": {
+  "status": "PASS",
+  "evidence": "longer-file half of 13.1/13.2: 30.1-min file reports its total length and seeks (see 14.2)",
+  "at": "2026-10-04 11:20:06"
+ },
+ "ERR:s14_long": {
+  "status": "ERROR",
+  "evidence": "Page.wait_for_function: Timeout 20000ms exceeded. | File \"C:\\Users\\blueb\\AppData\\Local\\Temp\\claude\\C--Users-blueb-Aegis-Framework--Phase-1\\e0215e1f-5147-440d-b289-39ecdb80178d\\scratchpad\\didarec_auto\\part4.py\", line 113, in s14_long <- File \"C:\\Users\\blueb\\AppData\\Local\\Temp\\claude\\C--Users-blueb-Aegis-Framework--Phase-1\\e0215e1f-5147-440d-b289-39ecdb80178d\\scratchpad\\didarec_auto\\part4.py\", line 147, in main_phase <- File \"C:\\Users\\blueb\\AppData\\Local\\Temp\\claude\\C--Users-blueb-Aegis-Framework--Phase-1\\e0215e1f-5147-440d-b289-39ecdb80178d\\scratchpad\\didarec_auto\\harness.py\", line 226, in record | ui={\"status\": \"All set\", \"timer\": \"00:30:06\", \"chunks\": \"\", \"err\": \"\", \"errClass\": \"error-banner\", \"recovery\": false, \"recoveryInfo\": \"A previous recording was interrupted. You can recover it or discard it.\", \"dlConfirm\": false, \"stitchFallback\": false, \"placeholder\": false, \"screenActive\": true, \"camActive\": false, \"micActive\": true, \"btnSelect\": {\"vis\": true, \"text\": \"Change Screen\", \"sel\": true}, \"btnRecord\": {\"vis\": true, \"dis\": true, \"text\": \"Starting...\"}, \"btnPause\": {\"vis\": false, \"text\": \"Pause\"}, \"btnChange\": false, \"btnStop\": {\"vis\": false, \"text\": \"Stop & save\"}, \"btnStopReview\": {\"vis\": false, \"text\": \"Stop & review\"}, \"btnUndo\": false, \"controls\": true, \"review\": false, \"reviewStatus\": \"\", \"captions\": false, \"captionStatus\": \"\", \"rec\": false, \"paused\": false, \"prior\": 0, \"hasScreen\": true, \"hasCam\": false, \"sources\": {\"screen\": true, \"camera\": false, \"mic\": true}} | console=[]",
+  "at": "2026-10-04 11:20:27"
+ }
+}

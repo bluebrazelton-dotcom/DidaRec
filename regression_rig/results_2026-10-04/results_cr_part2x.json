@@ -1,0 +1,7 @@
+{
+ "15.3b": {
+  "status": "FAIL",
+  "evidence": "extra: mic OFF (no audio), 14s recording, cut requested at 0:08 -> status 'Kept 0:06. S'; the saved file keeps about 3.3s of the original before the new take (-4.7s from the requested point; the checklist's rule is 'within a second')",
+  "at": "2026-10-04 10:08:20"
+ }
+}

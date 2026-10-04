@@ -1,0 +1,32 @@
+{
+ "14.3": {
+  "status": "PASS",
+  "at": "2026-10-04 10:58:43",
+  "evidence": "12-min Best-quality session, tab killed, reopened ('Found 702 chunks (~11m 42s, 114.8 MB) from 10/4/2026, 10:13:13 AM.'), Recover & save took 19s: file 115 MB / 12.0 min, plays and seeks (slowest of 8 jumps 521ms). Browser memory (whole process tree): 609 MB before -> peak 603 MB during the save (+-6 MB, i.e. -5% of the file size) | Re-verified afterwards: file plays the full 12.0 min, 8 jumps land on the right frame (drift [0.0, 0.0, -0.0, 0.0, -0.0, 0.0, -0.0, 0.0] s, slowest 809ms). The first run's FAIL mark came from counting the one-time no-audio hint as an error banner."
+ },
+ "14.1": {
+  "status": "PASS",
+  "evidence": "30-min Best-quality recording (1762 chunks saved), Stop & save took 41s: file 289 MB. Browser memory (whole process tree): 770 MB while recording -> peak 789 MB during 'Preparing/Saving' (+19 MB = 7% of the file size; a buffered save would add 100%+). Banners during the run: none",
+  "at": "2026-10-04 10:57:36"
+ },
+ "14.2": {
+  "status": "PASS",
+  "evidence": "long file: player shows the full 30.1 min up front; 8 jumps across the whole length (50%, 5%, 95%, 25% ...) each land on the right frame (content-vs-time drift [0.0, 0.1, 0.0, 0.1, 0.0, 0.0, 0.0, 0.0] s), slowest 580ms",
+  "at": "2026-10-04 10:57:36"
+ },
+ "13.1L": {
+  "status": "PASS",
+  "evidence": "longer-file half of 13.1/13.2: 30.1-min file reports its total length and seeks (see 14.2)",
+  "at": "2026-10-04 10:57:36"
+ },
+ "14.4": {
+  "status": "PASS",
+  "evidence": "15s clip right after the long sessions: 16.1s, 16/16 frames valid",
+  "at": "2026-10-04 10:57:56"
+ },
+ "14.5": {
+  "status": "SKIP",
+  "evidence": "optional; an hour-plus multi-segment chain was not run",
+  "at": "2026-10-04 10:57:56"
+ }
+}

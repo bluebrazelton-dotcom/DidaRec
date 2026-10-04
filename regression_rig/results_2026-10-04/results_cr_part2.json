@@ -1,0 +1,177 @@
+{
+ "10.1": {
+  "status": "PASS",
+  "evidence": "recorded ~16s screen+mic, tab killed with no unload handling, app reopened at the same origin -> recovery banner: 'Found 16 chunks (~0m 16s, 0.7 MB) from 10/4/2026, 9:34:16 AM.'",
+  "at": "2026-10-04 09:34:35"
+ },
+ "10.2": {
+  "status": "PASS",
+  "evidence": "Recover & save -> 16.2s file, 32/32 frames valid up to the crash point, audio present",
+  "at": "2026-10-04 09:34:47"
+ },
+ "12.5": {
+  "status": "PASS",
+  "evidence": "during a crash-recovery save: save dialog cancelled -> banner still up, 'Save cancelled — your recording stays in the list until you save it.'; retry saved a playable 16.2s file",
+  "at": "2026-10-04 09:34:47"
+ },
+ "10.2b": {
+  "status": "PASS",
+  "evidence": "extra: after the confirmed recovery save a reload shows no banner (True); whole browser closed mid-recording and relaunched on the same profile -> banner=True, recovered 8.2s",
+  "at": "2026-10-04 09:35:17"
+ },
+ "11.1": {
+  "status": "PASS",
+  "evidence": "crash -> Continue recording ('1 prior segment preserved. Select a screen and click Record to continue.') -> second take -> Stop & save produced one 23.4s file",
+  "at": "2026-10-04 09:36:15"
+ },
+ "11.2": {
+  "status": "PASS",
+  "evidence": "one continuous file: screen sequence [1, 2], 93/93 frames valid at 0.25s steps, longest repeated frame 0.00s, no silent second in the audio (23.1s audio vs 23.4s video). Seam judged by measurement, not by eye/ear.",
+  "at": "2026-10-04 09:36:15"
+ },
+ "11.3": {
+  "status": "PASS",
+  "evidence": "second crash: banner 'Found 17 chunks (~0m 17s, 0.7 MB) across 2 segments from 10/4/2026, 9:36:34 AM.'; Continue -> '2 prior segments preserved. Select a screen and click Record to continue.'",
+  "at": "2026-10-04 09:37:29"
+ },
+ "11.4": {
+  "status": "PASS",
+  "evidence": "three segments in order [1, 2, 3] in one 27.1s file; 108/108 frames valid, longest repeated frame 0.50s, no silent second",
+  "at": "2026-10-04 09:37:29"
+ },
+ "12.4": {
+  "status": "PASS",
+  "evidence": "stitched 2-segment recording, save cancelled/declined ('Save cancelled — all segments preserved. Reload the page to recover them.') -> reload banner 'Found 15 chunks (~0m 15s, 0.6 MB) across 2 segments from 10/4/2026, 9:38:17 AM.' -> Recover & save gave a 15.6s file with both segments [1, 2]",
+  "at": "2026-10-04 09:38:52"
+ },
+ "13.3": {
+  "status": "PASS",
+  "evidence": "stitched file: seekable to the end, slowest of 93 seeks 313ms; crash-recovered file: seekable to 16.2s, slowest seek 251ms",
+  "at": "2026-10-04 09:38:52"
+ },
+ "11.4b": {
+  "status": "PASS",
+  "evidence": "extra: after the 3-segment save, reload shows no recovery banner=True",
+  "at": "2026-10-04 09:38:52"
+ },
+ "12.1": {
+  "status": "PASS",
+  "evidence": "save dialog cancelled -> 'Save cancelled — your recording is still here. Reload the page to recover it.'",
+  "at": "2026-10-04 09:39:30"
+ },
+ "12.2": {
+  "status": "PASS",
+  "evidence": "reload -> recovery banner back ('Found 13 chunks (~0m 13s, 0.5 MB) from 10/4/2026, 9:39:14 AM.'); Recover & save -> 13.2s playable file; after that confirmed save, reload shows no banner (True)",
+  "at": "2026-10-04 09:39:38"
+ },
+ "12.6": {
+  "status": "SKIP",
+  "evidence": "optional; only if a stitch failure happens naturally - not triggered in any run here (no confirm()/alert() dialog appeared in any scenario: 0 seen)",
+  "at": "2026-10-04 09:39:38"
+ },
+ "13.1": {
+  "status": "PASS",
+  "evidence": "short clip: player reports total length 16.1s up front (seekable to 16.1s). The longer file is covered by the long-recording run (14.2).",
+  "at": "2026-10-04 09:40:13"
+ },
+ "13.2": {
+  "status": "PASS",
+  "evidence": "9 jumps forward and backward (14.0, 2.0, 9.5, 0.3 ...): every landing shows the frame that belongs at that time (content-vs-time error [0.0, -0.0, 0.1, -0.0, 0.0, -0.0, -0.0, -0.0, 0.1] s), slowest jump 237ms",
+  "at": "2026-10-04 09:40:13"
+ },
+ "15.2": {
+  "status": "PASS",
+  "evidence": "label changes observed: [['Preparing review...', 'Stop & save'], ['Stop & review', 'Stop & save']]; afterwards both read 'Stop & review' / 'Stop & save'",
+  "at": "2026-10-04 10:07:46"
+ },
+ "15.7": {
+  "status": "PASS",
+  "evidence": "playhead at the end -> 'That's already the end of the recording — there's nothing after it to remove.'; still in the pane",
+  "at": "2026-10-04 10:07:47"
+ },
+ "15.10": {
+  "status": "PASS",
+  "evidence": "Save as is, dialog cancelled -> still in the pane, 'Save cancelled — your recording is still here.' (a successful Save as is follows in 15.9)",
+  "at": "2026-10-04 10:07:49"
+ },
+ "18.4": {
+  "status": "PASS",
+  "evidence": "armed state at 1400px wide: 3 recorder buttons share one line (tops [726]); Undo re-record starts at y=819, below that row (bottom 760). Layout measured, not eyeballed.",
+  "at": "2026-10-04 10:07:51"
+ },
+ "15.3": {
+  "status": "PASS",
+  "evidence": "scrubbed to 12.4s: button 'Re-record from 0:12', status 'Kept 0:12. S'. Saved file: original content runs to 12.45s then the new take starts (target 12.4s, within 1s); one stitched file [1, 2], 18.9s, longest repeated frame 0.00s, no silent second",
+  "at": "2026-10-04 10:08:13"
+ },
+ "15.1": {
+  "status": "PASS",
+  "evidence": "Stop & review after ~30s: recorder controls hidden=True, review pane shown=True, no save dialog/download (0 new), preview duration 31.7s, seek to 12.0s landed at 12.00s, played 1.2s in 1.2s. From a paused recording: see 15.1b.",
+  "at": "2026-10-04 10:08:13"
+ },
+ "15.4": {
+  "status": "PASS",
+  "evidence": " typed 0:07 -> 'Kept 0:06. S'; in the saved file the new take starts at 6.95s (target 7.0s). 'banana' -> 'That doesn't look like a time — try m:ss (like 1:30), or h:mm:ss for a longer recording.' and nothing changed. 0:00 -> start-over confirmation shown=True",
+  "at": "2026-10-04 10:08:57"
+ },
+ "15.6": {
+  "status": "PASS",
+  "evidence": "cut at 0:12 ('Kept 0:11.') then Undo re-record -> '1 prior segment(s) preserved — select a screen and record to continue'; saved file has the FULL original (21.2s of it) followed by the new take - no cut applied",
+  "at": "2026-10-04 10:09:44"
+ },
+ "15.12": {
+  "status": "PASS",
+  "evidence": "Back to recorder -> '1 prior segment(s) preserved — select a screen and record to continue'; the later save includes the previously reviewed content (file starts with it)",
+  "at": "2026-10-04 10:10:23"
+ },
+ "15.5": {
+  "status": "PASS",
+  "evidence": "2 segments: Redo last take offered=True (hidden with 1 segment=True); click -> 'Kept 0:11. S', newest take dropped whole; saved file = first take then the redo [1, 3] (take 2 absent), new take starts at 11.20s, longest repeated frame 0.00s",
+  "at": "2026-10-04 10:10:23"
+ },
+ "15.14": {
+  "status": "PASS",
+  "evidence": "crash+continue chain reviewed: preview 21.9s seeks on both sides of the seam; cut at 5s inside the EARLIER segment -> later segment dropped (prior segments=1); saved file = [1, 3] with the kept part ending at 4.45s.",
+  "at": "2026-10-04 09:54:42"
+ },
+ "15.15": {
+  "status": "PASS",
+  "evidence": "cut at 0:20 ('Kept 0:19.'), new take, review again, cut EARLIER at 0:10 ('Kept 0:09.'): saved file = [1, 3], original ends at 9.45s, total 15.3s",
+  "at": "2026-10-04 09:56:51"
+ },
+ "15.1b": {
+  "status": "PASS",
+  "evidence": "Stop & review clicked while PAUSED -> review pane shown=True, preview duration 10.3s",
+  "at": "2026-10-04 09:45:54"
+ },
+ "15.9": {
+  "status": "PASS",
+  "evidence": "Save as is (single segment) -> normal save flow, 10.3s playable file; back at the recorder; reload shows no recovery banner",
+  "at": "2026-10-04 09:45:59"
+ },
+ "15.11": {
+  "status": "PASS",
+  "evidence": "Discard recording -> confirmation rendered inside the pane (browser popups: 0); confirm -> pane closed, status 'Ready'; reload: no recovery banner",
+  "at": "2026-10-04 09:46:10"
+ },
+ "15.8": {
+  "status": "PASS",
+  "evidence": "Re-record from 0:00 -> banner 'Re-recording from the very beginning means discarding this recording. '; 'Keep reviewing' left everything as it was (True); confirming -> clean idle ('Ready'), no recovery banner after reload",
+  "at": "2026-10-04 09:46:20"
+ },
+ "15.13": {
+  "status": "PASS",
+  "evidence": "tab killed with the review pane open -> recovery banner on reopen ('Found 9 chunks (~0m 9s, 0.4 MB) from 10/4/2026, 9:46:21 AM.'), recovered file 9.1s",
+  "at": "2026-10-04 09:46:33"
+ },
+ "15.16": {
+  "status": "PASS",
+  "evidence": "~70s recording, scrubbed to 63.3s ('Re-record from 1:03'): status 'Kept 1:03.'; in the saved file the new take starts at 63.45s (within 1s of the target)",
+  "at": "2026-10-04 10:12:38"
+ },
+ "15.14b": {
+  "status": "PASS",
+  "evidence": "extra (same precision rule as 15.3): 2-segment chain, seam at 11.1s, cut requested at 14.6s (3.5s into the second take) -> status 'Kept 0:14. S'; saved file sequence [1, 2, 3], new take starts at 14.45s (-0.2s from the requested point)",
+  "at": "2026-10-04 09:55:42"
+ }
+}

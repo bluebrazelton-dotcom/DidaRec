@@ -32,7 +32,7 @@ YOURS = [
      "covers": ["2.2", "2.7", "3.2", "4.3"]},
     {"id": "Y2", "b": ["ff", "cr"], "title": "Stop sharing from the browser's own bar",
      "do": "Start a recording, then end the share with the browser's \"Stop sharing\" control instead of the app's Stop button. Extra credit: do it after a paused Change screen.",
-     "look": "The recording stops and you end up with a saved file. In Chrome, note whether the save dialog opens or you get a \"Save failed ... use Recovery\" message (see finding 3).",
+     "look": "The recording stops and you end up with a saved file. In Chrome, note whether the save dialog opens or you get a \"Save failed ... use Recovery\" message (see the Stop sharing finding below).",
      "covers": ["5.7"]},
     {"id": "Y3", "b": ["cr"], "title": "Chrome system audio",
      "do": "Share a tab or window with \"Also share audio\" ticked while something plays; record 15 seconds and save. Then: start a recording with mic off and no shared audio, pause, Change screen to a source with audio ticked.",
@@ -66,7 +66,13 @@ YOURS = [
      "do": "Record 15 seconds, end the browser from Task Manager, reopen, Continue recording for 10 more seconds, save, and watch across the join.",
      "look": "Banner appears; the saved file plays through the join without a multi-second freeze or silence. Tab-kill and browser-close were machine-checked; a hard process kill and your eyes on the seam were not.",
      "covers": ["10.1", "11.2"]},
+    {"id": "Y11", "b": ["ff"], "title": "Watch memory while Firefox saves a long recording",
+     "do": "Record 20 to 30 minutes at Best quality in your own Firefox. Open Task Manager, then Stop & save and watch Firefox's memory until the download bar appears. Afterwards click \"It's there - all set\", then try Record again straight away.",
+     "look": "Memory stays roughly flat rather than climbing by a gigabyte or more. Record starts promptly instead of sitting on \"Starting...\". Both are findings below.",
+     "covers": ["14.1", "14.3", "14.4"]},
 ]
+MISSING = {("14.4", "ff"): "Not run: after the long save was confirmed, Record stayed on \"Starting...\" past the script's 20 s limit (see findings). Chrome ran it and passed.",
+           ("14.5", "ff"): "Optional; not run."}
 covers = {}
 for y in YOURS:
     for c in y["covers"]:
@@ -86,6 +92,13 @@ FINDINGS = [
      "points": ["First take: typing 0:07 on a 20 s recording brought up the \"start over - discard everything?\" prompt instead of cutting (item 15.4 fails as written). Typing 0:12 cut correctly.",
                 "Later take: a cut 3.5 s into the second take dropped that whole take and landed 3.2 s early (extra check 15.14b).",
                 "Past the first cluster, Firefox cuts were accurate: 12.4 s, 63.3 s and a re-cut all landed within a quarter second."]},
+    {"sev": "high", "where": "Firefox", "title": "Saving a long recording spiked memory far past the file size",
+     "body": "Checklist 14.1 and 14.3 expect memory to stay roughly flat while a long recording is prepared and saved. In the test Firefox it did not. Chrome's memory stayed flat on the same recordings.",
+     "points": ["30-minute recording, 400 MB file: memory went from 562 MB to a 2,351 MB peak during the save (+1.8 GB, about 4.5 times the file). The save took 174 s.",
+                "12-minute crash recovery, run twice: +1.1 GB both times, for files of 129 MB and 101 MB.",
+                "Measured as working-set memory across the whole browser process tree, on Playwright's Firefox 151, with the download captured by the test tool. Any of those could inflate the number, so check it once on your Firefox 157 with Task Manager open (Y11). The files themselves were complete and seeked correctly."]},
+    {"sev": "med", "where": "Firefox", "title": "Right after a big save is confirmed, Record sits on \"Starting...\"",
+     "body": "After clicking \"It's there - all set\" on a long recording, the next Record click had not started recording 20 seconds later. It happened both times it was tried (after a 129 MB and a 400 MB save). The app is still deleting the saved recording's stored pieces in the background, and Record waits behind that with no message. In one run it did start eventually; how long it takes was not measured. This also stopped the short follow-up clip (14.4) from running in Firefox.", "points": []},
     {"sev": "med", "where": "Chrome", "title": "\"Stop sharing\" probably ends in \"Save failed\" instead of a save dialog",
      "body": "Chrome only opens a save dialog while the page is handling a click. When the browser's own Stop-sharing control ends the capture, there is no click on the page. With a stand-in dialog that enforces the same rule, the app showed: \"Save failed: ... Must be handling a user gesture to show a file picker. Your recording is safe - refresh and use Recovery.\" The recording was recoverable after a reload.",
      "points": ["Needs one confirmation in real Chrome (Y2). The same would apply to any stop the app triggers itself, such as storage running full."]},
@@ -105,8 +118,8 @@ LIMITS = [
     "Chrome was your installed Chrome 154, driven by Playwright. Firefox was Playwright's own build, version 151, not your 157 and below the README's 153 floor.",
     "Camera and mic were the browsers' fake devices. The screen picker was replaced by a generated moving test pattern with a time code in it, which is how the content of every saved file could be verified frame by frame.",
     "Chrome's save dialog was replaced by a stand-in that writes through the same file API. Firefox downloads were real.",
-    "Runs were headless except the background-tab check. Nothing was judged by ear or eye.",
-    "Nothing in the screen-recorder repo was changed. Scripts and test recordings are in a scratch folder.",
+    "Runs were headless, and a hidden tab could not be staged, so background-tab recording is on your list. Nothing was judged by ear or eye.",
+    "The app itself was not changed. The test rig is in the repo's regression_rig folder.",
 ]
 
 out_sections = []
@@ -122,7 +135,7 @@ for s in sections:
             res = (merged.get(it["id"]) or {}).get(b)
             if res is None:
                 st = "yours" if row["y"] else "skipped"
-                ev = "Not machine-checked." if row["y"] else "Not run."
+                ev = MISSING.get((it["id"], b)) or ("Not machine-checked." if row["y"] else "Not run.")
             else:
                 st = {"PASS": "auto", "FAIL": "problem", "HUMAN": "yours", "SKIP": "skipped", "ERROR": "problem"}[res["status"]]
                 ev = res["evidence"]
@@ -141,12 +154,7 @@ for k, v in merged.items():
 long_done = bool(merged.get("14.1"))
 seek_note = ""
 if long_done:
-    parts = []
-    for b, name in (("cr", "Chrome"), ("ff", "Firefox")):
-        r = (merged.get("14.2") or {}).get(b)
-        if r:
-            parts.append("%s 14.2: %s" % (name, r["status"]))
-    seek_note = "Long-file result: " + "; ".join(parts) + " (see section 14 below)."
+    seek_note = "In practice it did not hurt: eight jumps across a 30-minute Chrome file each landed correctly, slowest 580 ms."
 else:
     seek_note = "Whether that slows seeking in a long file is what the 30-minute run (section 14, still running) will show."
 for f in FINDINGS:

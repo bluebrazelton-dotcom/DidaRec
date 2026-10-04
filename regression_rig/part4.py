@@ -48,13 +48,17 @@ def long_record(r, minutes):
     r.page.select_option("#qualitySelect", "2500000")
     r.page.click("#toggleMic"); r.page.wait_for_function("!!state.heldMicStream")
     r.cfg(noise=30); r.select_screen(1)
-    r.page.click("#btnRecord"); r.page.wait_for_function("state.recording === true")
+    if r.ui()["err"]:
+        r.page.click("#errorBanner .error-banner-close")   # the one-time no-audio hint is not an error
+    t0 = time.time()
+    r.page.click("#btnRecord"); r.page.wait_for_function("state.recording === true", timeout=600000)
+    r.start_wait = time.time() - t0
     end = time.time() + minutes * 60
     errs = set()
     while time.time() < end:
         time.sleep(30)
         u = r.ui()
-        if u["err"]:
+        if u["err"] and "info" not in u["errClass"].split():
             errs.add(u["err"])
         if not u["rec"]:
             raise RuntimeError("recording stopped by itself: " + json.dumps(u)[:400])
@@ -85,8 +89,14 @@ def s14_long(r):
     r.start(prof)
     samp = Sampler(prof); samp.start()
     try:
+        if CRASH_MIN <= 0:
+            raise_skip = True
+        else:
+            raise_skip = False
         # ---- 14.3: long session killed mid-recording, then Recover & save
-        errs = long_record(r, CRASH_MIN)
+        errs = long_record(r, CRASH_MIN) if not raise_skip else set()
+        if raise_skip:
+            return main_phase(r, samp)
         r.kill_tab(); r.wait(3000)
         info = r.ui()["recoveryInfo"]
         time.sleep(8)
@@ -99,9 +109,19 @@ def s14_long(r):
         r.check("14.3", ok and dur > CRASH_MIN * 60 * 0.95 and rise < 0.5 * size / 1048576 and not errs,
                 "%.0f-min Best-quality session, tab killed, reopened ('%s'), Recover & save took %.0fs: file %.0f MB / %.1f min, plays and seeks (slowest of 8 jumps %dms). Browser memory (whole process tree): %.0f MB before -> peak %.0f MB during the save (+%.0f MB, i.e. %.0f%% of the file size)"
                 % (CRASH_MIN, info, t1 - t0, size / 1048576, dur / 60, worst, b, peak, rise, 100 * rise / (size / 1048576)))
-        # ---- 14.1 / 14.2: long session, normal Stop & save
         r.reload(); r.wait(1000)
+        main_phase(r, samp)
+    finally:
+        samp.stop()
+        with open(os.path.join(r.out, "14_memory_samples_%d.json" % int(time.time())), "w", newline="\n") as f:
+            json.dump(samp.samples, f)
+
+
+def main_phase(r, samp):
+    if True:
+        # ---- 14.1 / 14.2: long session, normal Stop & save
         errs = long_record(r, MAIN_MIN)
+        start_wait = r.start_wait
         chunks = r.ui()["chunks"]
         time.sleep(6)
         t0 = time.time(); base = samp.window(t0 - 8, t0)
@@ -128,10 +148,7 @@ def s14_long(r):
         p = r.probe("14_4_sanity.webm", step=1); sm = summarize(p)
         r.check("14.4", sm["valid"] == sm["n"] and p["duration"] > 14, "15s clip right after the long sessions: %.1fs, %d/%d frames valid" % (p["duration"], sm["valid"], sm["n"]))
         r.rec("14.5", "SKIP", "optional; an hour-plus multi-segment chain was not run")
-    finally:
-        samp.stop()
-        with open(os.path.join(r.out, "14_memory_samples.json"), "w", newline="\n") as f:
-            json.dump(samp.samples, f)
+        r.rec("14.1b", "PASS" if start_wait < 5 else "FAIL", "extra: clicking Record for the long session took %.1fs to start recording" % start_wait)
 
 
 if __name__ == "__main__":
