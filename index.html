@@ -1833,7 +1833,12 @@ async function captureMic() {
 // Video compositing — screen + webcam PiP on canvas
 // ============================================================
 const canvas = document.getElementById('previewCanvas');
-const ctx = canvas.getContext('2d');
+// Opaque context (REVIEW #27): with the default alpha channel, Chrome 154
+// encodes transparency and writes every video frame as a BlockGroup +
+// BlockAdditions instead of a SimpleBlock — which the block walkers below
+// (duration, keyframe detection, cut refinement) don't read. Every frame is
+// painted edge to edge anyway, so the alpha channel carried nothing.
+const ctx = canvas.getContext('2d', { alpha: false });
 
 // Hidden video elements for drawing
 const screenVideo = document.createElement('video');
@@ -2139,6 +2144,7 @@ function startCompositing() {
   }
 
   state.drawFrame = drawOneFrame;   // sentinel + entry point for the clock
+  drawOneFrame();                   // paint now: a freshly sized canvas is black until the first tick, and Chrome records that as the take's first frame
   startDrawClock();
 }
 
