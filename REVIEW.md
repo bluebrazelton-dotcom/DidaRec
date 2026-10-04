@@ -786,6 +786,11 @@ tool, tree-wide measure. Check on real Firefox with Task Manager before
 treating as an app defect; if real, look at `saveSessionStreamedDownload`
 (per-chunk Blob + scanner carry re-allocation per push).
 
+Re-measured 2026-10-04 on committed (private) memory, which the OS does not
+trim: 12-min recovery, 173 MB file, 394 MB → 2,481 MB (+2.1 GB). Four runs
+now agree. Chrome on the same measure: +74 MB on 139 MB, +56 MB on 347 MB —
+a fixed working cost, not one that grows with the file.
+
 ### 31. Firefox: Record waits on "Starting…" behind the previous save's cleanup — P2
 
 After "It's there — all set" on a long recording, the next Record click had
