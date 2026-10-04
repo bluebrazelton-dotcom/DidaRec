@@ -212,8 +212,14 @@ def s16_captions(r):
     open_video(r, B, "lectureB.webm")
     r.page.click("#captionEditor .btn-add-caption"); r.wait(1700)
     open_video(r, A, "lecture.webm")
+    try:   # the draft lookup is asynchronous; give the banner a moment before deciding it isn't coming
+        r.page.wait_for_selector("#captionDraftBanner.visible", timeout=3000)
+    except Exception:
+        pass
     if cap(r)["draftBanner"]:
         r.page.click("#captionDraftBanner button.btn-record"); r.wait(400)
+    if cap(r)["rows"] == 0:   # make sure video A really has rows showing before switching to B
+        r.page.click("#captionEditor .btn-add-caption"); r.wait(300)
     a_rows = cap(r)["rows"]
     open_video(r, B, "lectureB.webm")
     z = cap(r)

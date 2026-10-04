@@ -22,8 +22,20 @@ Run from this folder. One browser per command; `cr` = installed Chrome,
 Name scenarios to run a subset: `python part2.py ff s15_review_a s15_review_b`.
 (`s15_review_b` reads state left by `s15_review_a`; run them together.)
 
-Do not run more than one Chrome and one Firefox at a time. With more, Firefox's
-storage stalls and checks fail for reasons that have nothing to do with the app.
+Run ONE browser at a time, with nothing else heavy on the machine. Under load,
+timing-sensitive checks fail for reasons that have nothing to do with the app
+(recovery banner read before it fills in, audio shorter than video, a stale
+frame, Firefox storage stalls). If a check fails, re-run its scenario alone
+before believing it.
+
+The memory checks (14.1, 14.3) measure the whole browser process tree and
+drift with the machine's state: on 2026-10-04 the unfixed app's 14.3 rise went
+from -6 MB in the morning to +70 MB in the afternoon. Before reading a memory
+change as an app change, run the same check against the last commit as a
+control: `python make_head_copy.py`, set `DIDAREC_APP` to `app_head`, re-run.
+
+`python compare.py results_2026-10-04` (after `merge.py`) lists what changed
+against a saved baseline.
 
 ## What stands in for what
 
