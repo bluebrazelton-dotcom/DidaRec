@@ -1,0 +1,5 @@
+# Test output — recordings, browser profiles, scratch copies of the app
+out_*/
+profiles_*/
+app_alpha_false/
+__pycache__/

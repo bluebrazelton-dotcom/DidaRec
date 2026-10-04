@@ -1,0 +1,266 @@
+<title>DidaRec Short List</title>
+<style>
+  /* Layout: one 860px column. Sticky progress strip, then the owner's list, findings, and the full machine-checked record folded away by section. */
+  :root {
+    --bg: #F4F5F7; --panel: #FFFFFF; --ink: #1D242E; --muted: #667283;
+    --line: #DCE1E8; --accent: #3D5EC0; --accent-soft: #E8EDFA;
+    --pass: #2E7D46; --pass-bg: #E5F3EA; --fail: #C13A3A; --fail-bg: #FBEAEA;
+    --warn: #9A6A00; --warn-bg: #FBF3DC; --rec: #D6453C; --note-bg: #FDF9EE;
+    --shadow: 0 1px 2px rgba(20,26,34,.06);
+    --mono: "Cascadia Mono", "Cascadia Code", Consolas, monospace;
+    --sans: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #13171D; --panel: #1B2129; --ink: #E7EBF0; --muted: #93A0AF;
+      --line: #2A333E; --accent: #8CA4EE; --accent-soft: #232D42;
+      --pass: #56B57C; --pass-bg: #1C3226; --fail: #E37272; --fail-bg: #3B2124;
+      --warn: #E0B450; --warn-bg: #33290F; --rec: #E25A50; --note-bg: #262417;
+      --shadow: none; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #13171D; --panel: #1B2129; --ink: #E7EBF0; --muted: #93A0AF;
+    --line: #2A333E; --accent: #8CA4EE; --accent-soft: #232D42;
+    --pass: #56B57C; --pass-bg: #1C3226; --fail: #E37272; --fail-bg: #3B2124;
+    --warn: #E0B450; --warn-bg: #33290F; --rec: #E25A50; --note-bg: #262417;
+    --shadow: none; color-scheme: dark;
+  }
+  body { background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.45; margin: 0; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  button:focus-visible, summary:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .wrap { max-width: 860px; margin: 0 auto; padding-inline: 16px; padding-block: 0 64px; display: flex; flex-direction: column; gap: 22px; }
+
+  .top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); border-bottom: 1px solid var(--line); }
+  .top-inner { max-width: 860px; margin: 0 auto; padding-inline: 16px; padding-block: 10px 8px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+  .wordmark { font-family: var(--mono); font-size: 1.05rem; font-weight: 600; letter-spacing: .02em; }
+  .wordmark .dot { color: var(--rec); }
+  .passname { font-size: .8rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  .prog { margin-left: auto; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .bar-group { display: flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: .75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .bar { width: 90px; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; display: flex; }
+  .bar .p { background: var(--pass); } .bar .f { background: var(--fail); }
+  .act { border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 4px 11px; font-size: .82rem; }
+  .act:hover { border-color: var(--accent); color: var(--accent); }
+  .toast { font-size: .8rem; color: var(--pass); }
+
+  h1 { font-size: 1.5rem; margin: 22px 0 6px; text-wrap: balance; font-weight: 650; }
+  h2 { font-size: 1.05rem; margin: 0 0 10px; font-weight: 650; }
+  .lede { color: var(--muted); max-width: 66ch; margin: 0; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 14px; }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; box-shadow: var(--shadow); }
+  .tile b { display: block; font-family: var(--mono); font-size: 1.5rem; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .tile span { font-size: .8rem; color: var(--muted); }
+  .tile.bad b { color: var(--fail); } .tile.good b { color: var(--pass); } .tile.mine b { color: var(--accent); }
+
+  .ycard { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); display: flex; gap: 12px; padding: 12px 14px; }
+  .ylist { display: flex; flex-direction: column; gap: 10px; }
+  .checks { display: flex; flex-direction: column; gap: 5px; flex: 0 0 auto; }
+  .chk { font-family: var(--mono); font-size: .74rem; font-weight: 600; border: 1.5px solid var(--line); background: none; border-radius: 5px; width: 58px; padding: 3px 0 3px 7px; text-align: left; color: var(--muted); display: inline-flex; gap: 5px; align-items: center; }
+  .chk .g { width: 1em; text-align: center; }
+  .chk.s1 { border-color: var(--pass); background: var(--pass-bg); color: var(--pass); }
+  .chk.s2 { border-color: var(--fail); background: var(--fail-bg); color: var(--fail); }
+  .chk:hover { border-color: var(--accent); }
+  .ybody { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .ytitle { font-weight: 600; font-size: .95rem; }
+  .yid { font-family: var(--mono); font-size: .72rem; color: var(--accent); margin-right: 7px; }
+  .ybody p { margin: 0; font-size: .88rem; max-width: 68ch; }
+  .lab { font-size: .7rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin-right: 6px; }
+  .cov { font-family: var(--mono); font-size: .7rem; color: var(--muted); }
+  .notebtn { border: 0; background: none; font-size: .76rem; color: var(--muted); padding: 2px 0; align-self: flex-start; }
+  .notebtn.has { color: var(--accent); font-weight: 600; }
+  textarea.note { width: 100%; box-sizing: border-box; min-height: 52px; background: var(--note-bg); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px; font-family: var(--sans); font-size: .84rem; resize: vertical; }
+
+  .finding { border-left: 3px solid var(--line); padding: 2px 0 2px 14px; }
+  .finding.high { border-left-color: var(--fail); } .finding.med { border-left-color: var(--warn); }
+  .flist { display: flex; flex-direction: column; gap: 16px; }
+  .ftitle { font-weight: 600; font-size: .95rem; text-wrap: balance; }
+  .tag { font-family: var(--mono); font-size: .68rem; border-radius: 3px; padding: 1px 6px; margin-right: 8px; white-space: nowrap; border: 1px solid var(--line); color: var(--muted); }
+  .finding.high .tag { color: var(--fail); border-color: var(--fail); background: var(--fail-bg); }
+  .finding.med .tag { color: var(--warn); border-color: var(--warn); background: var(--warn-bg); }
+  .finding p { margin: 4px 0 0; font-size: .88rem; max-width: 70ch; }
+  .finding ul { margin: 6px 0 0; padding-left: 18px; font-size: .86rem; max-width: 70ch; }
+  .finding li { margin: 4px 0; }
+
+  details.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); }
+  details.card > summary { padding: 9px 14px; font-weight: 600; font-size: .9rem; cursor: pointer; list-style: none; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  details.card > summary::-webkit-details-marker { display: none; }
+  details.card > summary::before { content: "\25B8"; color: var(--muted); font-size: .8em; }
+  details[open].card > summary::before { content: "\25BE"; }
+  .snum { font-family: var(--mono); font-size: .8rem; color: var(--accent); }
+  .stitle { flex: 1; min-width: 10em; }
+  .scount { font-family: var(--mono); font-size: .72rem; color: var(--muted); font-weight: 400; font-variant-numeric: tabular-nums; }
+  .scount .bad { color: var(--fail); font-weight: 600; } .scount .mine { color: var(--accent); }
+  .seclist { display: flex; flex-direction: column; gap: 8px; }
+  .row { border-top: 1px solid var(--line); padding: 9px 14px; display: flex; gap: 12px; }
+  .row.opt { background: color-mix(in srgb, var(--bg) 45%, var(--panel)); }
+  .pills { display: flex; flex-direction: column; gap: 4px; flex: 0 0 auto; }
+  .pill { font-family: var(--mono); font-size: .68rem; font-weight: 600; border-radius: 4px; padding: 2px 6px; width: 86px; box-sizing: border-box; border: 1px solid var(--line); color: var(--muted); background: none; text-align: left; }
+  .pill.auto { color: var(--pass); border-color: var(--pass); background: var(--pass-bg); }
+  .pill.problem { color: var(--fail); border-color: var(--fail); background: var(--fail-bg); }
+  .pill.yours { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+  .rbody { flex: 1; min-width: 0; font-size: .86rem; }
+  .iid { font-family: var(--mono); font-size: .72rem; color: var(--muted); margin-right: 7px; }
+  .ev { margin: 6px 0 0; font-size: .8rem; color: var(--muted); overflow-wrap: anywhere; }
+  .ev b { font-family: var(--mono); font-weight: 600; font-size: .72rem; color: var(--ink); margin-right: 6px; }
+  .limits { margin: 0; padding-left: 18px; font-size: .86rem; max-width: 72ch; color: var(--muted); }
+  .limits li { margin: 4px 0; }
+  .foot { font-size: .78rem; color: var(--muted); border-top: 1px solid var(--line); padding-top: 12px; }
+  @media (max-width: 520px) { .prog { margin-left: 0; } .row, .ycard { gap: 9px; } }
+</style>
+
+<header class="top">
+  <div class="top-inner">
+    <span class="wordmark"><span class="dot">&#9210;</span> DidaRec</span>
+    <span class="passname">#20 short list</span>
+    <span class="prog">
+      <span class="bar-group">FF <span class="bar" id="barFF"><span class="p"></span><span class="f"></span></span> <span id="cntFF"></span></span>
+      <span class="bar-group">Cr <span class="bar" id="barCr"><span class="p"></span><span class="f"></span></span> <span id="cntCr"></span></span>
+      <button class="act" id="btnCopy">Copy my results</button>
+      <span class="toast" id="toast" role="status"></span>
+    </span>
+  </div>
+</header>
+
+<div class="wrap">
+  <section>
+    <h1>The 120-item regression pass, cut down to what needs you</h1>
+    <p class="lede" id="lede"></p>
+    <div class="tiles" id="tiles"></div>
+  </section>
+
+  <section>
+    <h2>Your list</h2>
+    <div class="ylist" id="ylist"></div>
+  </section>
+
+  <section>
+    <h2>What the machine pass found</h2>
+    <div class="flist" id="flist"></div>
+  </section>
+
+  <section>
+    <h2>How it was checked, and what that can't tell you</h2>
+    <ul class="limits" id="limits"></ul>
+  </section>
+
+  <section>
+    <h2>Every item, with evidence</h2>
+    <div class="seclist" id="seclist"></div>
+  </section>
+
+  <div class="foot" id="foot"></div>
+</div>
+
+<script>
+const DATA = /*DATA*/null;
+const KEY = "didarec-shortlist-v1";
+const GLYPH = ["·", "✓", "✕"], WORD = ["untested", "pass", "FAIL"];
+let st = { y: {} };
+try { const raw = localStorage.getItem(KEY); if (raw) st = JSON.parse(raw) || st; } catch (e) {}
+if (!st.y) st.y = {};
+const rec = (id) => (st.y[id] = st.y[id] || { ff: 0, cr: 0, note: "" });
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} };
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const LABEL = { auto: "checked ✓", problem: "problem", yours: "yours", skipped: "skipped" };
+
+const t = DATA.tally;
+document.getElementById("lede").textContent = "Each checklist item was run in a real Chrome and a real Firefox engine with fake devices, and every saved file was reopened and inspected. What is left for you is " + DATA.yours.length + " short tasks, most of them a single recording. Click FF or Cr on a task to mark it pass or fail; your marks stay in this browser.";
+const tiles = document.getElementById("tiles");
+for (const [cls, n, label] of [["good", t.auto, "browser checks passed by machine"], ["bad", t.problem, "checks that found a problem"], ["mine", DATA.yours.length, "tasks left for you"], ["", t.skipped, DATA.longDone ? "optional or not reproducible" : "still running (30-min recordings) or optional"]]) {
+  const d = el("div", "tile " + cls); d.appendChild(el("b", null, String(n))); d.appendChild(el("span", null, label)); tiles.appendChild(d);
+}
+
+const ylist = document.getElementById("ylist");
+for (const y of DATA.yours) {
+  const card = el("div", "ycard"); const checks = el("div", "checks");
+  for (const b of y.b) {
+    const btn = el("button", "chk"); btn.dataset.b = b; btn.dataset.y = y.id;
+    btn.appendChild(el("span", "g")); btn.appendChild(document.createTextNode(b === "ff" ? "FF" : "Cr"));
+    btn.addEventListener("click", () => { const r = rec(y.id); r[b] = (r[b] + 1) % 3; save(); refresh(); });
+    checks.appendChild(btn);
+  }
+  const body = el("div", "ybody");
+  const title = el("div", "ytitle"); title.appendChild(el("span", "yid", y.id)); title.appendChild(document.createTextNode(y.title)); body.appendChild(title);
+  const p1 = el("p"); p1.appendChild(el("span", "lab", "Do")); p1.appendChild(document.createTextNode(y.do)); body.appendChild(p1);
+  const p2 = el("p"); p2.appendChild(el("span", "lab", "Look for")); p2.appendChild(document.createTextNode(y.look)); body.appendChild(p2);
+  body.appendChild(el("div", "cov", "covers checklist " + y.covers.join(", ")));
+  const nb = el("button", "notebtn", "add note"); const ta = el("textarea", "note"); ta.id = "note-" + y.id; ta.hidden = true; ta.setAttribute("aria-label", "Note for " + y.id);
+  ta.value = rec(y.id).note || ""; if (ta.value.trim()) ta.hidden = false;
+  nb.addEventListener("click", () => { ta.hidden = !ta.hidden; if (!ta.hidden) ta.focus(); });
+  ta.addEventListener("input", () => { rec(y.id).note = ta.value; save(); nb.className = "notebtn" + (ta.value.trim() ? " has" : ""); nb.textContent = ta.value.trim() ? "note saved" : "add note"; });
+  if (ta.value.trim()) { nb.className = "notebtn has"; nb.textContent = "note saved"; }
+  body.appendChild(nb); body.appendChild(ta);
+  card.appendChild(checks); card.appendChild(body); ylist.appendChild(card);
+}
+
+const flist = document.getElementById("flist");
+for (const f of DATA.findings) {
+  const d = el("div", "finding " + f.sev);
+  const h = el("div", "ftitle"); h.appendChild(el("span", "tag", f.where)); h.appendChild(document.createTextNode(f.title)); d.appendChild(h);
+  d.appendChild(el("p", null, f.body));
+  if (f.points.length) { const ul = el("ul"); for (const p of f.points) ul.appendChild(el("li", null, p)); d.appendChild(ul); }
+  flist.appendChild(d);
+}
+const lim = document.getElementById("limits"); for (const l of DATA.limits) lim.appendChild(el("li", null, l));
+
+const seclist = document.getElementById("seclist");
+function rowFor(id, text, opt, ff, cr, y) {
+  const row = el("div", "row" + (opt ? " opt" : "")); const pills = el("div", "pills");
+  for (const [b, r] of [["FF", ff], ["Cr", cr]]) { if (!r) continue; pills.appendChild(el("span", "pill " + r.s, b + " " + (LABEL[r.s] || r.s.toLowerCase()))); }
+  const body = el("div", "rbody"); body.appendChild(el("span", "iid", id)); body.appendChild(document.createTextNode(text + (opt ? " (optional)" : "") + (y ? "  → " + y : "")));
+  for (const [b, r] of [["FF", ff], ["Cr", cr]]) { if (!r) continue; const e = el("div", "ev"); e.appendChild(el("b", null, b)); e.appendChild(document.createTextNode(r.e)); body.appendChild(e); }
+  row.appendChild(pills); row.appendChild(body); return row;
+}
+for (const s of DATA.sections) {
+  const d = el("details", "card"); const sum = el("summary");
+  let a = 0, p = 0, m = 0, k = 0;
+  for (const it of s.items) for (const b of ["ff", "cr"]) { const r = it[b]; if (!r) continue; if (r.s === "auto") a++; else if (r.s === "problem") p++; else if (r.s === "yours") m++; else k++; }
+  sum.appendChild(el("span", "snum", String(s.n))); sum.appendChild(el("span", "stitle", s.title));
+  const c = el("span", "scount"); c.appendChild(document.createTextNode(a + " checked"));
+  if (p) { c.appendChild(document.createTextNode(" · ")); c.appendChild(el("span", "bad", p + " problem" + (p > 1 ? "s" : ""))); }
+  if (m) { c.appendChild(document.createTextNode(" · ")); c.appendChild(el("span", "mine", m + " yours")); }
+  if (k) c.appendChild(document.createTextNode(" · " + k + " skipped"));
+  sum.appendChild(c); d.appendChild(sum);
+  for (const it of s.items) d.appendChild(rowFor(it.id, it.t, it.opt, it.ff, it.cr, it.y));
+  if (p) d.open = true;
+  seclist.appendChild(d);
+}
+if (DATA.extras.length) {
+  const d = el("details", "card"); const sum = el("summary"); sum.appendChild(el("span", "snum", "+")); sum.appendChild(el("span", "stitle", "Extra checks added along the way")); d.appendChild(sum);
+  const map = { PASS: "auto", FAIL: "problem", HUMAN: "yours", SKIP: "skipped", ERROR: "problem" };
+  for (const x of DATA.extras) d.appendChild(rowFor(x.id, "", false, x.ff && { s: map[x.ff.s], e: x.ff.e }, x.cr && { s: map[x.cr.s], e: x.cr.e }, null));
+  seclist.appendChild(d);
+}
+document.getElementById("foot").textContent = "Built " + DATA.built + ". Baseline: v1.25 + docs commits (a4402d8). " + (DATA.longDone ? "Includes the 30-minute recordings." : "The 30-minute recordings (section 14) were still running when this was built.");
+
+function refresh() {
+  const tot = { ff: 0, cr: 0 }, pass = { ff: 0, cr: 0 }, fail = { ff: 0, cr: 0 };
+  for (const y of DATA.yours) for (const b of y.b) { const v = rec(y.id)[b]; tot[b]++; if (v === 1) pass[b]++; if (v === 2) fail[b]++; }
+  for (const btn of document.querySelectorAll(".chk")) {
+    const v = rec(btn.dataset.y)[btn.dataset.b];
+    btn.className = "chk" + (v ? " s" + v : ""); btn.querySelector(".g").textContent = GLYPH[v];
+    btn.setAttribute("aria-label", (btn.dataset.b === "ff" ? "Firefox" : "Chrome") + " " + btn.dataset.y + ": " + WORD[v] + ". Click to change.");
+  }
+  for (const b of ["ff", "cr"]) {
+    const bar = document.getElementById(b === "ff" ? "barFF" : "barCr");
+    bar.querySelector(".p").style.width = (pass[b] / tot[b] * 100) + "%"; bar.querySelector(".f").style.width = (fail[b] / tot[b] * 100) + "%";
+    document.getElementById(b === "ff" ? "cntFF" : "cntCr").textContent = (pass[b] + fail[b]) + "/" + tot[b];
+  }
+}
+refresh();
+
+document.getElementById("btnCopy").addEventListener("click", () => {
+  const lines = ["# DidaRec #20 short list - owner results", "Generated " + new Date().toLocaleString(), ""];
+  for (const y of DATA.yours) {
+    const r = rec(y.id);
+    lines.push(y.id + " " + y.title + " (checklist " + y.covers.join(", ") + "): " + y.b.map(b => (b === "ff" ? "FF " : "Cr ") + WORD[r[b]]).join(", "));
+    if ((r.note || "").trim()) lines.push("   note: " + r.note.trim());
+  }
+  const text = lines.join("\n"); const toast = document.getElementById("toast");
+  const done = (msg) => { toast.textContent = msg; setTimeout(() => { toast.textContent = ""; }, 2500); };
+  navigator.clipboard.writeText(text).then(() => done("Copied"), () => {
+    const ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta); ta.select(); done("Select-all done; press Ctrl+C");
+  });
+});
+</script>
