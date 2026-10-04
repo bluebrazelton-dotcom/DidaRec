@@ -2188,6 +2188,53 @@ browsers; docs half: this README). #19's remaining deliverable is the
 faculty-facing usage guide; #20 (final full regression) is the only
 other open item.
 
+### v1.26 — Opaque compositor canvas; first frame painted at once (#27) (2026-10-04)
+
+**Commit:** `fix (#27): opaque compositor canvas; paint a frame as compositing starts` (191a3b6)
+
+Two one-line changes, both found by the #20 machine pass
+(`regression_rig/`), neither visible to the Node harness.
+
+**Opaque canvas.** `canvas.getContext('2d')` → `getContext('2d',
+{ alpha: false })`. With the default alpha channel, Chrome 154 encodes
+transparency and muxes every video frame as a BlockGroup (0xA0: Block
+0xA1 + BlockAdditions 0x75A1) instead of a SimpleBlock (0xA3).
+`webmWalkClusterBlocks`, `webmMaxBlockTime`,
+`webmClusterHasVideoKeyframe` and `refineCutToBlock` read SimpleBlocks
+only, so:
+- with no audio track, Duration came from the last cluster's timestamp
+  and playback stopped up to ~3.4 s early (6.1 s recorded, 3.4 s played);
+  seam offsets used the same short content-end, so stitched takes
+  overlapped and a cut asked for at 0:08 kept 3.3 s;
+- with audio, audio SimpleBlocks masked duration and seams, but
+  `refineCutToBlock` declined every cluster (cuts fell back to Rule A,
+  0.5–0.8 s early) and only the first cluster got a Cue.
+Every frame is painted edge to edge, so the alpha channel carried
+nothing. With the opaque context Chrome writes SimpleBlocks: duration,
+keyframe flags and cut refinement work as designed, and the stray
+second cluster at ~40 ms is gone. Side effect: saved colours are closer
+to the source. Not dated — the project never saw BlockGroups before, so
+this probably arrived with a Chrome update after August.
+
+**First frame.** `startCompositing()` now calls `drawOneFrame()` before
+starting the draw clock. A freshly sized canvas is black until the
+first tick, and Chrome recorded that as the first frame of every take —
+a one-frame black flash at each stitched seam. Chrome-only; Firefox was
+unaffected. Does not touch the recorder, chunk writes or save flows.
+
+**Verification** (rig, Chrome 154 + Playwright Firefox 151, one browser
+at a time): checklist 9.4 and the mic-off cut check now pass; first
+frames are real in screen+mic, mic-off and camera-only recordings; a
+two-take file sampled every 34 ms has no blank frame; the 30-minute
+recording saves with flat memory (+30 MB on 349 MB) and seeks in
+163 ms (580 ms before, now that Cues cover every cluster); no
+regressions in either browser. Results:
+`regression_rig/results_2026-10-04_both_fixes/`.
+
+Harness: unchanged at **173 scenarios / 1234 assertions**, all green.
+No scenario pins either line — the harness's canvas mock cannot see
+what a browser encodes. Owner acceptance: not yet run.
+
 ---
 
 ## Known limitations
@@ -2230,6 +2277,8 @@ other open item.
     chosen time in both browsers; unsafe refinements fall back to the
     cluster boundary (Rule A), never worse than the old behavior.
 
+11. **Firefox: a re-record point inside a take's first cluster can't be cut to.** Firefox's first cluster runs 7–9 seconds; choosing a time that early in the first take offers "start over" instead, and in a later take drops that whole take. Later points cut accurately. Chrome's window is about one second. Documented in the README under Chrome-first (2026-10-04) rather than fixed — REVIEW #28.
+
 ---
 
 ## Future features (roadmap)
@@ -2249,12 +2298,13 @@ other open item.
 
 ```
 screen-recorder/
-├── index.html      # The entire app (HTML + CSS + JS, ~5700 lines)
-├── README.md       # Project description and usage
-├── LICENSE         # MIT License
-├── BUILD_LOG.md    # This file
-├── REVIEW.md       # Fable 5 code review — tracked items + build queue
-└── test.cjs        # Node harness (126 scenarios / 812 assertions; npm i fake-indexeddb)
+├── index.html        # The entire app (HTML + CSS + JS, ~6760 lines)
+├── README.md         # Project description and usage
+├── LICENSE           # MIT License
+├── BUILD_LOG.md      # This file
+├── REVIEW.md         # Fable 5 code review — tracked items + build queue
+├── test.cjs          # Node harness (173 scenarios / 1234 assertions; npm i fake-indexeddb)
+└── regression_rig/   # Playwright rig: drives the real app in Chrome and Firefox (see its README)
 ```
 
 ---
@@ -2279,6 +2329,13 @@ screen-recorder/
 ---
 
 ## Testing
+
+**Automated real-browser pass:** `regression_rig/` runs the #20 checklist
+against the real app in Chrome and Firefox and reopens every saved file to
+verify it (see `regression_rig/README.md`). Run it after any change and
+after browser updates; the manual lists below remain the owner's
+acceptance for what a machine can't judge (ear, eye, native pickers,
+hidden tabs).
 
 **Manual acceptance test (crash resilience):**
 1. Open the app, start recording screen + mic

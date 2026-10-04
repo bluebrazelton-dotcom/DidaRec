@@ -718,7 +718,7 @@ Y11 (#30).
 
 ## #20 machine-pass findings (2026-10-04)
 
-### 27. Chrome 154 writes video as BlockGroups; the block walkers only read SimpleBlocks — P1
+### 27. Chrome 154 writes video as BlockGroups; the block walkers only read SimpleBlocks — P1 — ✓ FIXED v1.26 (191a3b6)
 
 Chrome 154 muxes each video frame as a BlockGroup (0xA0: Block 0xA1 +
 BlockAdditions 0x75A1) because the compositor canvas context is created with
@@ -741,12 +741,17 @@ Measured consequences:
 - Every cluster after the first is flagged non-keyframe, so Cues cover only
   the first cluster. Seeking a 30-minute file was still fast (slowest 580 ms).
 
-Candidate fix, tried on a scratch copy only: `canvas.getContext('2d',
-{ alpha: false })`. Chrome then writes SimpleBlocks; duration, keyframe flags
-and cluster layout came out right (the stray second cluster at ~40 ms also
-disappears). Not regression-tested. Belt-and-braces option: teach the walkers
-BlockGroup → Block. Verify with `regression_rig` (part1 `s9_resilience`,
-part2 `s15_cut_micoff`, `dbg3.py`).
+**Fixed v1.26:** `canvas.getContext('2d', { alpha: false })`. Chrome writes
+SimpleBlocks again; duration, keyframe flags and cut refinement work as
+designed. Rig-verified in both browsers (9.4 and the mic-off cut check pass;
+30-minute file seeks in 163 ms, down from 580 ms). The walkers still don't
+read BlockGroups — if a future Chrome writes them for another reason, this
+returns; teaching them BlockGroup → Block remains the belt-and-braces option.
+
+**Also fixed in v1.26, found while verifying:** every Chrome take began with
+one black frame (the freshly sized canvas, captured before the first draw
+tick), visible as a one-frame flash at each stitched seam. `startCompositing`
+now paints a frame before starting the clock.
 
 ### 28. A cut inside a take's first cluster is never refined — P2 (Firefox-visible; DOCUMENTED in README under Chrome-first, fix optional)
 

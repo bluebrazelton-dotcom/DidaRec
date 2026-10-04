@@ -5,8 +5,9 @@ Supersedes the 2026-08-06 snapshot. This session: the owner-run #20 pass had
 stalled, so the 120-item checklist was run by a new Playwright rig
 (`regression_rig/`, committed on main, NOT pushed). 208 browser checks
 passed; the pass found real defects, logged as REVIEW #27–#33. **The build is
-not final.** The app itself (`index.html`) was not changed; harness still
-173/1234. Browsers have moved: Chrome 154, Firefox 157 (baseline was FF 153).
+not final.** `index.html` then got two one-line fixes (v1.26, 191a3b6: opaque
+canvas + first frame painted at once), rig-verified; harness still 173/1234.
+Browsers have moved: Chrome 154, Firefox 157 (baseline was FF 153).
 **Direction change this session: Chrome-first** (see Ground rules); README
 updated to recommend Chrome/Edge.
 
@@ -16,8 +17,9 @@ updated to recommend Chrome/Edge.
   Chrome write frames as BlockGroup + BlockAdditions; the block walkers only
   read SimpleBlocks. Mic-off recordings: Duration short (end cut off on
   playback), seams overlap, cuts land seconds early. With audio: masked, but
-  cuts fall back to Rule A. Candidate fix `getContext('2d', { alpha: false })`
-  worked on a scratch copy — not regression-tested.
+  cuts fall back to Rule A.
+  **FIXED v1.26** (`getContext('2d', { alpha: false })`), plus the black
+  first frame on every Chrome take. Owner acceptance not yet run.
 - **#28 First-cluster cuts are never refined** (`computeCutPlan` k===0).
   Firefox's first cluster is 7–9 s: typed 0:07 → "start over" prompt.
 - **#29 Chrome: gesture-less stop can't open the save dialog** ("Stop
@@ -177,8 +179,8 @@ updated to recommend Chrome/Edge.
   fixes.** Order:
   1. Owner confirms #29 (Y2, real Chrome "Stop sharing") and #30 (Y11, real
      Firefox long save with Task Manager). ~5 minutes of attention.
-  2. Fix session(s): #27 first (candidate one-liner + rig verification), then
-     #29 as confirmed, then #31, #32. Under Chrome-first, #28 is documented
+  2. Fix session(s): #27 DONE (v1.26). Next: #29 once Y2 confirms it, then
+     #31, #32. Under Chrome-first, #28 is documented
      in the README rather than fixed, and #30 is fixed only if Y11 confirms
      it AND it risks losing a recording. Docs #33: README part done
      2026-10-04; checklist wording still open.
@@ -187,7 +189,7 @@ updated to recommend Chrome/Edge.
   4. Owner runs the remaining short-list tasks once, on the final build:
      the Chrome column in full; Firefox as a smoke pass (Y1, Y8, Y10).
   5. Then #19's faculty guide.
-- Unpushed: main is 2 commits ahead of origin (rig + results). The rig commit
+- Unpushed: main is ahead of origin (rig, results, Chrome-first docs, v1.26). The rig commit
   includes `original_checklist.html`, previously kept out of the repo —
   decide before pushing.
 - Roadmap remainder (REVIEW feature map): chapter hotkeys + sidecar
