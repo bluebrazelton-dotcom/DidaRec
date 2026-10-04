@@ -700,6 +700,117 @@ both browsers, Firefox first. Per-version acceptance passes (including
 v1.18's initial pass, 2026-07-29) do not substitute for this. Pairs naturally
 with #19 — same "when the feature set stabilizes" trigger.
 
+**Status 2026-10-04: machine pass DONE; owner remainder 11 tasks; NOT final —
+fix items #27–#33 below come first.** The owner-run pass stalled, so the
+120-item checklist was run by a Playwright rig (`regression_rig/`, committed
+e3e7011 + 0b3a82a) in installed Chrome 154 and Playwright's Firefox 151, with
+fake devices, a generated time-coded screen source, and (Chrome) a stand-in
+save dialog. Every saved file was reopened and checked for content, duration,
+seeking and audio. 208 browser checks passed; four checklist items failed
+(9.4 Chrome; 14.1, 14.3, 15.4 Firefox) plus three added checks. Per-item
+evidence: `regression_rig/results_2026-10-04/`. What the rig cannot do (ear,
+eye, native pickers and prompts, hidden tabs, real Firefox 157) is the
+owner's 11-task short list, to be run AFTER the fixes so it judges the final
+build once. Two of those tasks confirm findings and come first: Y2 (#29) and
+Y11 (#30).
+
+---
+
+## #20 machine-pass findings (2026-10-04)
+
+### 27. Chrome 154 writes video as BlockGroups; the block walkers only read SimpleBlocks — P1
+
+Chrome 154 muxes each video frame as a BlockGroup (0xA0: Block 0xA1 +
+BlockAdditions 0x75A1) because the compositor canvas context is created with
+the default alpha channel. Audio stays SimpleBlock (0xA3). Confirmed headless
+and headed (GPU). `webmWalkClusterBlocks`, `webmMaxBlockTime`,
+`webmClusterHasVideoKeyframe` and `refineCutToBlock` only handle SimpleBlocks.
+Never seen before in this project's notes, so probably a Chrome change after
+August; not dated.
+
+Measured consequences:
+- **No audio track (mic off, no system audio):** Duration is written from the
+  last cluster's timestamp, so playback stops up to ~3.4 s early (6.1 s
+  recorded, file plays 3.4 s — checklist 9.4). The frames are in the file.
+  Seam offsets use the same short content-end, so stitched takes overlap: a
+  cut requested at 0:08 reported "Kept 0:06" and the file kept 3.3 s.
+- **With audio:** audio SimpleBlocks mask the duration and seam math.
+  `refineCutToBlock` declines every cluster (non-SimpleBlock child), so cuts
+  fall back to Rule A and land 0.5–0.8 s early — inside the one-second rule,
+  not the ~33 ms v1.22 was built for.
+- Every cluster after the first is flagged non-keyframe, so Cues cover only
+  the first cluster. Seeking a 30-minute file was still fast (slowest 580 ms).
+
+Candidate fix, tried on a scratch copy only: `canvas.getContext('2d',
+{ alpha: false })`. Chrome then writes SimpleBlocks; duration, keyframe flags
+and cluster layout came out right (the stray second cluster at ~40 ms also
+disappears). Not regression-tested. Belt-and-braces option: teach the walkers
+BlockGroup → Block. Verify with `regression_rig` (part1 `s9_resilience`,
+part2 `s15_cut_micoff`, `dbg3.py`).
+
+### 28. A cut inside a take's first cluster is never refined — P2 (Firefox-visible)
+
+`computeCutPlan`'s `k === 0` branch returns `startOver` (first segment) or a
+whole-segment discard (later segment) and never reaches `refineCutToBlock`.
+Chrome's first cluster is ~1 s; Firefox's measured 7.3–8.7 s. In Firefox:
+typing 0:07 on a 20 s recording raised the "discard everything?" prompt
+(checklist 15.4 fails as written); a cut 3.5 s into a second take dropped the
+whole take and landed 3.2 s early. Cuts past the first cluster were accurate
+to a quarter second (12.4 s, 63.3 s, re-cut at 10 s).
+
+### 29. Chrome: a stop with no user gesture cannot open the save dialog — P1, CONFIRM FIRST (owner task Y2)
+
+`showSaveFilePicker` needs transient user activation. When the browser's own
+"Stop sharing" ends the capture (`wireScreenEndedListener` handler →
+`stopRecording` → `saveSessionStreamedFSA`), there is none. With a stand-in
+picker enforcing that rule the app showed "Save failed: … Must be handling a
+user gesture to show a file picker. Your recording is safe — refresh and use
+Recovery." The recording was recoverable after reload. Same exposure for every
+app-initiated stop (write failure / storage full, stop watchdog). Needs one
+real-Chrome confirmation before any fix is designed.
+
+### 30. Firefox: saving a long recording spiked memory far past the file size — P1, CONFIRM FIRST (owner task Y11)
+
+Checklist 14.1/14.3 (v1.11 streaming save) expect roughly flat memory.
+Playwright Firefox 151, working set of the whole process tree: 30-min
+recording, 400 MB file, 562 MB → 2,351 MB peak (+1.8 GB), save took 174 s;
+12-min crash recovery +1.1 GB twice (129 MB and 101 MB files). Chrome stayed
+flat on the same recordings (+19 MB on a 289 MB file). Files were complete
+and seekable. Caveats: test build not 157, download captured by the test
+tool, tree-wide measure. Check on real Firefox with Task Manager before
+treating as an app defect; if real, look at `saveSessionStreamedDownload`
+(per-chunk Blob + scanner carry re-allocation per push).
+
+### 31. Firefox: Record waits on "Starting…" behind the previous save's cleanup — P2
+
+After "It's there — all set" on a long recording, the next Record click had
+not started 20 s later (both times: after 129 MB and 400 MB saves).
+`startRecording` awaits `cleanupCompleted()` while `confirmDownloadArrived`'s
+background `deleteSession` sweep is still running; no message is shown. It
+did start eventually in one run; the wait was not measured.
+
+### 32. Small UX items from the pass — P3
+
+- Caption export in Chrome: the "Captions saved…" and "Save cancelled…" notes
+  go to the recorder status bar, which is hidden while the editor is open —
+  no visible feedback. Firefox's note is in the editor.
+- "Kept m:ss" floors, and a cut never keeps past T, so typing 0:07 reports
+  "Kept 0:06" and 0:20 reports "Kept 0:19".
+- Storage-stall coverage: under heavy parallel load Firefox's storage stalled;
+  the load-time watchdog message appeared as designed, but Record then sat on
+  "Starting…" and a re-record cut click did nothing for 30 s. Not reproduced
+  with Firefox running alone.
+
+### 33. Doc and checklist corrections — docs-only
+
+- README: Chrome paragraph says the destination is picked up front and the
+  recording streams to it as captured; the dialog opens at Stop and the file
+  is written then. "HTTPS required" vs. file:// working. Mirror webcam missing
+  from the feature list.
+- Checklist: 1.4 superseded by v1.22.2 (untouched-state Screen click opens the
+  picker); 4.1 says the preview freezes on pause, it stays live by design;
+  1.3 Screen button is dark at load (v1.21.3).
+
 ---
 
 ## Feature map vs. the research-derived plan

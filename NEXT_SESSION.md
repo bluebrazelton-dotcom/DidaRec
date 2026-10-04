@@ -1,12 +1,34 @@
 # DidaRec — Next Session, Start Here
 
-Close-out snapshot, 2026-08-06 (post-README ship + #20 prep).
-Supersedes the post-v1.25 snapshot. This session: v1.25 owner
-acceptance PASSED and #26 fully CLOSED; #19's README half SHIPPED
-(docs-only, no version bump); the #20 master regression checklist was
-compiled and handed to the owner (kept out of the repo); stale Known
-Limitation #10 struck through (fixed by v1.22/v1.22.1). The owner is
-now RUNNING the #20 pass and will report results to a fresh session.
+Close-out snapshot, 2026-10-04 (post-#20 machine pass).
+Supersedes the 2026-08-06 snapshot. This session: the owner-run #20 pass had
+stalled, so the 120-item checklist was run by a new Playwright rig
+(`regression_rig/`, committed on main, NOT pushed). 208 browser checks
+passed; the pass found real defects, logged as REVIEW #27–#33. **The build is
+not final.** The app itself (`index.html`) was not changed; harness still
+173/1234. Browsers have moved: Chrome 154, Firefox 157 (baseline was FF 153).
+
+## #20 machine pass (newest): what it found
+
+- **#27 Chrome 154 video = BlockGroups.** The canvas's alpha channel makes
+  Chrome write frames as BlockGroup + BlockAdditions; the block walkers only
+  read SimpleBlocks. Mic-off recordings: Duration short (end cut off on
+  playback), seams overlap, cuts land seconds early. With audio: masked, but
+  cuts fall back to Rule A. Candidate fix `getContext('2d', { alpha: false })`
+  worked on a scratch copy — not regression-tested.
+- **#28 First-cluster cuts are never refined** (`computeCutPlan` k===0).
+  Firefox's first cluster is 7–9 s: typed 0:07 → "start over" prompt.
+- **#29 Chrome: gesture-less stop can't open the save dialog** ("Stop
+  sharing", auto-stops) → "Save failed … use Recovery". Stand-in dialog;
+  needs owner confirmation in real Chrome (Y2).
+- **#30 Firefox save memory spike** (+1.1 to +1.8 GB on 100–400 MB files,
+  test build 151). Needs owner confirmation on real Firefox (Y11).
+- **#31 Firefox: Record stuck on "Starting…"** behind cleanup after a large
+  confirmed save.
+- **#32/#33** small UX items; README and checklist corrections.
+- Evidence: `regression_rig/results_2026-10-04/` (per-item JSON, built
+  results page, memory samples). Results page artifact:
+  claude.ai/artifact/WdEhAyUEdwEMdU84xPiWrs (owner's 11-task short list).
 
 ## v1.25 (newest): first audio-less share hint (#26 hint half)
 
@@ -85,6 +107,13 @@ now RUNNING the #20 pass and will report results to a fresh session.
   late; clusters ~7.5s vs Chrome ~1s; storage can wedge (watchdogs).
 - Watch for **Firefox 154** (~days away): may fix the upstream opus
   bug; v1.21.2's fix and the watchdogs stay regardless.
+- ● **Chrome 154 writes video frames as BlockGroups (0xA0 → 0xA1 Block +
+  0x75A1 BlockAdditions) when the canvas has alpha; audio stays SimpleBlock.**
+  Anything that walks blocks must handle both or the canvas must be opaque
+  (#27). Chrome video-only clusters are keyframe-spaced (~3.4 s), not ~1 s.
+- ● **Chrome's save dialog needs a user gesture.** Any stop the user didn't
+  click in the page (Stop sharing, write failure, watchdog) cannot call
+  showSaveFilePicker (#29). The rig's stand-in dialog enforces this.
 
 ## Load-bearing invariants (do not break)
 
@@ -118,9 +147,12 @@ now RUNNING the #20 pass and will report results to a fresh session.
   believing a "syntax error".
 - AL/AM/AN pin literal timestamp/Duration strings; AG lit-guard; EI
   four Screen-click meanings.
-- Real-browser behavior is invisible to the harness — owner acceptance
-  gates every UI-flow feature. Console-paste diagnostics remain the
-  field tool of choice.
+- Real-browser behavior is invisible to the harness. `regression_rig/` now
+  covers most of it (see its README): run one Chrome and one Firefox at a
+  time, never more — parallel load stalls Firefox storage and fails checks
+  for reasons unrelated to the app. The rig's Firefox is Playwright's build
+  (151), not the installed one; ear/eye judgments, native pickers and hidden
+  tabs still need the owner. Owner acceptance still gates UI-flow features.
 
 ## Queue
 
@@ -139,13 +171,19 @@ now RUNNING the #20 pass and will report results to a fresh session.
   Recording, per-browser saving, captions workflow, file:// Chrome
   device-name caveat. Placement decision owed (README section vs.
   separate file vs. in-app help).
-- **#20 (final full regression) — IN PROGRESS, owner-run.** Owner
-  re-tests EVERY feature end-to-end in both browsers, Firefox first.
-  The master checklist was compiled 2026-08-06 (120 items, 18 sections,
-  per-browser checkboxes) and lives with the owner, NOT in the repo.
-  Baseline for the pass: v1.25 + docs commits, harness 1234/1234 green
-  (verified 2026-08-06). Owner reports results to a fresh session;
-  failures become fix items BEFORE #19's faculty guide.
+- **#20 — machine pass DONE 2026-10-04; owner remainder = 11 tasks, AFTER
+  fixes.** Order:
+  1. Owner confirms #29 (Y2, real Chrome "Stop sharing") and #30 (Y11, real
+     Firefox long save with Task Manager). ~5 minutes of attention.
+  2. Fix session(s): #27 first (candidate one-liner + rig verification), then
+     #29/#30 as confirmed, then #28, #31, #32. Docs #33 any time.
+  3. Re-run the rig on the fixed build (parts 1–3 ≈ 25 min per browser;
+     part 4 ≈ 45 min).
+  4. Owner runs the remaining short-list tasks once, on the final build.
+  5. Then #19's faculty guide.
+- Unpushed: main is 2 commits ahead of origin (rig + results). The rig commit
+  includes `original_checklist.html`, previously kept out of the repo —
+  decide before pushing.
 - Roadmap remainder (REVIEW feature map): chapter hotkeys + sidecar
   export, mediabunny remux (Cues/MP4) — all unscheduled,
   owner-priority-driven. (Stale "caption VTT/SRT import" entry removed
