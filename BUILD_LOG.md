@@ -10,7 +10,7 @@
 
 **Repo:** github.com/bluebrazelton-dotcom/screen-recorder
 **License:** MIT
-**Target browsers:** Chrome 86+, Edge 86+ (File System Access API + getDisplayMedia); Firefox first-class since v1.9 (saves via download fallback with in-app arrival confirmation; writes 8-byte unknown-size cluster VINTs — see v1.8.1)
+**Target browsers:** Chrome 86+, Edge 86+ (File System Access API + getDisplayMedia) — recommended and release-gating since 2026-10-04 (Chrome-first); Firefox supported with documented limits (first-class v1.9–v1.25; saves via download fallback with in-app arrival confirmation; writes 8-byte unknown-size cluster VINTs — see v1.8.1)
 **Architecture:** Single `index.html` file, inline CSS + JS, no build step, no server
 
 ---

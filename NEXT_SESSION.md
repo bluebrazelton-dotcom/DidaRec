@@ -7,6 +7,8 @@ stalled, so the 120-item checklist was run by a new Playwright rig
 passed; the pass found real defects, logged as REVIEW #27–#33. **The build is
 not final.** The app itself (`index.html`) was not changed; harness still
 173/1234. Browsers have moved: Chrome 154, Firefox 157 (baseline was FF 153).
+**Direction change this session: Chrome-first** (see Ground rules); README
+updated to recommend Chrome/Edge.
 
 ## #20 machine pass (newest): what it found
 
@@ -176,10 +178,14 @@ not final.** The app itself (`index.html`) was not changed; harness still
   1. Owner confirms #29 (Y2, real Chrome "Stop sharing") and #30 (Y11, real
      Firefox long save with Task Manager). ~5 minutes of attention.
   2. Fix session(s): #27 first (candidate one-liner + rig verification), then
-     #29/#30 as confirmed, then #28, #31, #32. Docs #33 any time.
+     #29 as confirmed, then #31, #32. Under Chrome-first, #28 is documented
+     in the README rather than fixed, and #30 is fixed only if Y11 confirms
+     it AND it risks losing a recording. Docs #33: README part done
+     2026-10-04; checklist wording still open.
   3. Re-run the rig on the fixed build (parts 1–3 ≈ 25 min per browser;
      part 4 ≈ 45 min).
-  4. Owner runs the remaining short-list tasks once, on the final build.
+  4. Owner runs the remaining short-list tasks once, on the final build:
+     the Chrome column in full; Firefox as a smoke pass (Y1, Y8, Y10).
   5. Then #19's faculty guide.
 - Unpushed: main is 2 commits ahead of origin (rig + results). The rig commit
   includes `original_checklist.html`, previously kept out of the repo —
@@ -193,7 +199,14 @@ not final.** The app itself (`index.html`) was not changed; harness still
 
 Zero dependencies, single `index.html`, ONE `<script>` block. WebM only.
 Don't touch the recording pipeline's byte behavior or the streamed save
-flows (differentials enforce). Firefox first. Faculty tone. Delegate
+flows (differentials enforce).
+**Chrome-first (owner decision 2026-10-04, reverses "Firefox first"):**
+Chrome/Edge is the recommended browser and gates releases and owner
+acceptance. Firefox is supported with known limits: a Firefox bug that loses
+a recording still gets fixed; Firefox-only limits (system audio, first-cluster
+cuts #28, download save flow) get documented, not engineered around.
+Acceptance order: Chrome first, then a Firefox smoke pass.
+Faculty tone. Delegate
 drafting to Sonnet agents; orchestrator reviews EVERYTHING before it
 ships. File Edit Rule: agents draft in scratch; orchestrator presents in
 full, waits for approval. End with a working page; bump BUILD_LOG and

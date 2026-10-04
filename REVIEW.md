@@ -748,7 +748,7 @@ disappears). Not regression-tested. Belt-and-braces option: teach the walkers
 BlockGroup → Block. Verify with `regression_rig` (part1 `s9_resilience`,
 part2 `s15_cut_micoff`, `dbg3.py`).
 
-### 28. A cut inside a take's first cluster is never refined — P2 (Firefox-visible)
+### 28. A cut inside a take's first cluster is never refined — P2 (Firefox-visible; DOCUMENTED in README under Chrome-first, fix optional)
 
 `computeCutPlan`'s `k === 0` branch returns `startOver` (first segment) or a
 whole-segment discard (later segment) and never reaches `refineCutToBlock`.
@@ -845,3 +845,7 @@ top. The hardest Tier 2 feature is half-built by accident.
   exception when Cues/MP4 work begins — vendor it, document the trade-off.
 - Faculty audience: error messages suggest actions, never expose stack traces.
 - File Edit Rule: show proposed changes to Blue and wait for approval before writing.
+- Chrome-first (owner decision 2026-10-04): Chrome/Edge is recommended and
+  gates releases; Firefox is supported with documented limits. Supersedes the
+  "Firefox first" ordering used from v1.9 through v1.25. Recording-loss bugs
+  are fixed in either browser.
