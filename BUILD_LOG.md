@@ -2233,7 +2233,10 @@ regressions in either browser. Results:
 
 Harness: unchanged at **173 scenarios / 1234 assertions**, all green.
 No scenario pins either line — the harness's canvas mock cannot see
-what a browser encodes. Owner acceptance: not yet run.
+what a browser encodes.
+
+**Owner acceptance PASSED 2026-10-04**, real Chrome on the hosted page:
+mic-off clip, timer 0:10, saved file 0:10, plays to the end.
 
 ---
 

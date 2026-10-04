@@ -747,6 +747,7 @@ designed. Rig-verified in both browsers (9.4 and the mic-off cut check pass;
 30-minute file seeks in 163 ms, down from 580 ms). The walkers still don't
 read BlockGroups — if a future Chrome writes them for another reason, this
 returns; teaching them BlockGroup → Block remains the belt-and-braces option.
+Owner acceptance PASSED 2026-10-04 (real Chrome, hosted page).
 
 **Also fixed in v1.26, found while verifying:** every Chrome take began with
 one black frame (the freshly sized canvas, captured before the first draw
@@ -763,7 +764,7 @@ typing 0:07 on a 20 s recording raised the "discard everything?" prompt
 whole take and landed 3.2 s early. Cuts past the first cluster were accurate
 to a quarter second (12.4 s, 63.3 s, re-cut at 10 s).
 
-### 29. Chrome: a stop with no user gesture cannot open the save dialog — P1, CONFIRM FIRST (owner task Y2)
+### 29. Chrome: a stop with no user gesture cannot open the save dialog — P1, CONFIRMED in real Chrome 2026-10-04
 
 `showSaveFilePicker` needs transient user activation. When the browser's own
 "Stop sharing" ends the capture (`wireScreenEndedListener` handler →
@@ -773,6 +774,13 @@ user gesture to show a file picker. Your recording is safe — refresh and use
 Recovery." The recording was recoverable after reload. Same exposure for every
 app-initiated stop (write failure / storage full, stop watchdog). Needs one
 real-Chrome confirmation before any fix is designed.
+
+**Confirmed by the owner 2026-10-04** on the hosted page: ending a recording
+with Chrome's "Stop sharing" bar showed the "Save failed … use Recovery"
+banner; after a refresh the recovery banner appeared and Recover & save
+produced the file. Fix direction: a save that starts from a click — e.g. a
+"Save recording" button shown whenever a stop the user didn't click in the
+page can't open the dialog.
 
 ### 30. Firefox: saving a long recording spiked memory far past the file size — P1, CONFIRM FIRST (owner task Y11)
 

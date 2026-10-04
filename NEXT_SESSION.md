@@ -19,12 +19,12 @@ updated to recommend Chrome/Edge.
   playback), seams overlap, cuts land seconds early. With audio: masked, but
   cuts fall back to Rule A.
   **FIXED v1.26** (`getContext('2d', { alpha: false })`), plus the black
-  first frame on every Chrome take. Owner acceptance not yet run.
+  first frame on every Chrome take. Owner acceptance PASSED 2026-10-04.
 - **#28 First-cluster cuts are never refined** (`computeCutPlan` k===0).
   Firefox's first cluster is 7–9 s: typed 0:07 → "start over" prompt.
 - **#29 Chrome: gesture-less stop can't open the save dialog** ("Stop
-  sharing", auto-stops) → "Save failed … use Recovery". Stand-in dialog;
-  needs owner confirmation in real Chrome (Y2).
+  sharing", auto-stops) → "Save failed … use Recovery". CONFIRMED by the
+  owner in real Chrome 2026-10-04; recovery works. Next fix.
 - **#30 Firefox save memory spike** (+1.1 to +1.8 GB on 100–400 MB files,
   test build 151). Needs owner confirmation on real Firefox (Y11).
 - **#31 Firefox: Record stuck on "Starting…"** behind cleanup after a large
@@ -177,9 +177,9 @@ updated to recommend Chrome/Edge.
   separate file vs. in-app help).
 - **#20 — machine pass DONE 2026-10-04; owner remainder = 11 tasks, AFTER
   fixes.** Order:
-  1. Owner confirms #29 (Y2, real Chrome "Stop sharing") and #30 (Y11, real
-     Firefox long save with Task Manager). ~5 minutes of attention.
-  2. Fix session(s): #27 DONE (v1.26). Next: #29 once Y2 confirms it, then
+  1. DONE for #29 (Y2 confirmed 2026-10-04). Y11 (#30, Firefox memory) still
+     open and optional under Chrome-first.
+  2. Fix session(s): #27 DONE (v1.26). Next: #29 (confirmed), then
      #31, #32. Under Chrome-first, #28 is documented
      in the README rather than fixed, and #30 is fixed only if Y11 confirms
      it AND it risks losing a recording. Docs #33: README part done
