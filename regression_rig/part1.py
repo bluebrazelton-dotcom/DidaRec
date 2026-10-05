@@ -42,8 +42,8 @@ def s1_load(r):
     opened = c[1] == 1 and u["hasScreen"] and GUARD not in (u["err"] or "")
     r.page.click("#toggleScreen"); r.wait(400)
     u2 = r.ui()
-    r.check("1.4", opened and u2["sources"]["screen"] and (u2["err"] or "").startswith(GUARD),
-            "As written this is superseded by v1.22.2: untouched-state click opened the picker (getDisplayMedia calls=%d, no guard text). From the lit state, clicking Screen off -> reverted ON with banner: '%s'" % (c[1], u2["err"]))
+    r.check("1.4", opened and (not u2["hasScreen"]) and u2["placeholder"] and not u2["err"],
+            "As written this is superseded (v1.22.2, then v1.33): untouched-state click opened the picker (getDisplayMedia calls=%d). From the lit state, clicking Screen stops showing that screen: screen held=%s, placeholder back=%s, message='%s' (the old at-least-one guard is gone)" % (c[1], u2["hasScreen"], u2["placeholder"], u2["err"]))
 
 
 def s1_camera(r):
@@ -56,23 +56,24 @@ def s1_camera(r):
     after = opts(r, "#cameraSelect"); u = r.ui()
     r.check("1.5", len(g) == 1 and '"video"' in g[0] and u["hasCam"] and any(v for v, _ in after),
             "one getUserMedia call (%s); live camera stream held; dropdown before=%s after=%s" % (g[0][:80], [t for _, t in before], [t for _, t in after]))
-    r.page.click("#toggleScreen"); r.wait(1200)
+    r.wait(900)   # v1.33: webcam on with no screen selected IS camera-only - no Screen click needed
     u = r.ui(); pv = r.ev("__dr.readPreview([[0.5,0.5],[0.1,0.1],[0.9,0.9]])")
     lit = [sum(p) for p in pv["pts"]]
     r.check("1.6", (not u["sources"]["screen"]) and (not u["placeholder"]) and max(lit) > 60 and not u["btnRecord"]["dis"],
             "camera-only: sources=%s, placeholder hidden=%s, canvas %dx%d pixel sums at centre/corners=%s (non-black), Record enabled=%s" % (json.dumps(u["sources"]), not u["placeholder"], pv["w"], pv["h"], lit, not u["btnRecord"]["dis"]))
     r.page.click("#toggleCamera"); r.wait(600)
     u = r.ui()
-    r.check("1.7", u["sources"]["screen"] and u["placeholder"] and (u["err"] or "").startswith(GUARD),
-            "Webcam off from camera-only -> Screen back on=%s, placeholder shown=%s, banner='%s'" % (u["sources"]["screen"], u["placeholder"], u["err"]))
+    blank17 = sum(r.ev("__dr.readPreview([[0.5,0.3]])")["pts"][0])   # no leftover camera frame behind the placeholder
+    r.check("1.7", u["sources"]["screen"] and u["placeholder"] and not u["err"] and u["btnRecord"]["dis"] and blank17 < 30,
+            "Webcam off from camera-only -> back to the plain select-a-screen state=%s, placeholder shown=%s, message='%s' (v1.33: nothing to explain), Record waiting=%s" % (u["sources"]["screen"], u["placeholder"], u["err"], u["btnRecord"]["dis"]))
 
 
 def s1_camonly_record(r):
     r.start()
     r.page.click("#toggleCamera"); r.page.wait_for_function("!!state.cameraStream")
-    r.page.click("#toggleScreen"); r.wait(800)
+    r.wait(800)   # v1.33: no Screen click - webcam on with no screen selected is camera-only
     u = r.ui()
-    direct = (not u["btnRecord"]["dis"]) and (not u["btnSelect"]["vis"])
+    direct = (not u["btnRecord"]["dis"]) and (not u["sources"]["screen"]) and u["btnSelect"]["vis"]
     r.record(5)
     r.page.click("#btnPause"); r.wait(500)
     u2 = r.ui()
@@ -545,12 +546,11 @@ def s7_pip(r):
     q4 = pip(r); chk = r.ev("document.getElementById('mirrorToggle').checked"); shp = r.ev("document.getElementById('pipShapeSelect').value")
     r.cfg(camMode="canvas")
     r.page.click("#toggleCamera"); r.page.wait_for_function("!!state.cameraStream")
-    r.page.click("#toggleScreen"); r.wait(900)
+    r.wait(900)   # v1.33: camera-only without a Screen click
     co = r.ev("p => __dr.readPreview(p)", [[0.2, 0.8], [0.8, 0.8]])["pts"]
     r.check("7.6", near(pm[0], GREEN) and near(pm[1], RED) and near(po[0], GREEN) and near(po[1], RED) and chk and near(co[0], GREEN) and near(co[1], RED) and dis_rec[1] is True,
             "Mirror ON: preview left/right = %s / %s (flipped), recorded file = %s / %s (flipped too); still ticked after reload=%s; camera-only view also flipped (%s / %s); checkbox disabled while recording=%s" % (pm[0], pm[1], po[0], po[1], chk, co[0], co[1], dis_rec[1]))
     # 7.4 persistence + different-resolution screen
-    r.page.click("#toggleScreen"); r.wait(300)
     r.select_screen(2, w=1600, h=900); r.wait(600)
     q5 = pip(r); cw = r.ev("[canvas.width, canvas.height]")
     pv = r.ev("p => __dr.readPreview(p)", [[q5["x"] + q5["w"] * 0.5, q5["y"] + q5["h"] * 0.85]])["pts"][0]
@@ -660,26 +660,27 @@ def s17_hint(r):
 
 def s18_misc(r):
     r.start()
+    # v1.33: the Screen button means one thing each way.
     # (1) dark + webcam off -> picker
     r.cfg(screenMode="ok", screenId=1); r.page.click("#toggleScreen"); r.wait(1000)
     a = r.ui(); c1 = calls(r)[1]
-    m1 = c1 == 1 and a["hasScreen"] and a["screenActive"] and GUARD not in (a["err"] or "")
-    # (2) lit, nothing else on -> off, guard reverts
-    r.page.click("#toggleScreen"); r.wait(300)
+    m1 = c1 == 1 and a["hasScreen"] and a["screenActive"] and (not a["err"] or "info" in a["errClass"])   # the one-time no-audio hint is fine
+    # (2) lit, webcam off -> stops showing the screen; no message, placeholder back
+    r.page.click("#toggleScreen"); r.wait(400)
     b = r.ui()
-    m2 = b["sources"]["screen"] and (b["err"] or "").startswith(GUARD)
-    # (4) capturing + webcam on -> simply disables the screen source
-    r.page.click("#toggleCamera"); r.page.wait_for_function("!!state.cameraStream"); r.wait(300)
-    r.page.click("#toggleScreen"); r.wait(500)
-    d = r.ui()
-    m4 = (not d["sources"]["screen"]) and (not d["hasScreen"]) and d["err"] == "" and not d["btnSelect"]["vis"]
-    # back to: screen intent on, dark, webcam on -> (3) camera-only entrance
-    r.page.click("#toggleScreen"); r.wait(300)
+    blank2 = sum(r.ev("__dr.readPreview([[0.5,0.3]])")["pts"][0])   # the released screen must not show through behind the placeholder text
+    m2 = (not b["hasScreen"]) and b["placeholder"] and not b["err"] and b["btnRecord"]["dis"] and b["btnSelect"]["vis"] and blank2 < 30
+    # (3) dark + webcam ON -> still the picker (the owner-reported confusion: it used to flip a hidden mode)
+    r.page.click("#toggleCamera"); r.page.wait_for_function("!!state.cameraStream"); r.wait(500)
+    camonly = r.ui()
+    r.cfg(screenMode="ok", screenId=2); r.page.click("#toggleScreen"); r.wait(1000)
+    d = r.ui(); c3 = calls(r)[1]
+    m3 = (not camonly["sources"]["screen"]) and (not camonly["btnRecord"]["dis"]) and camonly["btnSelect"]["vis"] and c3 == c1 + 1 and d["hasScreen"] and d["hasCam"] and d["sources"]["screen"]
+    # (4) lit + webcam on -> screen off -> webcam alone fills the preview, Record available, Select Screen still there
+    r.page.click("#toggleScreen"); r.wait(600)
     e = r.ui()
-    r.page.click("#toggleScreen"); r.wait(500)
-    f = r.ui(); c3 = calls(r)[1]
-    m3 = e["sources"]["screen"] and not e["hasScreen"] and (not f["sources"]["screen"]) and c3 == c1 and not f["btnRecord"]["dis"]
-    r.check("18.1", m1 and m2 and m3 and m4, "(1) dark+webcam off -> picker opened, no guard text: %s; (2) lit, only source -> reverted with guard banner: %s; (3) dark+webcam on -> camera-only, no picker: %s; (4) capturing+webcam on -> screen source simply off: %s" % (m1, m2, m3, m4))
+    m4 = (not e["hasScreen"]) and (not e["sources"]["screen"]) and e["hasCam"] and (not e["placeholder"]) and (not e["btnRecord"]["dis"]) and e["btnSelect"]["vis"] and not e["err"] and calls(r)[1] == c3
+    r.check("18.1", m1 and m2 and m3 and m4, "v1.33 Screen button: (1) dark, webcam off -> picker opened: %s; (2) lit -> stops showing the screen, no message, placeholder back: %s; (3) dark with webcam on (webcam-only, Record available, Select Screen visible) -> picker opened again: %s; (4) lit with webcam on -> webcam alone in the preview, Record available, Select Screen visible: %s" % (m1, m2, m3, m4))
     # 18.2 cancelled re-selection
     r.start()
     r.select_screen(1)
