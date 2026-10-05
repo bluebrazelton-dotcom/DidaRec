@@ -8,9 +8,14 @@ passed; the pass found real defects, logged as REVIEW #27–#33. **The build is
 not final.** `index.html` then got two one-line fixes (v1.26, 191a3b6: opaque
 canvas + first frame painted at once), rig-verified. Later the same day:
 **v1.27 (#29) and v1.28 (#31 message, #32)**, both rig-verified and
-owner-checked in real Chrome on the local file, committed on main, NOT
-pushed — the hosted page is still v1.26. Harness now **181 / 1287**
-(prefixes end at FO).
+owner-checked in real Chrome on the local file, **pushed 2026-10-04
+(ef7224e)**. Harness now **181 / 1287** (prefixes end at FO).
+**Full rig re-run on v1.28 DONE (2026-10-04/05):** Chrome 117 pass / 0
+fail across parts 1–4; Firefox 105 pass, failing only the known items
+(#30 memory 14.1/14.3, #28 first-cluster cuts 15.4/15.14b) plus part 4
+stopping at the #31 Record wait with the new message showing (so 14.4 did
+not run in Firefox). No regressions against the v1.26 baseline.
+**What's left is the owner's short list, on this build.**
 Browsers have moved: Chrome 154, Firefox 157 (baseline was FF 153).
 **Direction change this session: Chrome-first** (see Ground rules); README
 updated to recommend Chrome/Edge.
@@ -40,10 +45,14 @@ updated to recommend Chrome/Edge.
 - **#32** small UX items: caption-export notes in the editor and the "Kept"
   label **FIXED v1.28**, owner check PASSED; storage-stall item documented
   only. **#33** README part done; checklist wording still open.
-- v1.27/v1.28 rig results: `regression_rig/results_2026-10-04_v1.28/`
-  (Chrome part 1 is from the v1.27 build; parts 2–3 and the Firefox
-  cleanup-wait run are v1.28; `s15_review_c` errored once in a full part-2
-  run on v1.27 and passed alone and in the next full run — cause not found).
+- Final-build evidence: `regression_rig/results_2026-10-04_v1.28_full/`
+  (full re-run, both browsers, parts 1–4, merged.json and the rebuilt
+  results page). The results page artifact was republished from it
+  2026-10-05: open Firefox items first, fixed findings marked FIXED, Y2 and
+  Y11 reworded, Chrome-first order in the intro.
+  `results_2026-10-04_v1.28/` holds the partial runs made while fixing
+  (`s15_review_c` errored once in a full part-2 run on v1.27 and passed
+  alone and in two later full runs — cause not found).
 - Evidence: `regression_rig/results_2026-10-04/` (per-item JSON, built
   results page, memory samples). Results page artifact:
   claude.ai/artifact/WdEhAyUEdwEMdU84xPiWrs (owner's 11-task short list).
@@ -200,16 +209,14 @@ updated to recommend Chrome/Edge.
      in the README rather than fixed, and #30 is fixed only if Y11 confirms
      it AND it risks losing a recording. Docs #33: README part done
      2026-10-04; checklist wording still open.
-  3. Re-run the rig on the fixed build (parts 1–3 ≈ 25 min per browser;
-     part 4 ≈ 45 min).
-  4. Owner runs the remaining short-list tasks once, on the final build:
+  3. DONE 2026-10-04/05: rig re-run on v1.28 (parts 1–3 ≈ 25 min per
+     browser; part 4 ≈ 65–75 min per browser).
+  4. **NEXT:** Owner runs the remaining short-list tasks once, on the final build:
      the Chrome column in full; Firefox as a smoke pass (Y1, Y8, Y10).
   5. Then #19's faculty guide.
-- Unpushed: main is ahead of origin by the v1.27 and v1.28 commits (fix,
-  rig, docs). Push when the owner says so, then repeat the two real-Chrome
-  checks on the hosted page if wanted. Older note: the rig commit
-  includes `original_checklist.html`, previously kept out of the repo —
-  decide before pushing.
+- Pushed through v1.28 (ef7224e). Not yet committed at the time of writing:
+  the full re-run results folder, the results-page build script/template
+  updates, and this handoff update — commit when the owner says so.
 - Roadmap remainder (REVIEW feature map): chapter hotkeys + sidecar
   export, mediabunny remux (Cues/MP4) — all unscheduled,
   owner-priority-driven. (Stale "caption VTT/SRT import" entry removed
