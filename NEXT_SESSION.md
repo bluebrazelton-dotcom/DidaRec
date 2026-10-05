@@ -23,8 +23,10 @@ updated to recommend Chrome/Edge.
 - **#28 First-cluster cuts are never refined** (`computeCutPlan` k===0).
   Firefox's first cluster is 7–9 s: typed 0:07 → "start over" prompt.
 - **#29 Chrome: gesture-less stop can't open the save dialog** ("Stop
-  sharing", auto-stops) → "Save failed … use Recovery". CONFIRMED by the
-  owner in real Chrome 2026-10-04; recovery works. Next fix.
+  sharing", auto-stops) → "Save failed … use Recovery".
+  **FIXED v1.27** ("Recording stopped — ready to save" banner; the Save
+  recording click runs the same save). Owner check PASSED 2026-10-04 in
+  real Chrome on the local file. Harness now **178 / 1266** (FH–FL).
 - **#30 Firefox save memory spike** (+1.1 to +1.8 GB on 100–400 MB files,
   test build 151). Needs owner confirmation on real Firefox (Y11).
 - **#31 Firefox: Record stuck on "Starting…"** behind cleanup after a large
@@ -118,6 +120,8 @@ updated to recommend Chrome/Edge.
 - ● **Chrome's save dialog needs a user gesture.** Any stop the user didn't
   click in the page (Stop sharing, write failure, watchdog) cannot call
   showSaveFilePicker (#29). The rig's stand-in dialog enforces this.
+  Handled since v1.27 by the Save recording banner (saveDialogNeedsClick /
+  offerSaveClick); any new save entry point must start from a click.
 
 ## Load-bearing invariants (do not break)
 
@@ -179,7 +183,7 @@ updated to recommend Chrome/Edge.
   fixes.** Order:
   1. DONE for #29 (Y2 confirmed 2026-10-04). Y11 (#30, Firefox memory) still
      open and optional under Chrome-first.
-  2. Fix session(s): #27 DONE (v1.26). Next: #29 (confirmed), then
+  2. Fix session(s): #27 DONE (v1.26), #29 DONE (v1.27). Next:
      #31, #32. Under Chrome-first, #28 is documented
      in the README rather than fixed, and #30 is fixed only if Y11 confirms
      it AND it risks losing a recording. Docs #33: README part done

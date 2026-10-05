@@ -764,7 +764,7 @@ typing 0:07 on a 20 s recording raised the "discard everything?" prompt
 whole take and landed 3.2 s early. Cuts past the first cluster were accurate
 to a quarter second (12.4 s, 63.3 s, re-cut at 10 s).
 
-### 29. Chrome: a stop with no user gesture cannot open the save dialog — P1, CONFIRMED in real Chrome 2026-10-04
+### 29. Chrome: a stop with no user gesture cannot open the save dialog — P1 — ✓ FIXED v1.27
 
 `showSaveFilePicker` needs transient user activation. When the browser's own
 "Stop sharing" ends the capture (`wireScreenEndedListener` handler →
@@ -781,6 +781,18 @@ banner; after a refresh the recovery banner appeared and Recover & save
 produced the file. Fix direction: a save that starts from a click — e.g. a
 "Save recording" button shown whenever a stop the user didn't click in the
 page can't open the dialog.
+
+**Fixed v1.27:** with no click (`navigator.userActivation.isActive` false),
+`finalizeRecording` shows a "Recording stopped — ready to save" banner whose
+**Save recording** button runs the same save (`saveStoppedRecording`); **Not
+now** leaves the recording for Recovery. A `SecurityError` from the dialog
+leads to the same banner, including from inside `stitchAndSave` (which used to
+show the stitch-fallback banner). Record is refused while the banner is up.
+Harness FH–FL; rig 5.7b passes on the fix and fails on the previous commit.
+Owner check PASSED 2026-10-04 in real Chrome (local file): banner appeared,
+dialog opened, file plays to the end. Not covered: a multi-part save (stitch
+fallback, recovery bail) whose second dialog opens after a long first write
+can still be refused.
 
 ### 30. Firefox: saving a long recording spiked memory far past the file size — P1, CONFIRM FIRST (owner task Y11)
 

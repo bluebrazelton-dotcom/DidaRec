@@ -2238,6 +2238,38 @@ what a browser encodes.
 **Owner acceptance PASSED 2026-10-04**, real Chrome on the hosted page:
 mic-off clip, timer 0:10, saved file 0:10, plays to the end.
 
+### v1.27 — A save that starts from a click (#29) (2026-10-04)
+
+Chrome opens the save dialog only while the page is handling a click.
+A stop the user didn't click in the page (the browser's "Stop sharing"
+bar, the stop watchdog, a dead-recorder salvage) has none, so
+`showSaveFilePicker` threw and the app showed "Save failed … use
+Recovery". On a continued recording the same refusal surfaced as the
+"Couldn't combine the segments" banner.
+
+**Fix.** `finalizeRecording` checks `navigator.userActivation.isActive`
+before saving. With no click it shows a new banner, "Recording stopped —
+ready to save", with **Save recording** and **Not now — keep it stored
+here**. The save half of `finalizeRecording` moved verbatim into
+`saveStoppedRecording()`, which the button calls. Backstop: a
+`SecurityError` from the dialog (a click that went stale mid-save) leads
+to the same banner, and `stitchAndSave` passes it through instead of
+offering separate parts. Record is refused while the banner is up, so a
+new recording can't chain onto the unsaved one. Stop & review and Firefox
+are unaffected. The streamed save functions are untouched.
+
+**Verification.** Harness: **178 scenarios / 1266 assertions** (FH–FL
+new). Rig, Chrome 154: the "Stop sharing" check (5.7b) passes on this
+build and fails on the previous commit (control); part 1 59 pass / 0
+fail; part 2 33 pass, with `s15_review_c` erroring once in the full run
+and passing when re-run alone (cause not found). Firefox not run.
+
+**Owner check PASSED 2026-10-04**, real Chrome, local file: banner
+appeared, dialog opened, file plays to the end.
+
+Not covered: a multi-part save (stitch fallback, recovery bail) whose
+second dialog opens after a long first write can still be refused.
+
 ---
 
 ## Known limitations
