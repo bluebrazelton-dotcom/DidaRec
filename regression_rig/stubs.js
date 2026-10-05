@@ -54,7 +54,38 @@
       const x = (ds * 13) % Math.max(1, c.width - 60);
       g.fillStyle = '#ffcc00'; g.fillRect(x, c.height * 0.7, 60, 40);
     }
-    const baseDraw = draw;
+    // "Demo" look (guide screenshots, demo video): a plain lecture slide instead of
+    // the measuring pattern. Never used by the checks - they need the barcode.
+    const SLIDES = [
+      ['Week 3: How plants make food', ['Sunlight, water and air go in', 'Sugar and oxygen come out', 'It happens in the leaves']],
+      ['Inside a leaf', ['Tiny openings let air in', 'Green chlorophyll catches light', 'Veins carry water up from the roots']],
+      ['Try it yourself', ['Put one plant in a sunny window', 'Put another in a dark cupboard', 'Compare them after one week']],
+    ];
+    function drawDemo() {
+      const W = c.width, H = c.height, u = H / 720;
+      const [title, points] = SLIDES[(id - 1 + SLIDES.length * 4) % SLIDES.length];
+      g.fillStyle = '#f7f5ef'; g.fillRect(0, 0, W, H);
+      g.fillStyle = '#2f6f4f'; g.fillRect(0, 0, W, 14 * u);
+      g.fillStyle = '#1d2a24'; g.textBaseline = 'alphabetic';
+      g.font = '600 ' + Math.round(54 * u) + 'px "Segoe UI", Arial, sans-serif';
+      g.fillText(title, W * 0.07, 150 * u);
+      g.fillStyle = '#2f6f4f'; g.fillRect(W * 0.07, 178 * u, W * 0.12, 6 * u);
+      g.font = Math.round(36 * u) + 'px "Segoe UI", Arial, sans-serif';
+      points.forEach((p, i) => {
+        const y = (280 + i * 84) * u;
+        g.fillStyle = '#2f6f4f'; g.beginPath(); g.arc(W * 0.085, y - 12 * u, 8 * u, 0, Math.PI * 2); g.fill();
+        g.fillStyle = '#26332d'; g.fillText(p, W * 0.11, y);
+      });
+      // a small sun-and-leaf drawing on the right
+      const cx = W * 0.82, cy = 330 * u;
+      g.fillStyle = '#f2b632'; g.beginPath(); g.arc(cx, cy - 110 * u, 46 * u, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#4c9a6a'; g.beginPath(); g.ellipse(cx, cy + 60 * u, 62 * u, 110 * u, Math.PI / 5, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = '#2f6f4f'; g.lineWidth = 5 * u; g.beginPath(); g.moveTo(cx - 55 * u, cy + 140 * u); g.lineTo(cx + 50 * u, cy - 20 * u); g.stroke();
+      g.fillStyle = '#7b857f'; g.font = Math.round(22 * u) + 'px "Segoe UI", Arial, sans-serif';
+      g.fillText('Biology 101', W * 0.07, H - 40 * u);
+      g.fillText(String(((id - 1) % SLIDES.length) + 1) + ' / ' + SLIDES.length, W * 0.9, H - 40 * u);
+    }
+    const baseDraw = cfg.demo ? drawDemo : draw;
     const drawAll = () => {
       baseDraw();
       if (cfg.noise) {
@@ -92,6 +123,26 @@
     const c = document.createElement('canvas'); c.width = 640; c.height = 480;
     const g = c.getContext('2d');
     let n = 0;
+    // "Demo" look: a simple drawn presenter, for guide screenshots and the demo video.
+    const drawDemoCam = () => {
+      n++;
+      g.fillStyle = '#c9d6e2'; g.fillRect(0, 0, 640, 480);
+      g.fillStyle = '#b4c4d3'; g.fillRect(0, 300, 640, 180);
+      g.fillStyle = '#3d5a80'; g.beginPath(); g.ellipse(320, 520, 210, 170, 0, 0, Math.PI * 2); g.fill();   // shoulders
+      g.fillStyle = '#e8b796'; g.fillRect(290, 300, 60, 70);                                                 // neck
+      g.beginPath(); g.arc(320, 230, 95, 0, Math.PI * 2); g.fill();                                          // head
+      g.fillStyle = '#4a3728'; g.beginPath(); g.arc(320, 200, 100, Math.PI, Math.PI * 2); g.fill();          // hair
+      g.fillStyle = '#2b2b2b'; g.beginPath(); g.arc(285, 235, 8, 0, Math.PI * 2); g.arc(355, 235, 8, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = '#8a4b3a'; g.lineWidth = 5; g.beginPath(); g.arc(320, 262, 34, 0.15 * Math.PI, 0.85 * Math.PI); g.stroke();
+    };
+    if (dr.cfg.demo) {
+      drawDemoCam();
+      const ivd = onTick(drawDemoCam);
+      const sd = c.captureStream(30);
+      const vd = sd.getVideoTracks()[0];
+      const wd = setInterval(() => { if (vd.readyState === 'ended') { offTick(ivd); clearInterval(wd); } }, 500);
+      return sd;
+    }
     const draw = () => {
       n++;
       g.fillStyle = 'rgb(200,0,0)'; g.fillRect(0, 0, 320, 480);
