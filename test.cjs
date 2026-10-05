@@ -1430,38 +1430,42 @@ async function scenario(name, fn) {
   // ============================================================
   // Camera-only discoverability (v1.12)
   // ============================================================
-  await scenario('AG screen-off with camera off is a no-op with a visible explanation', async () => {
-    // Re-pinned for the v1.22.2 dark-click-opens-picker change: with NO
-    // stream the same click now opens the picker instead (scenario EI), so
-    // the guard's message only ever fires from the Screen button when a
-    // screen is GENUINELY being captured — which is exactly when the
-    // "turned back on" wording is accurate. Give the toggle a live stream.
+  // v1.33 (REVIEW #41) re-pin of AG/AH/AI: there is no separate "screen
+  // intent" to flip any more. Camera-only is simply "webcam on, no screen
+  // selected", so the at-least-one guard and its message are gone.
+  await scenario('AG a click on the LIT Screen button stops showing that screen: stream stopped, button dark, placeholder back, no message', async () => {
     state.sources = { screen: true, camera: false, mic: true };
     let stopped = 0;
-    state.screenStream = makeStream([{ kind: 'video', stop() { stopped++; } }]);
+    state.screenStream = makeStream([{ kind: 'video', stop() { stopped++; }, removeEventListener() {} }]);
     sandbox.toggleSource('screen');
-    assert(state.sources.screen === true, 'screen forced back on (guard still enforced)');
-    assert(recordedErrors.length > 0 && /screen/i.test(recordedErrors[recordedErrors.length - 1]), 'a message explains the revert (got: ' + JSON.stringify(recordedErrors) + ')');
-    assert(stopped === 0 && state.screenStream !== null, 'the live screen stream survives the guarded no-op');
-    state.screenStream = null;
+    assert(stopped === 1 && state.screenStream === null, 'the selected screen is released');
+    assert(state.sources.screen === true, 'still screen mode (webcam is off, so there is nothing else to record)');
+    assert(!recordedErrors.some(m => m), 'no message — nothing was refused (got: ' + JSON.stringify(recordedErrors) + ')');
+    assert(!documentMock.getElementById('placeholder').classList.contains('hidden'), 'placeholder back');
+    assert(documentMock.getElementById('btnRecord').disabled === true, 'Record waits for a screen (or the webcam)');
   });
 
-  await scenario('AH camera-only is reachable: screen-off with camera already on', async () => {
-    state.sources = { screen: true, camera: true, mic: true };
-    state.cameraStream = makeStream([{ kind: 'video', getSettings: () => ({ width: 320, height: 240 }), addEventListener() {}, stop() {} }]);
-    sandbox.toggleSource('screen');
-    assert(state.sources.screen === false && state.sources.camera === true, 'camera-only state reached');
-    assert(recordedErrors[recordedErrors.length - 1] === '', 'no stale hint shown for a real toggle');
+  await scenario('AH camera-only is simply "webcam on, no screen selected": turning the webcam on with no screen shows it full-frame and enables Record; Select Screen stays visible', async () => {
+    state.sources = { screen: true, camera: false, mic: true };
+    sandbox.navigator.mediaDevices.getUserMedia = async () => makeStream([{ kind: 'video', getSettings: () => ({ width: 320, height: 240 }), addEventListener() {}, stop() {} }]);
+    sandbox.toggleSource('camera');
+    await drain();
+    assert(state.sources.screen === false && state.sources.camera === true, 'camera-only state reached by the Webcam click alone');
+    assert(!recordedErrors.some(m => m), 'no message shown');
     assert(documentMock.getElementById('placeholder').classList.contains('hidden'), 'placeholder hidden — the viewer shows the camera, not a blank canvas');
     assert(typeof state.drawFrame === 'function', 'compositing started for the camera-only preview');
+    assert(documentMock.getElementById('btnRecord').disabled === false, 'Record is available for a webcam-only take');
+    assert(documentMock.getElementById('btnSelectScreen').style.display !== 'none', 'Select Screen stays visible in camera-only');
   });
 
-  await scenario('AI toggling camera off in camera-only mode reverts with an explanation', async () => {
+  await scenario('AI turning the webcam off in camera-only returns to the plain "select a screen" state — silently, placeholder back, Record waiting', async () => {
     state.sources = { screen: false, camera: true, mic: true };
+    state.cameraStream = makeStream([{ kind: 'video', getSettings: () => ({ width: 320, height: 240 }), addEventListener() {}, stop() {} }]);
     sandbox.toggleSource('camera');
-    assert(state.sources.screen === true && state.sources.camera === false, 'reverted to screen mode');
-    assert(recordedErrors.length > 0 && /screen/i.test(recordedErrors[recordedErrors.length - 1]), 'the snap-back is explained, not silent');
+    assert(state.sources.screen === true && state.sources.camera === false, 'back in screen mode');
+    assert(!recordedErrors.some(m => m), 'nothing to explain — no message (got: ' + JSON.stringify(recordedErrors) + ')');
     assert(!documentMock.getElementById('placeholder').classList.contains('hidden'), 'placeholder restored — no dead canvas after leaving camera-only');
+    assert(documentMock.getElementById('btnRecord').disabled === true, 'Record waits for a screen again');
   });
 
   await scenario('AJ camera defaults off (no stream at load, so the toggle is truthful)', async () => {
@@ -5393,49 +5397,70 @@ Real cue text
   // screen" — clicking it opens the picker instead of flipping intent
   // off and tripping the at-least-one guard with an inaccurate message.
   // ============================================================
-  await scenario('EI clicking the dark Screen button (intent on, no stream) opens the picker; a lit one still toggles off; webcam-only click still just re-enables intent', async () => {
+  await scenario('EI the Screen button means one thing each way (v1.33): dark = open the picker, ALWAYS (webcam on or off); lit = stop showing the screen; from camera-only the same dark click opens the picker', async () => {
     const origSelect = sandbox.selectScreen;
     let selectCalls = 0;
     sandbox.selectScreen = async () => { selectCalls++; };
 
-    // (a) load / post-recording shape: intent on, no stream -> picker, no
-    // intent flip, no guard error.
+    // (a) dark, webcam off (page load / after a recording): picker.
     state.sources = { screen: true, camera: false, mic: false };
     state.screenStream = null;
     sandbox.toggleSource('screen');
-    assert(selectCalls === 1, 'EI: dark-with-intent click opens the screen picker (got ' + selectCalls + ' calls)');
-    assert(state.sources.screen === true, 'EI: intent stays on — the click was never a toggle-off');
-    assert(recordedErrors.length === 0, 'EI: no at-least-one guard error fires (got ' + JSON.stringify(recordedErrors) + ')');
+    assert(selectCalls === 1, 'EI: dark click opens the screen picker (got ' + selectCalls + ' calls)');
+    assert(recordedErrors.length === 0 || !recordedErrors.some(m => m), 'EI: no message (got ' + JSON.stringify(recordedErrors) + ')');
 
-    // (b) lit (intent on, stream live, camera also on so the toggle-off is
-    // legal): the click is a real toggle-off — stream stopped, picker
-    // untouched.
+    // (b) dark, webcam ON (camera-only): STILL the picker — this was the
+    // owner-reported confusion, where the click used to flip a hidden mode
+    // and only made Select Screen appear or disappear.
+    state.sources = { screen: false, camera: true, mic: false };
+    state.cameraStream = makeStream([{ kind: 'video', getSettings: () => ({ width: 320, height: 240 }), addEventListener() {}, stop() {} }]);
+    sandbox.toggleSource('screen');
+    assert(selectCalls === 2, 'EI: with the webcam on, a dark Screen click still opens the picker');
+    assert(state.sources.camera === true && state.cameraStream !== null, 'EI: the webcam is untouched by that click');
+
+    // (c) lit, webcam on: stop showing the screen -> camera-only, camera
+    // full-frame, picker untouched.
     let stopped = 0;
     state.sources = { screen: true, camera: true, mic: false };
-    state.screenStream = makeStream([{ kind: 'video', stop() { stopped++; } }]);
-    state.cameraStream = makeStream([{ kind: 'video', stop() {} }]);
+    state.screenStream = makeStream([{ kind: 'video', stop() { stopped++; }, removeEventListener() {} }]);
     sandbox.toggleSource('screen');
-    assert(selectCalls === 1, 'EI: a lit Screen click never opens the picker');
-    assert(state.sources.screen === false, 'EI: a lit Screen click toggles intent off as before');
-    assert(stopped === 1 && state.screenStream === null, 'EI: the live screen stream is stopped on toggle-off');
+    assert(selectCalls === 2, 'EI: a lit Screen click never opens the picker');
+    assert(stopped === 1 && state.screenStream === null, 'EI: the selected screen is released');
+    assert(state.sources.screen === false, 'EI: webcam on + no screen = camera-only');
+    assert(documentMock.getElementById('placeholder').classList.contains('hidden') && typeof state.drawFrame === 'function', 'EI: the webcam fills the preview');
+    assert(documentMock.getElementById('btnSelectScreen').style.display !== 'none', 'EI: Select Screen is still visible');
+    assert(documentMock.getElementById('btnRecord').disabled === false, 'EI: Record available for a webcam-only take');
 
-    // (c) webcam-only (intent off): the click just re-enables screen intent
-    // — Select Screen appears, the picker is NOT auto-opened (second click,
-    // now dark-with-intent, would open it via (a)).
+    // (d) and from there the dark click is the picker again.
     sandbox.toggleSource('screen');
-    assert(selectCalls === 1, 'EI: re-enabling screen intent from webcam-only does not auto-open the picker');
-    assert(state.sources.screen === true && state.screenStream === null, 'EI: intent back on, still no stream — the button correctly stays dark');
-    assert(documentMock.getElementById('btnSelectScreen').style.display === '', 'EI: Select Screen is visible again after re-enabling');
-
-    // (a2) with the webcam still ON, the dark-with-intent click is the
-    // v1.12 camera-only entrance, NOT the picker shortcut (scenario AH's
-    // flow) — the round trip lands back in camera-only and the picker
-    // count is untouched.
-    sandbox.toggleSource('screen');
-    assert(selectCalls === 1, 'EI: webcam-on keeps the dark Screen click as the camera-only entrance — no picker');
-    assert(state.sources.screen === false && state.sources.camera === true, 'EI: round trip lands back in camera-only');
+    assert(selectCalls === 3, 'EI: dark again -> picker again');
     sandbox.selectScreen = origSelect;
+    api.stopCompositing();
     state.cameraStream = null;
+  });
+
+  await scenario('EI2 selecting a screen from camera-only switches to screen-with-webcam; cancelling the picker there keeps the webcam preview; after a recording with the webcam on, Record is available and the placeholder says so', async () => {
+    state.sources = { screen: false, camera: true, mic: false };
+    state.cameraStream = makeStream([{ kind: 'video', getSettings: () => ({ width: 320, height: 240 }), addEventListener() {}, stop() {} }]);
+    sandbox.refreshIdlePreview();
+    assert(state.sources.screen === false && documentMock.getElementById('placeholder').classList.contains('hidden'), 'EI2 precondition: camera-only preview');
+
+    sandbox.navigator.mediaDevices.getDisplayMedia = async () => { const e = new Error('cancelled'); e.name = 'NotAllowedError'; throw e; };
+    await sandbox.selectScreen();
+    assert(state.sources.screen === false && typeof state.drawFrame === 'function' && documentMock.getElementById('placeholder').classList.contains('hidden'), 'EI2: a cancelled picker leaves the webcam preview running');
+
+    sandbox.navigator.mediaDevices.getDisplayMedia = ORIG.getDisplayMedia;
+    await sandbox.selectScreen();
+    assert(state.screenStream !== null && state.sources.screen === true, 'EI2: a selected screen switches to screen mode (webcam becomes the corner picture)');
+
+    await api.startRecording();
+    assert(state.recording === true, 'EI2 precondition: recording');
+    await sandbox.stopRecording();
+    await drain();
+    assert(state.sources.camera === true && state.screenStream === null && state.sources.screen === false, 'EI2: after the recording, webcam still on + no screen = camera-only');
+    assert(documentMock.getElementById('btnRecord').disabled === false, 'EI2: Record is available straight away');
+    assert(/Webcam is on/.test(documentMock.getElementById('placeholderText').textContent), 'EI2: the placeholder says the webcam is on (got ' + documentMock.getElementById('placeholderText').textContent + ')');
+    assert(state.cameraStream === null, 'EI2: the camera itself stays off until Record or Select Screen');
   });
 
   // ============================================================
@@ -6252,7 +6277,7 @@ Real cue text
   await scenario('FG camera-only recordings never reach selectScreen, so the audio hint can never fire for them — asserted directly, not just by code-path inspection', async () => {
     state.sources = { screen: true, camera: true, mic: false };
     state.cameraStream = makeStream([{ kind: 'video', getSettings: () => ({ width: 320, height: 240 }), addEventListener() {}, stop() {} }]);
-    sandbox.toggleSource('screen'); // reaches camera-only exactly like AH — selectScreen is never called
+    sandbox.refreshIdlePreview(); // reaches camera-only exactly like AH — selectScreen is never called
     assert(state.sources.screen === false && state.sources.camera === true, 'FG precondition: camera-only reached');
     assert(state.screenStream === null, 'FG precondition: no screen stream exists in camera-only mode');
 
@@ -6365,7 +6390,7 @@ Real cue text
 
     state.sources = { screen: true, camera: true, mic: false };
     state.cameraStream = makeStream([{ kind: 'video', getSettings: () => ({ width: 320, height: 240 }), addEventListener() {}, stop() {} }]);
-    sandbox.toggleSource('screen');
+    sandbox.refreshIdlePreview();
     await api.startRecording();
     assert(state.recording === true, 'FK: Record works again after Not now');
     sandbox.navigator.userActivation = { isActive: true };
@@ -6419,7 +6444,7 @@ Real cue text
     const camOnly = () => {
       state.sources = { screen: true, camera: true, mic: false };
       state.cameraStream = makeStream([{ kind: 'video', getSettings: () => ({ width: 320, height: 240 }), addEventListener() {}, stop() {} }]);
-      sandbox.toggleSource('screen');
+      sandbox.refreshIdlePreview();
     };
     // The real path: a confirmed download leaves a background sweep running.
     const id = await seed(3);
@@ -6549,7 +6574,7 @@ Real cue text
     assert(recBannerUp(), 'FS: banner up again for the second kept recording');
     state.sources = { screen: true, camera: true, mic: false };
     state.cameraStream = makeStream([{ kind: 'video', getSettings: () => ({ width: 320, height: 240 }), addEventListener() {}, stop() {} }]);
-    sandbox.toggleSource('screen');
+    sandbox.refreshIdlePreview();
     await api.startRecording();
     assert(state.recording === true && !recBannerUp(), 'FS: starting to record hides the kept banner');
     assert(state.priorSegments.length === 1 && state.priorSegments[0].sessionId === id2, 'FS: the kept footage is still the chain\'s first segment');
@@ -6726,7 +6751,7 @@ Real cue text
     await resetState();
     state.sources = { screen: true, camera: true, mic: false };
     state.cameraStream = makeStream([camTrack()]);
-    sandbox.toggleSource('screen'); // camera-only
+    sandbox.refreshIdlePreview(); // camera-only
     await api.startRecording();
     sandbox.pauseResume();
     assert(el29('toggleCamera').disabled === true, 'FY: camera-only recording — Webcam stays locked while paused');

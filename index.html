@@ -770,7 +770,7 @@
         <rect x="2" y="3" width="20" height="14" rx="2"/>
         <path d="M8 21h8M12 17v4"/>
       </svg>
-      <span>Select a screen to preview, then click Record</span>
+      <span id="placeholderText">Select a screen to preview, then click Record</span>
     </div>
   </div>
 
@@ -949,7 +949,7 @@
 
 <footer>
   <div>Click "Select Screen" to choose which screen, window, or tab to record. Your browser will show a popup — this is a required security step the app cannot bypass.</div>
-  <div style="margin-top: 0.5rem;">DidaRec <span id="appVersion">v1.32</span> by DidaWorks &middot; Open source &middot; MIT License &middot; No account, no server, no watermark, no time limits</div>
+  <div style="margin-top: 0.5rem;">DidaRec <span id="appVersion">v1.33</span> by DidaWorks &middot; Open source &middot; MIT License &middot; No account, no server, no watermark, no time limits</div>
 </footer>
 
 <script>
@@ -1370,6 +1370,61 @@ async function cleanupCompleted() {
 // ============================================================
 // Source toggles
 // ============================================================
+// v1.33 (REVIEW #41): "screen mode" follows what is actually selected. It used
+// to be a separate on/off intent that the Screen button flipped, which gave
+// that button four different meanings. Now camera-only
+// (state.sources.screen === false) is exactly "webcam on, no screen
+// selected"; everything else is screen mode. Call after anything that
+// changes the selected screen or the webcam, outside a recording.
+function syncScreenMode() {
+  state.sources.screen = !!state.screenStream || !state.sources.camera;
+}
+
+function updatePlaceholderText() {
+  const el = document.getElementById('placeholderText');
+  if (!el) return;
+  el.textContent = (state.sources.camera && !state.screenStream)
+    ? 'Webcam is on — click Record to record just yourself, or Select Screen to add a screen'
+    : 'Select a screen to preview, then click Record';
+}
+
+// Redraw the idle preview after the screen selection or the webcam changed:
+// the screen (with the webcam in its corner, if on), the webcam full-frame
+// (camera-only with a live camera), or the placeholder.
+function refreshIdlePreview() {
+  syncScreenMode();
+  stopCompositing();
+  const ph = document.getElementById('placeholder');
+  if (state.screenStream || (!state.sources.screen && state.cameraStream)) {
+    startCompositing();
+    ph.classList.add('hidden');
+  } else {
+    ph.classList.remove('hidden');
+    // Wipe the last frame: the placeholder sits on top of the canvas, so a
+    // leftover picture of the screen that was just released would show
+    // through behind its text (owner check, v1.33).
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+  updatePlaceholderText();
+  updateToggleUI();
+  updateRecordButton();
+}
+
+// Stop showing the selected screen — a click on the lit Screen button.
+function deselectScreen() {
+  if (!state.screenStream) return;
+  unwireScreenEndedListener(); // our own stop() below must not look like "Stop sharing"
+  state.screenStream.getTracks().forEach(t => t.stop());
+  state.screenStream = null;
+  screenVideo.srcObject = null;
+  const btnSelect = document.getElementById('btnSelectScreen');
+  btnSelect.classList.remove('selected');
+  btnSelect.textContent = 'Select Screen';
+  showError('');
+  refreshIdlePreview();
+}
+
 function toggleSource(source) {
   if (state.recording) {
     // Locked for the whole recording, with one exception (REVIEW #34): while
@@ -1377,66 +1432,25 @@ function toggleSource(source) {
     if (state.paused && (source === 'camera' || source === 'mic')) togglePausedSource(source);
     return;
   }
-  // Screen shows dark when intent is on but nothing is captured (see
-  // updateToggleUI) — with the webcam OFF, a click there can only mean
-  // "get me a screen": open the picker directly instead of flipping intent
-  // off and tripping the at-least-one guard with a message that would be
-  // wrong (no screen was ever on). Covers page load AND the armed state
-  // after every recording (streams are released at stop, so the button is
-  // dark until the next Select Screen). The webcam-ON case is deliberately
-  // excluded: there the same dark click is the v1.12 camera-only entrance
-  // (scenario AH) — hijacking it for the picker would leave camera-only
-  // unreachable, since Record stays disabled in screen mode without a
-  // stream.
-  if (source === 'screen' && state.sources.screen && !state.screenStream && !state.sources.camera) {
-    selectScreen();
+  if (source === 'screen') {
+    // One meaning each way (v1.33): dark = pick a screen, lit = stop showing it.
+    if (state.screenStream) deselectScreen(); else selectScreen();
     return;
   }
   state.sources[source] = !state.sources[source];
-  // At least one video source must be on
-  if (!state.sources.screen && !state.sources.camera) {
-    state.sources.screen = true;
-    showError('At least one of Screen or Webcam has to stay on, so Screen was turned back on.');
-  } else {
-    showError('');
+  showError('');
+  if (source === 'camera') {
+    // Webcam on with no screen selected IS camera-only; no separate switch.
+    syncScreenMode();
+    updatePlaceholderText();
+    updateToggleUI();
+    updateRecordButton();
+    // Start or stop camera preview immediately
+    if (state.sources.camera) startCameraPreview(); else stopCameraPreview();
+    return;
   }
   updateToggleUI();
   updateRecordButton();
-
-  // Show/hide Select Screen button based on whether screen source is active
-  const btnSelect = document.getElementById('btnSelectScreen');
-  if (state.sources.screen) {
-    btnSelect.style.display = '';
-  } else {
-    btnSelect.style.display = 'none';
-    // If switching to camera-only, stop any existing screen stream
-    if (state.screenStream) {
-      state.screenStream.getTracks().forEach(t => t.stop());
-      state.screenStream = null;
-      screenVideo.srcObject = null;
-      stopCompositing();
-      document.getElementById('placeholder').classList.remove('hidden');
-      btnSelect.classList.remove('selected');
-      btnSelect.textContent = 'Select Screen';
-    }
-    // Camera-only with a live camera: composite the camera feed now.
-    // (Without this, "Webcam on → Screen off" leaves the placeholder up and
-    // the camera running into a hidden element — the viewer looks dead.)
-    if (state.sources.camera && state.cameraStream) {
-      stopCompositing();
-      startCompositing();
-      document.getElementById('placeholder').classList.add('hidden');
-    }
-  }
-
-  // Start or stop camera preview immediately
-  if (source === 'camera') {
-    if (state.sources.camera) {
-      startCameraPreview();
-    } else {
-      stopCameraPreview();
-    }
-  }
 
   // Start or stop the held mic stream immediately — mirrors the camera
   // preview above. toggleSource is only reachable from the toggle buttons'
@@ -1472,7 +1486,11 @@ async function startCameraPreview() {
     }
   } catch (err) {
     console.error('Camera preview failed:', err);
-    showError('Could not start camera: ' + err.message);
+    // A toggle left ON with no camera behind it would now mean "camera-only,
+    // ready to record" (v1.33) — turn it back off instead.
+    state.sources.camera = false;
+    refreshIdlePreview();
+    showError('Could not start the webcam. Check that it is connected and not in use by another app, then click Webcam again.');
   }
 }
 
@@ -1493,6 +1511,9 @@ function stopCameraPreview() {
     // state.sources.screen here misses the camera-only exit: the at-least-one
     // guard flips Screen back ON before this runs, leaving a dead canvas.)
     document.getElementById('placeholder').classList.remove('hidden');
+    // Wipe the last camera frame so it doesn't show behind the placeholder text.
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 }
 
@@ -4150,12 +4171,9 @@ function wireScreenEndedListener(stream) {
       // Screen share ended before recording started — reset
       state.screenStream = null;
       screenVideo.srcObject = null;
-      stopCompositing();
-      document.getElementById('placeholder').classList.remove('hidden');
       document.getElementById('btnSelectScreen').classList.remove('selected');
       document.getElementById('btnSelectScreen').textContent = 'Select Screen';
-      updateToggleUI();
-      updateRecordButton();
+      refreshIdlePreview(); // webcam alone if it is on, else the placeholder
     }
   };
   track.addEventListener('ended', handler);
@@ -4232,8 +4250,10 @@ async function selectScreen() {
     }
 
     // Start preview compositing (includes camera PiP if running)
+    syncScreenMode(); // a screen is selected now — out of camera-only, if we were in it
     startCompositing();
     document.getElementById('placeholder').classList.add('hidden');
+    updatePlaceholderText();
 
     // Update button states
     btnSelect.classList.add('selected');
@@ -4255,7 +4275,8 @@ async function selectScreen() {
     // resync everything that reflected it: selected styling, toggle light,
     // Record enablement, and the now-dead preview canvas.
     btnSelect.classList.remove('selected');
-    if (!state.screenStream) document.getElementById('placeholder').classList.remove('hidden');
+    // No screen after all: back to the webcam alone (if it is on) or the placeholder.
+    if (!state.screenStream) refreshIdlePreview();
     updateToggleUI();
     updateRecordButton();
   }
@@ -5696,6 +5717,8 @@ function resetUI() {
   document.getElementById('btnSelectScreen').textContent = 'Select Screen';
   document.getElementById('btnSelectScreen').classList.remove('selected');
   document.getElementById('placeholder').classList.remove('hidden');
+  syncScreenMode();        // v1.33: webcam still on + no screen = camera-only, Record available
+  updatePlaceholderText();
   updateToggleUI();
   updateRecordButton();
   // Show segment indicator if continuing a recording
