@@ -1,0 +1,37 @@
+{
+ "14.3": {
+  "status": "PASS",
+  "evidence": "30-min Best-quality session, tab killed, reopened ('Found 1765 chunks (~29m 25s, 364.1 MB) from 10/4/2026, 9:06:46 PM.'), Recover & save took 33s: file 364 MB / 30.0 min, plays and seeks (slowest of 8 jumps 138ms). During the save: committed memory (whole process tree) 504 MB before -> peak 539 MB (+35 MB = 10% of the file size; a buffered save would add 100%+). For reference, resident memory (working set, drifts with the machine): 657 -> 691 MB (+34 MB)",
+  "at": "2026-10-04 21:38:13"
+ },
+ "14.1": {
+  "status": "PASS",
+  "evidence": "30-min Best-quality recording (1764 chunks saved), Stop & save took 26s: file 367 MB. During 'Preparing/Saving': committed memory (whole process tree) 593 MB before -> peak 542 MB (-51 MB = -14% of the file size; a buffered save would add 100%+). For reference, resident memory (working set, drifts with the machine): 773 -> 729 MB (-44 MB). Banners during the run: none",
+  "at": "2026-10-04 22:09:18"
+ },
+ "14.2": {
+  "status": "PASS",
+  "evidence": "long file: player shows the full 30.1 min up front; 8 jumps across the whole length (50%, 5%, 95%, 25% ...) each land on the right frame (content-vs-time drift [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0] s), slowest 148ms",
+  "at": "2026-10-04 22:09:18"
+ },
+ "13.1L": {
+  "status": "PASS",
+  "evidence": "longer-file half of 13.1/13.2: 30.1-min file reports its total length and seeks (see 14.2)",
+  "at": "2026-10-04 22:09:18"
+ },
+ "14.4": {
+  "status": "PASS",
+  "evidence": "15s clip right after the long sessions: 16.1s, 16/16 frames valid",
+  "at": "2026-10-04 22:09:37"
+ },
+ "14.5": {
+  "status": "SKIP",
+  "evidence": "optional; an hour-plus multi-segment chain was not run",
+  "at": "2026-10-04 22:09:37"
+ },
+ "14.1b": {
+  "status": "PASS",
+  "evidence": "extra: clicking Record for the long session took 0.1s to start recording",
+  "at": "2026-10-04 22:09:37"
+ }
+}

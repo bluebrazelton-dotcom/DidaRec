@@ -1,0 +1,1458 @@
+{
+ "1.1": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "fresh profile, 1.5s after load: getUserMedia calls=0, getDisplayMedia calls=0, no banner (no media request means nothing can prompt)",
+   "at": "2026-10-04 20:26:01"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "fresh profile, 1.5s after load: getUserMedia calls=0, getDisplayMedia calls=0, no banner (no media request means nothing can prompt)",
+   "at": "2026-10-04 20:45:13"
+  }
+ },
+ "1.2": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "after reload: getUserMedia=0 getDisplayMedia=0",
+   "at": "2026-10-04 20:26:02"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "after reload: getUserMedia=0 getDisplayMedia=0",
+   "at": "2026-10-04 20:45:15"
+  }
+ },
+ "1.3": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "sources={\"screen\": true, \"camera\": false, \"mic\": false}; Webcam lit=False, Mic lit=False; Screen intent on but button dark until a screen is selected (lit=False, per v1.21.3); Record disabled=True",
+   "at": "2026-10-04 20:26:02"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "sources={\"screen\": true, \"camera\": false, \"mic\": false}; Webcam lit=False, Mic lit=False; Screen intent on but button dark until a screen is selected (lit=False, per v1.21.3); Record disabled=True",
+   "at": "2026-10-04 20:45:15"
+  }
+ },
+ "1.4": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "As written this is superseded by v1.22.2: untouched-state click opened the picker (getDisplayMedia calls=1, no guard text). From the lit state, clicking Screen off -> reverted ON with banner: 'At least one of Screen or Webcam has to stay on, so Screen was turned back on.'",
+   "at": "2026-10-04 20:26:04"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "As written this is superseded by v1.22.2: untouched-state click opened the picker (getDisplayMedia calls=1, no guard text). From the lit state, clicking Screen off -> reverted ON with banner: 'At least one of Screen or Webcam has to stay on, so Screen was turned back on.'",
+   "at": "2026-10-04 20:45:17"
+  }
+ },
+ "1.5": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "one getUserMedia call ({\"video\":{\"width\":{\"ideal\":320},\"height\":{\"ideal\":240},\"frameRate\":{\"ideal\":30}}); live camera stream held; dropdown before=['Default camera'] after=['Default camera', 'fake_device_0']",
+   "at": "2026-10-04 20:26:11"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "one getUserMedia call ({\"video\":{\"width\":{\"ideal\":320},\"height\":{\"ideal\":240},\"frameRate\":{\"ideal\":30}}); live camera stream held; dropdown before=['Default camera'] after=['Default camera', 'Default Video Device']",
+   "at": "2026-10-04 20:45:26"
+  }
+ },
+ "1.6": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "camera-only: sources={\"screen\": false, \"camera\": true, \"mic\": false}, placeholder hidden=True, canvas 1280x720 pixel sums at centre/corners=[277, 136, 136] (non-black), Record enabled=True",
+   "at": "2026-10-04 20:26:12"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "camera-only: sources={\"screen\": false, \"camera\": true, \"mic\": false}, placeholder hidden=True, canvas 1280x720 pixel sums at centre/corners=[279, 279, 279] (non-black), Record enabled=True",
+   "at": "2026-10-04 20:45:27"
+  }
+ },
+ "1.7": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "Webcam off from camera-only -> Screen back on=True, placeholder shown=True, banner='At least one of Screen or Webcam has to stay on, so Screen was turned back on.'",
+   "at": "2026-10-04 20:26:13"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "Webcam off from camera-only -> Screen back on=True, placeholder shown=True, banner='At least one of Screen or Webcam has to stay on, so Screen was turned back on.'",
+   "at": "2026-10-04 20:45:28"
+  }
+ },
+ "1.8": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "Record enabled with no Select Screen step=True; file 1280x720, 7.7s, seekable; darkest of 4 corners+centre across 8 frames=134 (camera fills the canvas, no small-rectangle artifact)",
+   "at": "2026-10-04 20:26:30"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "Record enabled with no Select Screen step=True; file 1280x720, 7.7s, seekable; darkest of 4 corners+centre across 8 frames=77 (camera fills the canvas, no small-rectangle artifact)",
+   "at": "2026-10-04 20:45:46"
+  }
+ },
+ "2.1": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "pre-grant options=['Default microphone']; toggle ON -> 1 getUserMedia call; options after=['Default microphone', 'Fake Default Audio Input', 'Fake Audio Input 1', 'Fake Audio Input 2']",
+   "at": "2026-10-04 20:26:36"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "pre-grant options=['Default microphone']; toggle ON -> 1 getUserMedia call; options after=['Default microphone', 'Default Audio Device']",
+   "at": "2026-10-04 20:45:54"
+  }
+ },
+ "2.2": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "before any recording the held mic track is live ('Fake Default Audio Input'); with real names available the dropdown lists them (the 'Microphone: name' Default slot only applies when names can't be listed). OS mic-in-use indicator itself not observable by automation.",
+   "at": "2026-10-04 20:26:36"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "before any recording the held mic track is live ('Default Audio Device'); with real names available the dropdown lists them (the 'Microphone: name' Default slot only applies when names can't be listed). OS mic-in-use indicator itself not observable by automation.",
+   "at": "2026-10-04 20:45:54"
+  }
+ },
+ "2.3": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "Record clicked -> recording in 0.20s with 0 new getUserMedia calls; recording uses the held stream=True; audio RMS in first second=0.0958 (non-silent from the start)",
+   "at": "2026-10-04 20:26:43"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "Record clicked -> recording in 0.16s with 0 new getUserMedia calls; recording uses the held stream=True; audio RMS in first second=0.0700 (non-silent from the start)",
+   "at": "2026-10-04 20:46:00"
+  }
+ },
+ "2.4": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "picked 'Fake Audio Input 2' -> re-acquired (getUserMedia with exact deviceId), held track now 'Fake Audio Input 2' (live); next recording used it: Fake Audio Input 2",
+   "at": "2026-10-04 20:26:49"
+  },
+  "ff": {
+   "status": "SKIP",
+   "evidence": "this engine's fake-device set exposes only 1 selectable mic(s); needs 2 real mics - left for the owner",
+   "at": "2026-10-04 20:46:00"
+  }
+ },
+ "2.5": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "denied at toggle-ON -> Mic toggle back OFF=True, banner='Microphone access was declined. Toggle the mic on again to ask once more.'",
+   "at": "2026-10-04 20:26:57"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "denied at toggle-ON -> Mic toggle back OFF=True, banner='Microphone access was declined. Toggle the mic on again to ask once more.'",
+   "at": "2026-10-04 20:46:11"
+  }
+ },
+ "2.6": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "pre-grant=['Default camera']; after Webcam toggle=['Default camera', 'fake_device_0']",
+   "at": "2026-10-04 20:26:50"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "pre-grant=['Default camera']; after Webcam toggle=['Default camera', 'Default Video Device']",
+   "at": "2026-10-04 20:46:02"
+  }
+ },
+ "2.9": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "with the anonymized verdict pre-set, load showed ['Default microphone', 'Fake Default Audio Input', 'Fake Audio Input 1', 'Fake Audio Input 2']; after Mic ON over http://localhost real names populated ['Default microphone', 'Fake Default Audio Input', 'Fake Audio Input 1', 'Fake Audio Input 2'] and the verdict flag cleared (=None)",
+   "at": "2026-10-04 20:26:58"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "with the anonymized verdict pre-set, load showed ['Chosen in the browser pop-up']; after Mic ON over http://localhost real names populated ['Default microphone', 'Default Audio Device'] and the verdict flag cleared (=None)",
+   "at": "2026-10-04 20:46:14"
+  }
+ },
+ "2.10": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "optional item, proxy only: synthetic devicechange event -> dropdown re-enumerated (4 options), 0 new permission requests. Real plug/unplug not exercised.",
+   "at": "2026-10-04 20:26:49"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "optional item, proxy only: synthetic devicechange event -> dropdown re-enumerated (2 options), 0 new permission requests. Real plug/unplug not exercised.",
+   "at": "2026-10-04 20:46:01"
+  }
+ },
+ "3.1": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "Chrome flow: File System Access save dialog requested once (suggested 'recording-2026-10-04_202718.webm'); 475160 bytes written",
+   "at": "2026-10-04 20:27:21"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "Firefox flow: file downloaded automatically ('recording-2026-10-04_204636.webm', 679269 bytes) and the 'Downloaded - did it arrive?' bar appeared",
+   "at": "2026-10-04 20:46:37"
+  }
+ },
+ "3.2": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "file plays: 11.5s video, all 23 sampled frames decode in order; audio present 11.3s (durations agree within 0.21s). Lip-sync by ear not judged.",
+   "at": "2026-10-04 20:27:23"
+  },
+  "ff": null
+ },
+ "3.3": {
+  "cr": null,
+  "ff": {
+   "status": "PASS",
+   "evidence": "'All set' shown 0.13s after the click, bar cleared; after reload recovery banner visible=False; file plays (11.5s, audio present)",
+   "at": "2026-10-04 20:46:42"
+  }
+ },
+ "3.4": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "names: recording-2026-10-04_202718.webm / recording-2026-10-04_202727.webm",
+   "at": "2026-10-04 20:27:27"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "names: recording-2026-10-04_204636.webm / recording-2026-10-04_204646.webm",
+   "at": "2026-10-04 20:46:47"
+  }
+ },
+ "3.5": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "timer at Stop click=00:00:11, 1.5s later=00:00:11 (frozen)",
+   "at": "2026-10-04 20:27:21"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "timer at Stop click=00:00:11, 1.5s later=00:00:11 (frozen)",
+   "at": "2026-10-04 20:46:37"
+  }
+ },
+ "3.6": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "stale banner before stop='Finish or stop the current recording before opening the caption editor.'; immediately after Stop click banner=''; save completed",
+   "at": "2026-10-04 20:27:21"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "stale banner before stop='Finish or stop the current recording before opening the caption editor.'; immediately after Stop click banner=''; save completed",
+   "at": "2026-10-04 20:46:37"
+  }
+ },
+ "3.7": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "screen+webcam recording: overlay present in the saved file at the position/size set beforehand (width 25% of frame; left/right pixels [200, 0, 0] / [0, 160, 0] match the preview)",
+   "at": "2026-10-04 20:30:15"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "screen+webcam recording: overlay present in the saved file at the position/size set beforehand (width 25% of frame; left/right pixels [199, 2, 1] / [0, 161, 0] match the preview)",
+   "at": "2026-10-04 20:49:18"
+  }
+ },
+ "4.1": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "Pause: status 'Paused', timer 00:00:05 -> 00:00:05 over 2s (stopped). Resume: status 'Recording', timer 00:00:07 (continues from where it stopped). Preview during pause: barcode time 59 -> 79 (still live on screen - the recorder is paused, the preview canvas is not).",
+   "at": "2026-10-04 20:27:43"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "Pause: status 'Paused', timer 00:00:05 -> 00:00:05 over 2s (stopped). Resume: status 'Recording', timer 00:00:07 (continues from where it stopped). Preview during pause: barcode time 67 -> 87 (still live on screen - the recorder is paused, the preview canvas is not).",
+   "at": "2026-10-04 20:47:05"
+  }
+ },
+ "4.2": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "paused 14.5s: banner='' (no write-stall warning)",
+   "at": "2026-10-04 20:27:58"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "paused 14.5s: banner='' (no write-stall warning)",
+   "at": "2026-10-04 20:47:20"
+  }
+ },
+ "4.3": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "3 pauses (2s, 14.5s, 1.5s). File duration 14.9s vs timer 14s (pauses excluded, not truncated); 30/30 sampled frames valid and in order; exactly 3 content jumps at the pause points ([30, 153, 21] tenths) - no black gap or stuck frame; audio 14.8s. Audible glitch at the joins not judged by ear.",
+   "at": "2026-10-04 20:28:10"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "3 pauses (2s, 14.5s, 1.5s). File duration 14.9s vs timer 14s (pauses excluded, not truncated); 30/30 sampled frames valid and in order; exactly 3 content jumps at the pause points ([29, 151, 20] tenths) - no black gap or stuck frame; audio 14.9s. Audible glitch at the joins not judged by ear.",
+   "at": "2026-10-04 20:47:34"
+  }
+ },
+ "4.4": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "multi-pause file seeks end-to-end: 30 random-access seeks, slowest 110ms, seekable range ends at 14.9s",
+   "at": "2026-10-04 20:28:10"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "multi-pause file seeks end-to-end: 30 random-access seeks, slowest 199ms, seekable range ends at 14.9s",
+   "at": "2026-10-04 20:47:34"
+  }
+ },
+ "5.1": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "recording: visible=False; paused: visible=True, button order=['Caption editor', 'Resume', 'Change screen', 'Stop & save', 'Stop & review']; after Resume: visible=False",
+   "at": "2026-10-04 20:28:26"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "recording: visible=False; paused: visible=True, button order=['Caption editor', 'Resume', 'Change screen', 'Stop & save', 'Stop & review']; after Resume: visible=False",
+   "at": "2026-10-04 20:47:52"
+  }
+ },
+ "5.2": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "camera-only recording paused: Change screen visible=False",
+   "at": "2026-10-04 20:26:27"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "camera-only recording paused: Change screen visible=False",
+   "at": "2026-10-04 20:45:43"
+  }
+ },
+ "5.3": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "saved file shows screen 1 then screen 2 (then 3) with no frames from the paused picker hunt: screen sequence [1, 2, 3], 43/43 frames valid, duration 21.7s",
+   "at": "2026-10-04 20:28:55"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "saved file shows screen 1 then screen 2 (then 3) with no frames from the paused picker hunt: screen sequence [1, 2, 3], 30/30 frames valid, duration 14.9s",
+   "at": "2026-10-04 20:48:08"
+  }
+ },
+ "5.4": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "picker cancelled: banner='', still paused=True, old screen (id 1) track live, Change screen still offered",
+   "at": "2026-10-04 20:28:22"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "picker cancelled: banner='', still paused=True, old screen (id 1) track live, Change screen still offered",
+   "at": "2026-10-04 20:47:48"
+  }
+ },
+ "5.5": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "capture failed: banner='Couldn't switch screens — your current recording is unaffected. Could not start video source'; still paused=True, recording alive=True, old screen kept",
+   "at": "2026-10-04 20:28:23"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "capture failed: banner='Couldn't switch screens — your current recording is unaffected. Could not start video source'; still paused=True, recording alive=True, old screen kept",
+   "at": "2026-10-04 20:47:49"
+  }
+ },
+ "5.6": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "no-audio recording swapped to a source carrying an audio track -> note 'This recording started without audio, so sound from the new screen won't be included.'; recording continued, saved file plays (7.2s) with no audio track. Stand-in audio source; real system audio not exercised.",
+   "at": "2026-10-04 20:29:11"
+  },
+  "ff": null
+ },
+ "5.7": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "old screen's track 'ended' after the swap -> recording kept going (recording=True). 'ended' on the CURRENT screen -> recording stopped (recording=False). Simulated track events; the real browser 'Stop sharing' bar was not clicked. See 5.7b for what happens to the save.",
+   "at": "2026-10-04 20:28:55"
+  },
+  "ff": {
+   "status": "HUMAN",
+   "evidence": "cannot be staged in this Firefox build (scripted 'ended' events are not delivered to the track's listeners, so neither half of the check means anything here). Needs the real 'Stop sharing' control.",
+   "at": "2026-10-04 20:48:08"
+  }
+ },
+ "5.7b": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "extra: capture ended by the browser with no click on the page (page had an active user gesture at that moment: False). The app showed the 'Recording stopped - ready to save' banner (error shown: ''); clicking Save recording produced the file (True); afterwards banner showing: False, error: ''",
+   "at": "2026-10-04 20:28:51"
+  },
+  "ff": null
+ },
+ "5.8": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "swap from 1280x720 to an 800x600 source: output stays 1280x720, 21 frames from the new source decode correctly (stretched to the first screen's shape, not corrupted). Whether the stretch looks acceptable is the owner's eye.",
+   "at": "2026-10-04 20:28:55"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "swap from 1280x720 to an 800x600 source: output stays 1280x720, 8 frames from the new source decode correctly (stretched to the first screen's shape, not corrupted). Whether the stretch looks acceptable is the owner's eye.",
+   "at": "2026-10-04 20:48:08"
+  }
+ },
+ "6.1": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "options=['Smaller file', 'Balanced*', 'Best quality']; ~20s of the same busy content: Smaller=1348 KB, Best=3774 KB (2.8x)",
+   "at": "2026-10-04 20:29:59"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "options=['Smaller file', 'Balanced*', 'Best quality']; ~20s of the same busy content: Smaller=2154 KB, Best=4155 KB (1.9x)",
+   "at": "2026-10-04 20:49:00"
+  }
+ },
+ "6.2": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "quality selector disabled while recording=True",
+   "at": "2026-10-04 20:29:59"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "quality selector disabled while recording=True",
+   "at": "2026-10-04 20:49:00"
+  }
+ },
+ "6.3": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "after reload the selector still reads 2500000 (Best quality)",
+   "at": "2026-10-04 20:30:00"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "after reload the selector still reads 2500000 (Best quality)",
+   "at": "2026-10-04 20:49:01"
+  }
+ },
+ "6.4": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "optional/ear-only item: constraint check only - mic requested with {\"audio\":{\"echoCancellation\":true,\"noiseSuppression\":true},\"video\":false}",
+   "at": "2026-10-04 20:26:36"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "optional/ear-only item: constraint check only - mic requested with {\"audio\":{\"echoCancellation\":true,\"noiseSuppression\":true},\"video\":false}",
+   "at": "2026-10-04 20:45:54"
+  }
+ },
+ "7.1": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "Webcam ON with a screen selected, no recording: camera overlay live at default corner (pixels [200, 0, 0] / [0, 160, 0] = camera's left/right halves)",
+   "at": "2026-10-04 20:30:06"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "Webcam ON with a screen selected, no recording: camera overlay live at default corner (pixels [200, 0, 0] / [0, 160, 0] = camera's left/right halves)",
+   "at": "2026-10-04 20:49:09"
+  }
+ },
+ "7.2": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "hover cursor='grab'; dragged to centre (0.30, 0.35) and it stayed there; old corner back to screen content; layout saved; recorded file shows the camera at the new spot (pixels [200, 0, 0] / [0, 160, 0])",
+   "at": "2026-10-04 20:30:15"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "hover cursor='grab'; dragged to centre (0.30, 0.35) and it stayed there; old corner back to screen content; layout saved; recorded file shows the camera at the new spot (pixels [199, 2, 1] / [0, 161, 0])",
+   "at": "2026-10-04 20:49:18"
+  }
+ },
+ "7.3": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "grip cursor='nwse-resize'; dragged wide -> width 50% of canvas (clamped at 50%); dragged narrow -> 8% (clamped at 8%); grip pixel in preview=[204, 236, 204] (bright), same spot in the recorded file=[0, 160, 0] (plain camera - grip not recorded)",
+   "at": "2026-10-04 20:30:15"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "grip cursor='nwse-resize'; dragged wide -> width 50% of canvas (clamped at 50%); dragged narrow -> 8% (clamped at 8%); grip pixel in preview=[204, 236, 204] (bright), same spot in the recorded file=[2, 160, 0] (plain camera - grip not recorded)",
+   "at": "2026-10-04 20:49:18"
+  }
+ },
+ "7.4": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "after reload: position/size fractions identical (x 0.200, y 0.215, width 0.250), shape='rectangle'; on a 1600x900 screen the same fractions apply (canvas [1600, 900]) and the overlay draws there",
+   "at": "2026-10-04 20:30:26"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "after reload: position/size fractions identical (x 0.200, y 0.216, width 0.250), shape='rectangle'; on a 1600x900 screen the same fractions apply (canvas [1600, 900]) and the overlay draws there",
+   "at": "2026-10-04 20:49:30"
+  }
+ },
+ "7.5": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "camera's test disc stays round and centred in every shape (width/height: {'square': 1.0, 'circle': 1.0, 'rectangle': 1.0}; centre offset: {'square': [0.0, -0.001], 'circle': [0.0, -0.001], 'rectangle': [-0.001, 0.0]}); square box is 1:1; circle's corner shows screen content ([32, 80, 48]); shape selector disabled while recording=True",
+   "at": "2026-10-04 20:30:17"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "camera's test disc stays round and centred in every shape (width/height: {'square': 1.0, 'circle': 1.0, 'rectangle': 1.0}; centre offset: {'square': [0.0, -0.001], 'circle': [0.0, -0.001], 'rectangle': [-0.001, 0.0]}); square box is 1:1; circle's corner shows screen content ([32, 80, 48]); shape selector disabled while recording=True",
+   "at": "2026-10-04 20:49:20"
+  }
+ },
+ "7.6": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "Mirror ON: preview left/right = [0, 160, 0] / [200, 0, 0] (flipped), recorded file = [0, 160, 0] / [200, 0, 0] (flipped too); still ticked after reload=True; camera-only view also flipped ([0, 160, 0] / [200, 0, 0]); checkbox disabled while recording=True",
+   "at": "2026-10-04 20:30:25"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "Mirror ON: preview left/right = [0, 160, 0] / [200, 0, 0] (flipped), recorded file = [0, 161, 0] / [199, 2, 1] (flipped too); still ticked after reload=True; camera-only view also flipped ([0, 160, 0] / [200, 0, 0]); checkbox disabled while recording=True",
+   "at": "2026-10-04 20:49:29"
+  }
+ },
+ "8.1": {
+  "cr": {
+   "status": "HUMAN",
+   "evidence": "this automated (headless) browser never reports the tab as hidden (document.hidden=False), so a genuine background-tab run can't be staged here",
+   "at": "2026-10-04 20:30:39"
+  },
+  "ff": {
+   "status": "HUMAN",
+   "evidence": "this automated (headless) browser never reports the tab as hidden (document.hidden=False), so a genuine background-tab run can't be staged here",
+   "at": "2026-10-04 20:49:47"
+  }
+ },
+ "8.2": {
+  "cr": {
+   "status": "HUMAN",
+   "evidence": "see 8.1",
+   "at": "2026-10-04 20:30:39"
+  },
+  "ff": {
+   "status": "HUMAN",
+   "evidence": "see 8.1",
+   "at": "2026-10-04 20:49:47"
+  }
+ },
+ "9.1": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "full record/pause/resume/stop/save cycle incl. a 14.5s pause: chunk counter [4, 5, 5, 8, 8, 13, 16] (climbing), banner empty at all 7 checkpoints",
+   "at": "2026-10-04 20:28:10"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "full record/pause/resume/stop/save cycle incl. a 14.5s pause: chunk counter [4, 5, 5, 7, 7, 11, 14] (climbing), banner empty at all 7 checkpoints",
+   "at": "2026-10-04 20:47:34"
+  }
+ },
+ "9.2": {
+  "cr": {
+   "status": "SKIP",
+   "evidence": "optional; depends on Firefox's broken recorder state, which can't be produced on demand (unit harness covers the abort logic)",
+   "at": "2026-10-04 20:31:10"
+  },
+  "ff": {
+   "status": "SKIP",
+   "evidence": "optional; depends on Firefox's broken recorder state, which can't be produced on demand (unit harness covers the abort logic)",
+   "at": "2026-10-04 20:50:23"
+  }
+ },
+ "9.3": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "recorder killed behind the app's back mid-recording; Stop & save -> 'Recording stopped responding — saving what was captured so far.' and a playable 7.0s file was saved (never a dead click)",
+   "at": "2026-10-04 20:31:10"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "recorder killed behind the app's back mid-recording; Stop & save -> 'Recording stopped responding — saving what was captured so far.' and a playable 7.1s file was saved (never a dead click)",
+   "at": "2026-10-04 20:50:23"
+  }
+ },
+ "9.4": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "mic OFF: recorder mimeType 'video/webm;codecs=vp9' (no audio codec requested); recording starts and completes, files are valid with no audio track. Length check: screen-only recorded 7.0s -> file plays 7.1s; screen+webcam recorded 6.0s -> file plays 6.1s",
+   "at": "2026-10-04 20:31:00"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "mic OFF: recorder mimeType 'video/webm;codecs=vp8' (no audio codec requested); recording starts and completes, files are valid with no audio track. Length check: screen-only recorded 7.1s -> file plays 7.1s; screen+webcam recorded 6.1s -> file plays 6.2s",
+   "at": "2026-10-04 20:50:12"
+  }
+ },
+ "10.1": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "recorded ~16s screen+mic, tab killed with no unload handling, app reopened at the same origin -> recovery banner: 'Found 16 chunks (~0m 16s, 0.6 MB) from 10/4/2026, 8:32:25 PM.'",
+   "at": "2026-10-04 20:32:44"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "recorded ~16s screen+mic, tab killed with no unload handling, app reopened at the same origin -> recovery banner: 'Found 17 chunks (~0m 17s, 0.9 MB) from 10/4/2026, 8:51:43 PM.'",
+   "at": "2026-10-04 20:52:02"
+  }
+ },
+ "10.2": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "Recover & save -> 16.3s file, 32/32 frames valid up to the crash point, audio present",
+   "at": "2026-10-04 20:32:49"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "Recover & save -> 17.2s file, 34/34 frames valid up to the crash point, audio present",
+   "at": "2026-10-04 20:52:08"
+  }
+ },
+ "10.2b": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "extra: after the confirmed recovery save a reload shows no banner (True); whole browser closed mid-recording and relaunched on the same profile -> banner=True, recovered 8.1s",
+   "at": "2026-10-04 20:33:04"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "extra: after the confirmed recovery save a reload shows no banner (True); whole browser closed mid-recording and relaunched on the same profile -> banner=True, recovered 9.1s",
+   "at": "2026-10-04 20:52:25"
+  }
+ },
+ "11.1": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "crash -> Continue recording ('1 prior segment preserved. Select a screen and click Record to continue.') -> second take -> Stop & save produced one 23.3s file",
+   "at": "2026-10-04 20:33:45"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "crash -> Continue recording ('1 prior segment preserved. Select a screen and click Record to continue.') -> second take -> Stop & save produced one 24.3s file",
+   "at": "2026-10-04 20:53:16"
+  }
+ },
+ "11.2": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "one continuous file: screen sequence [1, 2], 92/92 frames valid at 0.25s steps (0 blank sample(s), never two in a row - the checklist allows a single-frame glitch at the seam), longest repeated frame 0.00s, no silent second in the audio (23.1s audio vs 23.3s video). Seam judged by measurement, not by eye/ear.",
+   "at": "2026-10-04 20:33:45"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "one continuous file: screen sequence [1, 2], 97/97 frames valid at 0.25s steps (0 blank sample(s), never two in a row - the checklist allows a single-frame glitch at the seam), longest repeated frame 0.00s, no silent second in the audio (24.3s audio vs 24.3s video). Seam judged by measurement, not by eye/ear.",
+   "at": "2026-10-04 20:53:16"
+  }
+ },
+ "11.3": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "second crash: banner 'Found 16 chunks (~0m 16s, 0.6 MB) across 2 segments from 10/4/2026, 8:33:51 PM.'; Continue -> '2 prior segments preserved. Select a screen and click Record to continue.'",
+   "at": "2026-10-04 20:34:31"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "second crash: banner 'Found 18 chunks (~0m 18s, 1.0 MB) across 2 segments from 10/4/2026, 8:53:25 PM.'; Continue -> '2 prior segments preserved. Select a screen and click Record to continue.'",
+   "at": "2026-10-04 20:54:13"
+  }
+ },
+ "11.4": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "three segments in order [1, 2, 3] in one 25.3s file; 100/100 frames valid (0 blank sample(s), never two in a row), longest repeated frame 0.00s, no silent second",
+   "at": "2026-10-04 20:34:31"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "three segments in order [1, 2, 3] in one 27.4s file; 109/109 frames valid (0 blank sample(s), never two in a row), longest repeated frame 0.00s, no silent second",
+   "at": "2026-10-04 20:54:13"
+  }
+ },
+ "11.4b": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "extra: after the 3-segment save, reload shows no recovery banner=True",
+   "at": "2026-10-04 20:35:02"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "extra: after the 3-segment save, reload shows no recovery banner=True",
+   "at": "2026-10-04 20:54:51"
+  }
+ },
+ "12.1": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "save dialog cancelled -> 'Save cancelled — your recording is still here. Reload the page to recover it.'",
+   "at": "2026-10-04 20:35:22"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "save download not confirmed ('It didn't arrive') -> 'Your recording is kept safe in this browser. Reload the page and click \"Recover & save\" to try again.'",
+   "at": "2026-10-04 20:55:11"
+  }
+ },
+ "12.2": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "reload -> recovery banner back ('Found 12 chunks (~0m 12s, 0.5 MB) from 10/4/2026, 8:35:07 PM.'); Recover & save -> 12.1s playable file; after that confirmed save, reload shows no banner (True)",
+   "at": "2026-10-04 20:35:27"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "reload -> recovery banner back ('Found 12 chunks (~0m 12s, 0.7 MB) from 10/4/2026, 8:54:58 PM.'); Recover & save -> 12.1s playable file; after that confirmed save, reload shows no banner (True)",
+   "at": "2026-10-04 20:55:18"
+  }
+ },
+ "12.3": {
+  "cr": null,
+  "ff": {
+   "status": "PASS",
+   "evidence": "bar path verified: 'It didn't arrive - keep my recording' -> reload -> banner -> Recover & save playable -> 'It's there - all set' -> no banner. NOT exercised: Firefox's own Save-As dialog being cancelled (needs 'Always ask where to save' and a human click).",
+   "at": "2026-10-04 20:55:18"
+  }
+ },
+ "12.4": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "stitched 2-segment recording, save cancelled/declined ('Save cancelled — all segments preserved. Reload the page to recover them.') -> reload banner 'Found 15 chunks (~0m 15s, 0.6 MB) across 2 segments from 10/4/2026, 8:34:37 PM.' -> Recover & save gave a 15.2s file with both segments [1, 2]",
+   "at": "2026-10-04 20:35:02"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "stitched 2-segment recording, save cancelled/declined ('Your recording is kept safe in this browser. Reload the page and click \"Recover & save\" to try again.') -> reload banner 'Found 16 chunks (~0m 16s, 0.9 MB) across 2 segments from 10/4/2026, 8:54:25 PM.' -> Recover & save gave a 16.3s file with both segments [1, 2]",
+   "at": "2026-10-04 20:54:51"
+  }
+ },
+ "12.5": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "during a crash-recovery save: save dialog cancelled -> banner still up, 'Save cancelled — your recording stays in the list until you save it.'; retry saved a playable 16.3s file",
+   "at": "2026-10-04 20:32:49"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "during a crash-recovery save: download declined via 'It didn't arrive' -> banner still up, 'Your recording is kept safe in this browser — click \"Recover & save\" above to try again.'; retry saved a playable 17.2s file",
+   "at": "2026-10-04 20:52:08"
+  }
+ },
+ "12.6": {
+  "cr": {
+   "status": "SKIP",
+   "evidence": "optional; only if a stitch failure happens naturally - not triggered in any run here (no confirm()/alert() dialog appeared in any scenario: 0 seen)",
+   "at": "2026-10-04 20:35:27"
+  },
+  "ff": {
+   "status": "SKIP",
+   "evidence": "optional; only if a stitch failure happens naturally - not triggered in any run here (no confirm()/alert() dialog appeared in any scenario: 0 seen)",
+   "at": "2026-10-04 20:55:18"
+  }
+ },
+ "13.1": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "short clip: player reports total length 16.1s up front (seekable to 16.1s). The longer file is covered by the long-recording run (14.2).",
+   "at": "2026-10-04 20:35:50"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "short clip: player reports total length 16.1s up front (seekable to 16.1s). The longer file is covered by the long-recording run (14.2).",
+   "at": "2026-10-04 20:55:44"
+  }
+ },
+ "13.1L": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "longer-file half of 13.1/13.2: 30.1-min file reports its total length and seeks (see 14.2)",
+   "at": "2026-10-04 22:09:18"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "longer-file half of 13.1/13.2: 30.1-min file reports its total length and seeks (see 14.2)",
+   "at": "2026-10-04 23:21:19"
+  }
+ },
+ "13.2": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "9 jumps forward and backward (14.0, 2.0, 9.5, 0.3 ...): every landing shows the frame that belongs at that time (content-vs-time error [0.0, -0.0, 0.0, -0.0, 0.0, 0.0, 0.0, -0.0, -0.0] s), slowest jump 106ms",
+   "at": "2026-10-04 20:35:50"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "9 jumps forward and backward (14.0, 2.0, 9.5, 0.3 ...): every landing shows the frame that belongs at that time (content-vs-time error [0.0, -0.0, 0.0, -0.0, 0.0, 0.0, 0.0, -0.0, -0.0] s), slowest jump 261ms",
+   "at": "2026-10-04 20:55:44"
+  }
+ },
+ "13.3": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "stitched file: seekable to the end, slowest of 92 seeks 127ms; crash-recovered file: seekable to 16.3s, slowest seek 111ms",
+   "at": "2026-10-04 20:35:02"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "stitched file: seekable to the end, slowest of 97 seeks 229ms; crash-recovered file: seekable to 17.2s, slowest seek 194ms",
+   "at": "2026-10-04 20:54:51"
+  }
+ },
+ "14.1": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "30-min Best-quality recording (1764 chunks saved), Stop & save took 26s: file 367 MB. During 'Preparing/Saving': committed memory (whole process tree) 593 MB before -> peak 542 MB (-51 MB = -14% of the file size; a buffered save would add 100%+). For reference, resident memory (working set, drifts with the machine): 773 -> 729 MB (-44 MB). Banners during the run: none",
+   "at": "2026-10-04 22:09:18"
+  },
+  "ff": {
+   "status": "FAIL",
+   "evidence": "30-min Best-quality recording (1754 chunks saved), Stop & save took 139s: file 363 MB. During 'Preparing/Saving': committed memory (whole process tree) 606 MB before -> peak 2424 MB (+1818 MB = 501% of the file size; a buffered save would add 100%+). For reference, resident memory (working set, drifts with the machine): 776 -> 2598 MB (+1822 MB). Banners during the run: none",
+   "at": "2026-10-04 23:21:19"
+  }
+ },
+ "14.1b": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "extra: clicking Record for the long session took 0.1s to start recording",
+   "at": "2026-10-04 22:09:37"
+  },
+  "ff": null
+ },
+ "14.2": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "long file: player shows the full 30.1 min up front; 8 jumps across the whole length (50%, 5%, 95%, 25% ...) each land on the right frame (content-vs-time drift [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0] s), slowest 148ms",
+   "at": "2026-10-04 22:09:18"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "long file: player shows the full 30.1 min up front; 8 jumps across the whole length (50%, 5%, 95%, 25% ...) each land on the right frame (content-vs-time drift [0.0, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1] s), slowest 2927ms",
+   "at": "2026-10-04 23:21:19"
+  }
+ },
+ "14.3": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "30-min Best-quality session, tab killed, reopened ('Found 1765 chunks (~29m 25s, 364.1 MB) from 10/4/2026, 9:06:46 PM.'), Recover & save took 33s: file 364 MB / 30.0 min, plays and seeks (slowest of 8 jumps 138ms). During the save: committed memory (whole process tree) 504 MB before -> peak 539 MB (+35 MB = 10% of the file size; a buffered save would add 100%+). For reference, resident memory (working set, drifts with the machine): 657 -> 691 MB (+34 MB)",
+   "at": "2026-10-04 21:38:13"
+  },
+  "ff": {
+   "status": "FAIL",
+   "evidence": "30-min Best-quality session, tab killed, reopened ('Found 1753 chunks (~29m 13s, 367.6 MB) from 10/4/2026, 10:09:58 PM.'), Recover & save took 132s: file 368 MB / 30.0 min, plays and seeks (slowest of 8 jumps 890ms). During the save: committed memory (whole process tree) 418 MB before -> peak 2710 MB (+2292 MB = 624% of the file size; a buffered save would add 100%+). For reference, resident memory (working set, drifts with the machine): 539 -> 2828 MB (+2289 MB)",
+   "at": "2026-10-04 22:42:49"
+  }
+ },
+ "14.4": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "15s clip right after the long sessions: 16.1s, 16/16 frames valid",
+   "at": "2026-10-04 22:09:37"
+  },
+  "ff": null
+ },
+ "14.5": {
+  "cr": {
+   "status": "SKIP",
+   "evidence": "optional; an hour-plus multi-segment chain was not run",
+   "at": "2026-10-04 22:09:37"
+  },
+  "ff": null
+ },
+ "15.1": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "Stop & review after ~30s: recorder controls hidden=True, review pane shown=True, no save dialog/download (0 new), preview duration 31.1s, seek to 12.0s landed at 12.00s, played 1.2s in 1.2s. From a paused recording: see 15.1b.",
+   "at": "2026-10-04 20:36:48"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "Stop & review after ~30s: recorder controls hidden=True, review pane shown=True, no save dialog/download (1 new), preview duration 31.2s, seek to 12.0s landed at 12.00s, played 1.1s in 1.2s. From a paused recording: see 15.1b.",
+   "at": "2026-10-04 20:56:46"
+  }
+ },
+ "15.1b": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "Stop & review clicked while PAUSED -> review pane shown=True, preview duration 9.2s",
+   "at": "2026-10-04 20:41:25"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "Stop & review clicked while PAUSED -> review pane shown=True, preview duration 9.2s",
+   "at": "2026-10-04 21:02:08"
+  }
+ },
+ "15.2": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "label changes observed: [['Preparing review...', 'Stop & save'], ['Stop & review', 'Stop & save']]; afterwards both read 'Stop & review' / 'Stop & save'",
+   "at": "2026-10-04 20:36:31"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "label changes observed: [['Preparing review...', 'Stop & save'], ['Stop & review', 'Stop & save']]; afterwards both read 'Stop & review' / 'Stop & save'",
+   "at": "2026-10-04 20:56:27"
+  }
+ },
+ "15.3": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "scrubbed to 12.4s: button 'Re-record from 0:12', status 'Kept 0:12. S'. Saved file: original content runs to 12.45s then the new take starts (target 12.4s, within 1s); one stitched file [1, 2], 18.5s, longest repeated frame 0.00s, no silent second",
+   "at": "2026-10-04 20:36:48"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "scrubbed to 12.4s: button 'Re-record from 0:12', status 'Kept 0:12. S'. Saved file: original content runs to 12.45s then the new take starts (target 12.4s, within 1s); one stitched file [1, 2], 18.6s, longest repeated frame 0.00s, no silent second",
+   "at": "2026-10-04 20:56:46"
+  }
+ },
+ "15.3b": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "extra: mic OFF (no audio), 14s recording, cut requested at 0:08 -> status 'Kept 0:08. S'; the saved file keeps about 8.0s of the original before the new take (0.0s from the requested point; the checklist's rule is 'within a second')",
+   "at": "2026-10-04 20:32:20"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "extra: mic OFF (no audio), 14s recording, cut requested at 0:08 -> status 'Kept 0:08. S'; the saved file keeps about 8.0s of the original before the new take (0.0s from the requested point; the checklist's rule is 'within a second')",
+   "at": "2026-10-04 20:51:34"
+  }
+ },
+ "15.4": {
+  "cr": {
+   "status": "PASS",
+   "evidence": " typed 0:07 -> 'Kept 0:07. S'; in the saved file the new take starts at 7.20s (target 7.0s). 'banana' -> 'That doesn't look like a time — try m:ss (like 1:30), or h:mm:ss for a longer recording.' and nothing changed. 0:00 -> start-over confirmation shown=True",
+   "at": "2026-10-04 20:37:27"
+  },
+  "ff": {
+   "status": "FAIL",
+   "evidence": " BUT typed 0:07 on this 20s recording did NOT cut: the app answered with the start-over prompt ('Re-recording from the very beginning means discarding this recording. Discard it and start fresh?') - a time inside the recording's first cluster cannot be cut to. Retried at 0:12: typed 0:12 -> 'Kept 0:12. S'; in the saved file the new take starts at 12.20s (target 12.0s). 'banana' -> 'That doesn't look like a time — try m:ss (like 1:30), or h:mm:ss for a longer recording.' and nothing changed. 0:00 -> start-over confirmation shown=True",
+   "at": "2026-10-04 20:57:35"
+  }
+ },
+ "15.5": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "2 segments: Redo last take offered=True (hidden with 1 segment=True); click -> 'Kept 0:11. S', newest take dropped whole; saved file = first take then the redo [1, 3] (take 2 absent), new take starts at 11.20s, longest repeated frame 0.00s",
+   "at": "2026-10-04 20:38:42"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "2 segments: Redo last take offered=True (hidden with 1 segment=True); click -> 'Kept 0:11. S', newest take dropped whole; saved file = first take then the redo [1, 3] (take 2 absent), new take starts at 11.20s, longest repeated frame 0.00s",
+   "at": "2026-10-04 20:59:00"
+  }
+ },
+ "15.6": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "cut at 0:12 ('Kept 0:12.') then Undo re-record -> '1 prior segment(s) preserved — select a screen and record to continue'; saved file has the FULL original (21.2s of it) followed by the new take - no cut applied",
+   "at": "2026-10-04 20:38:07"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "cut at 0:12 ('Kept 0:12.') then Undo re-record -> '1 prior segment(s) preserved — select a screen and record to continue'; saved file has the FULL original (21.2s of it) followed by the new take - no cut applied",
+   "at": "2026-10-04 20:58:22"
+  }
+ },
+ "15.7": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "playhead at the end -> 'That's already the end of the recording — there's nothing after it to remove.'; still in the pane",
+   "at": "2026-10-04 20:36:32"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "playhead at the end -> 'That's already the end of the recording — there's nothing after it to remove.'; still in the pane",
+   "at": "2026-10-04 20:56:28"
+  }
+ },
+ "15.8": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "Re-record from 0:00 -> banner 'Re-recording from the very beginning means discarding this recording. '; 'Keep reviewing' left everything as it was (True); confirming -> clean idle ('Ready'), no recovery banner after reload",
+   "at": "2026-10-04 20:41:49"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "Re-record from 0:00 -> banner 'Re-recording from the very beginning means discarding this recording. '; 'Keep reviewing' left everything as it was (True); confirming -> clean idle ('Ready'), no recovery banner after reload",
+   "at": "2026-10-04 21:02:46"
+  }
+ },
+ "15.9": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "Save as is (single segment) -> normal save flow, 9.2s playable file; back at the recorder; reload shows no recovery banner",
+   "at": "2026-10-04 20:41:28"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "Save as is (single segment) -> normal save flow, 9.2s playable file; back at the recorder; reload shows no recovery banner",
+   "at": "2026-10-04 21:02:12"
+  }
+ },
+ "15.10": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "Save as is, dialog cancelled -> still in the pane, 'Save cancelled — your recording is still here.' (a successful Save as is follows in 15.9)",
+   "at": "2026-10-04 20:36:34"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "Firefox has no save dialog to cancel; equivalent path: Save as is downloads, 'It didn't arrive - keep my recording' -> recording still recoverable after reload=True (pane closes on download by design)",
+   "at": "2026-10-04 21:02:23"
+  }
+ },
+ "15.11": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "Discard recording -> confirmation rendered inside the pane (browser popups: 0); confirm -> pane closed, status 'Ready'; reload: no recovery banner",
+   "at": "2026-10-04 20:41:38"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "Discard recording -> confirmation rendered inside the pane (browser popups: 0); confirm -> pane closed, status 'Ready'; reload: no recovery banner",
+   "at": "2026-10-04 21:02:35"
+  }
+ },
+ "15.12": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "Back to recorder -> '1 prior segment(s) preserved — select a screen and record to continue'; the later save includes the previously reviewed content (file starts with it)",
+   "at": "2026-10-04 20:38:42"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "Back to recorder -> '1 prior segment(s) preserved — select a screen and record to continue'; the later save includes the previously reviewed content (file starts with it)",
+   "at": "2026-10-04 20:59:00"
+  }
+ },
+ "15.13": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "tab killed with the review pane open -> recovery banner on reopen ('Found 9 chunks (~0m 9s, 0.4 MB) from 10/4/2026, 8:41:49 PM.'), recovered file 9.1s",
+   "at": "2026-10-04 20:42:02"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "tab killed with the review pane open -> recovery banner on reopen ('Found 10 chunks (~0m 10s, 0.5 MB) from 10/4/2026, 9:02:47 PM.'), recovered file 9.2s",
+   "at": "2026-10-04 21:03:00"
+  }
+ },
+ "15.14": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "crash+continue chain reviewed: preview 21.2s seeks on both sides of the seam; cut at 5s inside the EARLIER segment -> later segment dropped (prior segments=1); saved file = [1, 3] with the kept part ending at 5.20s.",
+   "at": "2026-10-04 20:39:24"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "crash+continue chain reviewed: preview 22.2s seeks on both sides of the seam; cut at 9s inside the EARLIER segment -> later segment dropped (prior segments=1); saved file = [1, 3] with the kept part ending at 9.20s. A cut at 0:05 was refused with the start-over prompt (inside the first cluster); used 0:09 instead.",
+   "at": "2026-10-04 20:59:52"
+  }
+ },
+ "15.14b": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "extra (same precision rule as 15.3): 2-segment chain, seam at 10.1s, cut requested at 13.6s (3.5s into the second take) -> status 'Kept 0:13. S'; saved file sequence [1, 2, 3], new take starts at 13.70s (0.1s from the requested point)",
+   "at": "2026-10-04 20:40:10"
+  },
+  "ff": {
+   "status": "FAIL",
+   "evidence": "extra (same precision rule as 15.3): 2-segment chain, seam at 11.1s, cut requested at 14.6s (3.5s into the second take) -> status 'Kept 0:11. S'; saved file sequence [1, 3], new take starts at 11.20s (-3.4s from the requested point)",
+   "at": "2026-10-04 21:00:42"
+  }
+ },
+ "15.15": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "cut at 0:20 ('Kept 0:20.'), new take, review again, cut EARLIER at 0:10 ('Kept 0:10.'): saved file = [1, 3], original ends at 10.20s, total 16.1s",
+   "at": "2026-10-04 20:41:09"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "cut at 0:20 ('Kept 0:20.'), new take, review again, cut EARLIER at 0:10 ('Kept 0:10.'): saved file = [1, 3], original ends at 10.20s, total 16.2s",
+   "at": "2026-10-04 21:01:48"
+  }
+ },
+ "15.16": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "~70s recording, scrubbed to 63.3s ('Re-record from 1:03'): status 'Kept 1:03.'; in the saved file the new take starts at 63.45s (within 1s of the target)",
+   "at": "2026-10-04 20:43:50"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "~70s recording, scrubbed to 63.3s ('Re-record from 1:03'): status 'Kept 1:03.'; in the saved file the new take starts at 63.45s (within 1s of the target)",
+   "at": "2026-10-04 21:05:09"
+  }
+ },
+ "16.1": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "idle -> Caption editor: recorder controls hidden=True, editor shown=True; opened lecture.webm -> 'Opened lecture.webm.', native controls=True, duration 11.1s",
+   "at": "2026-10-04 20:44:24"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "idle -> Caption editor: recorder controls hidden=True, editor shown=True; opened lecture.webm -> 'Opened lecture.webm.', native controls=True, duration 11.2s",
+   "at": "2026-10-04 21:05:47"
+  }
+ },
+ "16.2": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "PROXY: a synthetic drop event carrying a .webm onto the editor pane -> 'Opened dropped-lecture.webm.', video loaded (11.1s). A real drag from the OS file manager was not performed.",
+   "at": "2026-10-04 20:45:04"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "PROXY: a synthetic drop event carrying a .webm onto the editor pane -> 'Opened dropped-lecture.webm.', video loaded (11.2s). A real drag from the OS file manager was not performed.",
+   "at": "2026-10-04 21:06:26"
+  }
+ },
+ "16.3": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "Add caption at 2.0s -> 1 row, placeholder '['New caption']', selected; typed text + tab away -> the video's caption track is showing and at 2.5s the active caption is ['Hello world'] (rendering on the picture itself not eyeballed)",
+   "at": "2026-10-04 20:44:27"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "Add caption at 2.0s -> 1 row, placeholder '['New caption']', selected; typed text + tab away -> the video's caption track is showing and at 2.5s the active caption is ['Hello world'] (rendering on the picture itself not eyeballed)",
+   "at": "2026-10-04 21:05:50"
+  }
+ },
+ "16.4": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "added a cue during playback (row 2) and typed 24 chars without leaving the box while playback ran to 6.8s: highlight moved on to row 3, the box kept focus=True and the uncommitted text 'typing while it plays on'; committed normally on tab-away",
+   "at": "2026-10-04 20:44:43"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "added a cue during playback (row 2) and typed 24 chars without leaving the box while playback ran to 6.9s: highlight moved on to row 3, the box kept focus=True and the uncommitted text 'typing while it plays on'; committed normally on tab-away",
+   "at": "2026-10-04 21:06:07"
+  }
+ },
+ "16.5": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "same caption file picked twice in a row -> second pick was processed (replace banner appeared); same .webm opened twice in a row -> reloaded ('Opened lecture.webm.', new player source). Note: sequence used was import/import rather than import/Start fresh/import.",
+   "at": "2026-10-04 20:44:54"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "same caption file picked twice in a row -> second pick was processed (replace banner appeared); same .webm opened twice in a row -> reloaded ('Opened lecture.webm.', new player source). Note: sequence used was import/import rather than import/Start fresh/import.",
+   "at": "2026-10-04 21:06:20"
+  }
+ },
+ "16.6": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "3 cues; clicked the 2nd row's background -> video at 5.001s (cue starts 5.000), paused=True",
+   "at": "2026-10-04 20:44:29"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "3 cues; clicked the 2nd row's background -> video at 5.001s (cue starts 5.000), paused=True",
+   "at": "2026-10-04 21:05:53"
+  }
+ },
+ "16.7": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "'banana' -> 'That doesn't look like a time — use HH:MM:SS.mmm (or MM:SS.mmm).', input back to 00:00:07.500; valid earlier time -> row order now ['00:00:01.000', '00:00:02.000', '00:00:05.000']; end before start -> 'The end time needs to come after the start time — it was left unchanged.', cue unchanged",
+   "at": "2026-10-04 20:44:30"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "'banana' -> 'That doesn't look like a time — use HH:MM:SS.mmm (or MM:SS.mmm).', input back to 00:00:07.500; valid earlier time -> row order now ['00:00:01.000', '00:00:02.000', '00:00:05.000']; end before start -> 'The end time needs to come after the start time — it was left unchanged.', cue unchanged",
+   "at": "2026-10-04 21:05:54"
+  }
+ },
+ "16.8": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "played 0.5s -> 7.6s: highlighted row went [-1, 0, 1, -1, 2, -1] (-1 = between cues); highlighted row inside the list's visible area at every sample=True. Smoothness not judged.",
+   "at": "2026-10-04 20:44:38"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "played 0.5s -> 7.6s: highlighted row went [-1, 0, -1, 1, -1, 2, -1] (-1 = between cues); highlighted row inside the list's visible area at every sample=True. Smoothness not judged.",
+   "at": "2026-10-04 21:06:02"
+  }
+ },
+ "16.9": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "edits autosaved; reload + reopen same video -> 'Saved caption edits found' banner=True; Continue -> 4 cues back, identical=True. Reload, Start fresh -> 0 cues; reload again -> banner=False (draft deleted)",
+   "at": "2026-10-04 20:44:50"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "edits autosaved; reload + reopen same video -> 'Saved caption edits found' banner=True; Continue -> 4 cues back, identical=True. Reload, Start fresh -> 0 cues; reload again -> banner=False (draft deleted)",
+   "at": "2026-10-04 21:06:16"
+  }
+ },
+ "16.10": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "empty list: 'Imported 3 captions.'. Non-empty list: in-pane 'Replace current captions?' banner=True, browser popups=0; confirm -> 'Imported 3 captions.'. File with one bad cue -> 'Imported 2 captions. 1 couldn't be read and was left out.'. .srt -> 'Imported 2 captions.'",
+   "at": "2026-10-04 20:44:54"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "empty list: 'Imported 3 captions.'. Non-empty list: in-pane 'Replace current captions?' banner=True, browser popups=0; confirm -> 'Imported 3 captions.'. File with one bad cue -> 'Imported 2 captions. 1 couldn't be read and was left out.'. .srt -> 'Imported 2 captions.'",
+   "at": "2026-10-04 21:06:20"
+  }
+ },
+ "16.11": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "lecture.webm -> suggested 'lecture.vtt' and 'lecture.srt'; both files well-formed with all 3 edited cues (VTT header, SRT numbering and comma milliseconds). Feedback: editor shows 'Captions saved next to your video's name.'",
+   "at": "2026-10-04 20:44:56"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "lecture.webm -> suggested 'lecture.vtt' and 'lecture.srt'; both files well-formed with all 2 edited cues (VTT header, SRT numbering and comma milliseconds). Feedback: editor shows 'Your captions file was sent to the browser as a download. Your edits also stay saved here.'",
+   "at": "2026-10-04 21:06:21"
+  }
+ },
+ "16.12": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "save dialog cancelled -> no error banner; editor shows 'Save cancelled — your caption edits are still here.'; draft still restorable after reload=True",
+   "at": "2026-10-04 20:44:58"
+  },
+  "ff": null
+ },
+ "16.13": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "Caption editor clicked mid-recording -> refused ('Finish or stop the current recording before opening the caption editor.'), editor not opened, still recording=True; Stop & save then cleared the banner at once and saved",
+   "at": "2026-10-04 20:27:21"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "Caption editor clicked mid-recording -> refused ('Finish or stop the current recording before opening the caption editor.'), editor not opened, still recording=True; Stop & save then cleared the banner at once and saved",
+   "at": "2026-10-04 20:46:37"
+  }
+ },
+ "16.14": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "Back to recorder mid-edit: controls back, selected screen still live (button 'Change Screen', Record enabled), pending recovery banner still showing=True",
+   "at": "2026-10-04 20:44:45"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "Back to recorder mid-edit: controls back, selected screen still live (button 'Change Screen', Record enabled), pending recovery banner still showing=True",
+   "at": "2026-10-04 21:06:09"
+  }
+ },
+ "16.15": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "video playing=True when Back to recorder was clicked -> paused=True immediately",
+   "at": "2026-10-04 20:44:45"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "video playing=True when Back to recorder was clicked -> paused=True immediately",
+   "at": "2026-10-04 21:06:09"
+  }
+ },
+ "16.16": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "no video open: Add caption -> 'Open your video first — captions are saved with it.' (0 cues); Import captions -> 'Open your video first — captions are saved with it.' (0 cues)",
+   "at": "2026-10-04 20:44:24"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "no video open: Add caption -> 'Open your video first — captions are saved with it.' (0 cues); Import captions -> 'Open your video first — captions are saved with it.' (0 cues)",
+   "at": "2026-10-04 21:05:47"
+  }
+ },
+ "16.17": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "video A showing 3 cue rows; opened video B (which has its own draft) -> B's banner shown=True with 0 rows behind it",
+   "at": "2026-10-04 20:45:02"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "video A showing 2 cue rows; opened video B (which has its own draft) -> B's banner shown=True with 0 rows behind it",
+   "at": "2026-10-04 21:06:24"
+  }
+ },
+ "16.18": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "hint line visible: 'Captions save as their own small file (.vtt or .srt) next to your video — the video itself is unchanged. Keep the two files in the same folder: course sites and video players find the captions automatically.'",
+   "at": "2026-10-04 20:44:24"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "hint line visible: 'Captions save as their own small file (.vtt or .srt) next to your video — the video itself is unchanged. Keep the two files in the same folder: course sites and video players find the captions automatically.'",
+   "at": "2026-10-04 21:05:47"
+  }
+ },
+ "17.1": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "PROXY ONLY: a screen stream carrying an audio track (stand-in tone, mic off) lands in the saved file (audio RMS 0.139 in first second). Chrome's real 'Also share audio' checkbox and real system sound need the owner.",
+   "at": "2026-10-04 20:31:31"
+  },
+  "ff": null
+ },
+ "17.2": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "first audio-less screen -> banner shown with class 'error-banner visible info' (calm info style)",
+   "at": "2026-10-04 20:31:15"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "first audio-less screen -> banner shown with class 'error-banner visible info' (calm info style)",
+   "at": "2026-10-04 20:50:31"
+  }
+ },
+ "17.3": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "wording: 'This screen share doesn't include sound. To record computer audio, tick \"Also share audio\" (or \"Share tab audio\") in the picker next time you choose a screen.'",
+   "at": "2026-10-04 20:31:15"
+  },
+  "ff": null
+ },
+ "17.4": {
+  "cr": null,
+  "ff": {
+   "status": "PASS",
+   "evidence": "wording: 'Heads up: this browser can't record your computer's sound — only your microphone. To include computer audio, set up a loopback input (like Stereo Mix or VB-Audio Cable) and choose it as your microphone.'",
+   "at": "2026-10-04 20:50:31"
+  }
+ },
+ "17.5": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "second audio-less selection: banner='' (silent); after clearing site storage it shows again: True",
+   "at": "2026-10-04 20:31:21"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "second audio-less selection: banner='' (silent); after clearing site storage it shows again: True",
+   "at": "2026-10-04 20:50:38"
+  }
+ },
+ "17.6": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "x clicked -> banner hidden (class 'error-banner')",
+   "at": "2026-10-04 20:31:15"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "x clicked -> banner hidden (class 'error-banner')",
+   "at": "2026-10-04 20:50:31"
+  }
+ },
+ "17.7": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "after the hint, a genuine error ('Finish or stop the current recording before openin') shows with class 'error-banner visible' (normal error style)",
+   "at": "2026-10-04 20:31:19"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "after the hint, a genuine error ('Finish or stop the current recording before openin') shows with class 'error-banner visible' (normal error style)",
+   "at": "2026-10-04 20:50:35"
+  }
+ },
+ "17.8": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "hint still unused (flag=None); paused swap to an audio-less source -> no hint from the swap path (banner='', flag=None)",
+   "at": "2026-10-04 20:31:31"
+  },
+  "ff": null
+ },
+ "18.1": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "(1) dark+webcam off -> picker opened, no guard text: True; (2) lit, only source -> reverted with guard banner: True; (3) dark+webcam on -> camera-only, no picker: True; (4) capturing+webcam on -> screen source simply off: True",
+   "at": "2026-10-04 20:31:40"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "(1) dark+webcam off -> picker opened, no guard text: True; (2) lit, only source -> reverted with guard banner: True; (3) dark+webcam on -> camera-only, no picker: True; (4) capturing+webcam on -> screen source simply off: True",
+   "at": "2026-10-04 20:50:48"
+  }
+ },
+ "18.2": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "cancelled re-selection: button reads 'Select Screen' (selected style=False), Record disabled=True, placeholder shown=True, Screen toggle lit=False; banner='Screen selection was cancelled. Click \"Select Screen\" to try again.'",
+   "at": "2026-10-04 20:31:45"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "cancelled re-selection: button reads 'Select Screen' (selected style=False), Record disabled=True, placeholder shown=True, Screen toggle lit=False; banner='Screen selection was cancelled. Click \"Select Screen\" to try again.'",
+   "at": "2026-10-04 20:50:56"
+  }
+ },
+ "18.3": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "error banner x clicked -> dismissed",
+   "at": "2026-10-04 20:31:20"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "error banner x clicked -> dismissed",
+   "at": "2026-10-04 20:50:35"
+  }
+ },
+ "18.4": {
+  "cr": {
+   "status": "PASS",
+   "evidence": "armed state at 1400px wide: 3 recorder buttons share one line (tops [726]); Undo re-record starts at y=819, below that row (bottom 760). Layout measured, not eyeballed.",
+   "at": "2026-10-04 20:36:35"
+  },
+  "ff": {
+   "status": "PASS",
+   "evidence": "armed state at 1400px wide: 3 recorder buttons share one line (tops [728]); Undo re-record starts at y=824, below that row (bottom 764). Layout measured, not eyeballed.",
+   "at": "2026-10-04 20:56:30"
+  }
+ },
+ "ERR:s14_long": {
+  "cr": null,
+  "ff": {
+   "status": "ERROR",
+   "evidence": "Page.wait_for_function: Timeout 20000ms exceeded. |  | ui={\"status\": \"Clearing out your last recording first \\u2014 after a long recording this can take a few minutes. Recording will begin when it\\u2019s done.\", \"timer\": \"00:30:06\", \"chunks\": \"\", \"err\": \"\", \"errClass\": \"error-banner\", \"recovery\": false, \"recoveryInfo\": \"A previous recording was interrupted. You can recover it or discard it.\", \"dlConfirm\": false, \"stitchFallback\": false, \"saveNeedsClick\": false, \"placeholder\": false, \"screenActive\": true, \"camActive\": false, \"micActive\": true, \"btnSelect\": {\"vis\": true, \"text\": \"Change Screen\", \"sel\": true}, \"btnRecord\": {\"vis\": true, \"dis\": true, \"text\": \"Starting...\"}, \"btnPause\": {\"vis\": false, \"text\": \"Pause\"}, \"btnChange\": false, \"btnStop\": {\"vis\": false, \"text\": \"Stop & save\"}, \"btnStopReview\": {\"vis\": false, \"text\": \"Stop & review\"}, \"btnUndo\": false, \"controls\": true, \"review\": false, \"reviewStatus\": \"\", \"captions\": false, \"captionStatus | console=[]",
+   "at": "2026-10-04 23:21:41"
+  }
+ }
+}

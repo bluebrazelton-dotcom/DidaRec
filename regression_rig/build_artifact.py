@@ -32,7 +32,7 @@ YOURS = [
      "covers": ["2.2", "2.7", "3.2", "4.3"]},
     {"id": "Y2", "b": ["ff", "cr"], "title": "Stop sharing from the browser's own bar",
      "do": "Start a recording, then end the share with the browser's \"Stop sharing\" control instead of the app's Stop button. Extra credit: do it after a paused Change screen.",
-     "look": "The recording stops and you end up with a saved file. In Chrome, note whether the save dialog opens or you get a \"Save failed ... use Recovery\" message (see the Stop sharing finding below).",
+     "look": "The recording stops and you end up with a saved file. In Chrome a \"Recording stopped - ready to save\" banner appears and its Save recording button opens the save dialog (v1.27; you passed this on the local file on 2026-10-04, so this is a repeat on the hosted page).",
      "covers": ["5.7"]},
     {"id": "Y3", "b": ["cr"], "title": "Chrome system audio",
      "do": "Share a tab or window with \"Also share audio\" ticked while something plays; record 15 seconds and save. Then: start a recording with mic off and no shared audio, pause, Change screen to a source with audio ticked.",
@@ -66,12 +66,12 @@ YOURS = [
      "do": "Record 15 seconds, end the browser from Task Manager, reopen, Continue recording for 10 more seconds, save, and watch across the join.",
      "look": "Banner appears; the saved file plays through the join without a multi-second freeze or silence. Tab-kill and browser-close were machine-checked; a hard process kill and your eyes on the seam were not.",
      "covers": ["10.1", "11.2"]},
-    {"id": "Y11", "b": ["ff"], "title": "Watch memory while Firefox saves a long recording",
+    {"id": "Y11", "b": ["ff"], "title": "Optional: watch memory while Firefox saves a long recording",
      "do": "Record 20 to 30 minutes at Best quality in your own Firefox. Open Task Manager, then Stop & save and watch Firefox's memory until the download bar appears. Afterwards click \"It's there - all set\", then try Record again straight away.",
-     "look": "Memory stays roughly flat rather than climbing by a gigabyte or more. Record starts promptly instead of sitting on \"Starting...\". Both are findings below.",
+     "look": "Memory stays roughly flat rather than climbing by a gigabyte or more. If Record has to wait, the status line says it is clearing out the last recording; note roughly how long the wait is. Both are findings below.",
      "covers": ["14.1", "14.3", "14.4"]},
 ]
-MISSING = {("14.4", "ff"): "Not run: after the long save was confirmed, Record stayed on \"Starting...\" past the script's 20 s limit (see findings). Chrome ran it and passed.",
+MISSING = {("14.4", "ff"): "Not run: after the long save was confirmed, Record was still waiting on the previous recording's cleanup past the script's 20 s limit, with the v1.28 explanation showing (see findings). Chrome ran it and passed.",
            ("14.5", "ff"): "Optional; not run."}
 covers = {}
 for y in YOURS:
@@ -79,48 +79,54 @@ for y in YOURS:
         covers[c] = y["id"]
 
 FINDINGS = [
-    {"sev": "high", "where": "Chrome 154", "title": "Chrome now stores video frames in a form the app's indexing code skips",
-     "body": "Chrome 154 writes each video frame as a BlockGroup (it is carrying a transparency channel from the canvas) instead of a SimpleBlock. The app's duration, keyframe and cut-point code only reads SimpleBlocks. With the mic on, audio blocks mask most of it. With no audio at all, it shows.",
-     "points": ["Mic off: the saved file's stated length is short, so the end of the recording is cut off on playback. Measured: 6.1 s recorded, file plays 3.4 s (item 9.4).",
-                "Mic off: a re-record cut lands seconds early and the status line disagrees with the file. Asked for 0:08, status said \"Kept 0:06\", file kept 3.3 s (extra check 15.3b).",
-                "Mic on: cuts fall back to whole-cluster precision, landing 0.5-0.8 s early. Still inside the checklist's one-second rule, but not the frame-level precision v1.22 was built for.",
-                "Every cluster after the first is treated as having no keyframe, so the saved file carries almost no seek index. LONGRUN",
-                "Tried on a scratch copy, not in your repo: creating the compositor canvas as opaque (one line, getContext('2d', { alpha: false })) makes Chrome write SimpleBlocks again; length and keyframe flags came out right. That is a candidate fix, not a tested one.",
-                "Your project notes never mention BlockGroups, so this probably arrived with a Chrome update after August. I can't date it."]},
-    {"sev": "high", "where": "Firefox", "title": "A re-record point in the first seconds of a take can't be cut to",
-     "body": "The cut code drops the whole first cluster of a take rather than cutting inside it. Chrome's first cluster is about a second; Firefox's was 7 to 9 seconds in these runs.",
-     "points": ["First take: typing 0:07 on a 20 s recording brought up the \"start over - discard everything?\" prompt instead of cutting (item 15.4 fails as written). Typing 0:12 cut correctly.",
-                "Later take: a cut 3.5 s into the second take dropped that whole take and landed 3.2 s early (extra check 15.14b).",
-                "Past the first cluster, Firefox cuts were accurate: 12.4 s, 63.3 s and a re-cut all landed within a quarter second."]},
-    {"sev": "high", "where": "Firefox", "title": "Saving a long recording spiked memory far past the file size",
-     "body": "Checklist 14.1 and 14.3 expect memory to stay roughly flat while a long recording is prepared and saved. In the test Firefox it did not. Chrome's memory stayed flat on the same recordings.",
-     "points": ["30-minute recording, 400 MB file: memory went from 562 MB to a 2,351 MB peak during the save (+1.8 GB, about 4.5 times the file). The save took 174 s.",
-                "12-minute crash recovery, run twice: +1.1 GB both times, for files of 129 MB and 101 MB.",
-                "Measured as working-set memory across the whole browser process tree, on Playwright's Firefox 151, with the download captured by the test tool. Any of those could inflate the number, so check it once on your Firefox 157 with Task Manager open (Y11). The files themselves were complete and seeked correctly."]},
-    {"sev": "med", "where": "Firefox", "title": "Right after a big save is confirmed, Record sits on \"Starting...\"",
-     "body": "After clicking \"It's there - all set\" on a long recording, the next Record click had not started recording 20 seconds later. It happened both times it was tried (after a 129 MB and a 400 MB save). The app is still deleting the saved recording's stored pieces in the background, and Record waits behind that with no message. In one run it did start eventually; how long it takes was not measured. This also stopped the short follow-up clip (14.4) from running in Firefox.", "points": []},
-    {"sev": "med", "where": "Chrome", "title": "\"Stop sharing\" probably ends in \"Save failed\" instead of a save dialog",
-     "body": "Chrome only opens a save dialog while the page is handling a click. When the browser's own Stop-sharing control ends the capture, there is no click on the page. With a stand-in dialog that enforces the same rule, the app showed: \"Save failed: ... Must be handling a user gesture to show a file picker. Your recording is safe - refresh and use Recovery.\" The recording was recoverable after a reload.",
-     "points": ["Needs one confirmation in real Chrome (Y2). The same would apply to any stop the app triggers itself, such as storage running full."]},
-    {"sev": "low", "where": "Chrome", "title": "Saving captions gives no visible confirmation",
-     "body": "After a successful caption save, and after a cancelled one, the app writes its note to the recorder's status bar, which is hidden while the caption editor is open. Firefox shows its note inside the editor. Items 16.11 and 16.12 otherwise pass.", "points": []},
-    {"sev": "low", "where": "Both", "title": "\"Kept m:ss\" reads one second low on whole-second cuts",
-     "body": "The status rounds down, and a cut never keeps anything past the requested time. Typing 0:07 reports \"Kept 0:06\"; a cut at 0:20 reports \"Kept 0:19\". Cosmetic.", "points": []},
-    {"sev": "low", "where": "Firefox, under load", "title": "Storage stalls were handled at load but not everywhere",
-     "body": "When my rig ran five browsers at once, Firefox's storage stalled. The app showed its \"storage isn't responding\" message at load, as designed. But Record then sat on \"Starting...\" with no further message, and once a re-record click did nothing for 30 seconds. Neither happened when Firefox ran alone.", "points": []},
-    {"sev": "note", "where": "Checklist", "title": "Three checklist lines no longer match the app",
+    {"sev": "high", "where": "Firefox", "title": "OPEN - Saving a long recording spikes memory far past the file size",
+     "body": "Checklist 14.1 and 14.3 expect memory to stay roughly flat while a long recording is prepared and saved. In the test Firefox it does not. Chrome's memory stays flat on the same recordings. Not fixed: it needs your confirmation on real Firefox first (Y11), and under Chrome-first it is fixed only if it is real and risks losing a recording.",
+     "points": ["Re-run on v1.28, committed memory across the whole browser process tree: 30-minute recording, 363 MB file, 606 MB to a 2,424 MB peak (+1.8 GB); the save took 139 s.",
+                "30-minute crash recovery, 368 MB file: 418 MB to a 2,710 MB peak (+2.3 GB); the save took 132 s.",
+                "Chrome on the same run: memory fell by 51 MB while saving a 367 MB file.",
+                "Playwright's Firefox 151 with the download captured by the test tool, so check it once on your Firefox 157 with Task Manager open (Y11). The files themselves were complete and seeked correctly."]},
+    {"sev": "med", "where": "Firefox", "title": "DOCUMENTED, NOT FIXED - A re-record point in the first seconds of a take can't be cut to",
+     "body": "The cut code drops the whole first cluster of a take rather than cutting inside it. Chrome's first cluster is about a second; Firefox's is 7 to 9 seconds. Under Chrome-first this is described in the README rather than engineered around.",
+     "points": ["First take: typing 0:07 on a 20 s recording brings up the \"start over - discard everything?\" prompt instead of cutting (item 15.4 fails as written). Typing 0:12 cuts correctly.",
+                "Later take: a cut 3.5 s into the second take drops that whole take and lands 3.4 s early (extra check 15.14b).",
+                "Past the first cluster, Firefox cuts are accurate to a quarter second."]},
+    {"sev": "med", "where": "Firefox", "title": "EXPLAINED in v1.28, WAIT REMAINS - Right after a big save is confirmed, Record waits",
+     "body": "After clicking \"It's there - all set\" on a long recording, the app is still deleting the saved recording's stored pieces, and the next recording waits behind that. Since v1.28 the status line says so: \"Clearing out your last recording first - after a long recording this can take a few minutes. Recording will begin when it's done.\" The wait itself is unchanged (your decision: message only).",
+     "points": ["Measured in the test Firefox on stored test data: 15 s at 75 MB; not started after 5 minutes at 375 MB. Real Firefox 157 not measured.",
+                "In the full re-run, Record had not started 20 s after a real 363 MB save was confirmed, and the message was showing. That stopped the short follow-up clip (14.4) from running in Firefox."]},
+    {"sev": "low", "where": "Firefox, under load", "title": "OPEN, NOT REPRODUCED ALONE - Storage stalls were handled at load but not everywhere",
+     "body": "When the rig ran five browsers at once, Firefox's storage stalled. The app showed its \"storage isn't responding\" message at load, as designed. But Record then sat on \"Starting...\" with no further message, and once a re-record click did nothing for 30 seconds. Neither happened when Firefox ran alone. No code change.", "points": []},
+    {"sev": "note", "where": "Checklist", "title": "OPEN - Three checklist lines no longer match the app",
      "body": "1.4: clicking Screen at load now opens the picker (v1.22.2); the guard message only appears from the lit state, which passed. 4.1: the preview stays live while paused; only the recorder pauses. 1.3: the Screen button is dark at load until a screen is selected (v1.21.3).", "points": []},
-    {"sev": "note", "where": "README (18.5)", "title": "Doc spot-check: two inaccuracies, one omission",
-     "body": "The Chrome paragraph says you pick the destination up front and the recording streams to it as it's captured; in fact the dialog opens at Stop and the file is written then. Requirements say HTTPS is required, while your own setup notes run it from a double-clicked file. Mirror webcam isn't in the feature list.", "points": []},
+    {"sev": "note", "where": "Chrome 154", "title": "FIXED in v1.26 - Chrome stored video frames in a form the app's indexing code skipped",
+     "body": "Chrome 154 wrote each video frame as a BlockGroup because the compositor canvas carried a transparency channel; the app's duration, keyframe and cut-point code only reads SimpleBlocks. The canvas is now opaque, so Chrome writes SimpleBlocks again. You accepted this in real Chrome on 2026-10-04.",
+     "points": ["Mic-off recordings now report their full length (item 9.4 passes) and cuts land where asked (asked for 0:08, kept 8.1 s).",
+                "Seeking a 30-minute Chrome file: eight jumps, slowest 148 ms (580 ms before the fix).",
+                "The one-frame black flash at the start of every Chrome take was fixed in the same version."]},
+    {"sev": "note", "where": "Chrome", "title": "FIXED in v1.27 - \"Stop sharing\" ended in \"Save failed\" instead of a save dialog",
+     "body": "Chrome only opens a save dialog while the page is handling a click, and the browser's own Stop-sharing control gives the page none. The app now shows a \"Recording stopped - ready to save\" banner; its Save recording button opens the dialog. The same banner covers any stop the app triggers itself.",
+     "points": ["You confirmed the original failure in real Chrome, then the fix on 2026-10-04: banner appeared, dialog opened, file played to the end.",
+                "The rig's check (5.7b) passes on the fixed build and fails on the build before it.",
+                "Not covered: a save in several parts whose second dialog opens after a long first write can still be refused."]},
+    {"sev": "note", "where": "Chrome", "title": "FIXED in v1.28 - Saving captions gave no visible confirmation",
+     "body": "The saved and cancelled notes now also appear in the caption editor's own status line. Items 16.11 and 16.12 require it and pass. You checked both in real Chrome on 2026-10-04.", "points": []},
+    {"sev": "note", "where": "Both", "title": "FIXED in v1.28 - \"Kept m:ss\" read one second low on whole-second cuts",
+     "body": "Typing 0:07 now reports \"Kept 0:07\" and a cut at 0:20 reports \"Kept 0:20\". You checked this in real Chrome on 2026-10-04.", "points": []},
+    {"sev": "note", "where": "README (18.5)", "title": "FIXED - Doc spot-check: two inaccuracies, one omission",
+     "body": "The README's Chrome save description, the HTTPS requirement and the missing Mirror webcam entry were corrected on 2026-10-04.", "points": []},
 ]
 
 LIMITS = [
+    "These results are a full re-run on v1.28 (pushed 2026-10-04), one browser at a time. Chrome: 117 checks passed, none failed. Firefox: 105 passed; the 4 failures and the one unfinished scenario are the open Firefox items above.",
     "Chrome was your installed Chrome 154, driven by Playwright. Firefox was Playwright's own build, version 151, not your 157 and below the README's 153 floor.",
     "Camera and mic were the browsers' fake devices. The screen picker was replaced by a generated moving test pattern with a time code in it, which is how the content of every saved file could be verified frame by frame.",
-    "Chrome's save dialog was replaced by a stand-in that writes through the same file API. Firefox downloads were real.",
+    "Chrome's save dialog was replaced by a stand-in that writes through the same file API and enforces Chrome's click rule. Firefox downloads were real.",
     "Runs were headless, and a hidden tab could not be staged, so background-tab recording is on your list. Nothing was judged by ear or eye.",
-    "The app itself was not changed. The test rig is in the repo's regression_rig folder.",
+    "The test rig is in the repo's regression_rig folder.",
 ]
+
+LEDE_EXTRA = " Chrome comes first: do the Chrome column in full, then Firefox as a smoke pass (Y1, Y8, Y10). Y11 is optional. Findings fixed since the first pass are marked FIXED below."
+BASELINE = "Build under test: v1.28 (ef7224e), full re-run."
 
 out_sections = []
 tally = {"auto": 0, "problem": 0, "yours": 0, "skipped": 0}
@@ -161,7 +167,7 @@ for f in FINDINGS:
     f["points"] = [p.replace("LONGRUN", seek_note) for p in f["points"]]
 
 data = {"sections": out_sections, "yours": YOURS, "findings": FINDINGS, "limits": LIMITS, "extras": extras, "tally": tally,
-        "longDone": long_done, "built": __import__("time").strftime("%Y-%m-%d %H:%M")}
+        "longDone": long_done, "ledeExtra": LEDE_EXTRA, "baseline": BASELINE, "built": __import__("time").strftime("%Y-%m-%d %H:%M")}
 tpl = open(os.path.join(HERE, "page_template.html"), encoding="utf-8").read()
 html = tpl.replace("/*DATA*/null", json.dumps(data, ensure_ascii=False).replace("</", "<\\/"))
 with open(OUT, "w", encoding="utf-8", newline="\n") as f:

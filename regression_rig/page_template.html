@@ -165,7 +165,7 @@ const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls)
 const LABEL = { auto: "checked ✓", problem: "problem", yours: "yours", skipped: "skipped" };
 
 const t = DATA.tally;
-document.getElementById("lede").textContent = "Each checklist item was run in a real Chrome and a real Firefox engine with fake devices, and every saved file was reopened and inspected. What is left for you is " + DATA.yours.length + " short tasks, most of them a single recording. Click FF or Cr on a task to mark it pass or fail; your marks stay in this browser.";
+document.getElementById("lede").textContent = "Each checklist item was run in a real Chrome and a real Firefox engine with fake devices, and every saved file was reopened and inspected. What is left for you is " + DATA.yours.length + " short tasks, most of them a single recording. Click FF or Cr on a task to mark it pass or fail; your marks stay in this browser." + (DATA.ledeExtra || "");
 const tiles = document.getElementById("tiles");
 for (const [cls, n, label] of [["good", t.auto, "browser checks passed by machine"], ["bad", t.problem, "checks that found a problem"], ["mine", DATA.yours.length, "tasks left for you"], ["", t.skipped, DATA.longDone ? "optional or not reproducible" : "still running (30-min recordings) or optional"]]) {
   const d = el("div", "tile " + cls); d.appendChild(el("b", null, String(n))); d.appendChild(el("span", null, label)); tiles.appendChild(d);
@@ -232,7 +232,7 @@ if (DATA.extras.length) {
   for (const x of DATA.extras) d.appendChild(rowFor(x.id, "", false, x.ff && { s: map[x.ff.s], e: x.ff.e }, x.cr && { s: map[x.cr.s], e: x.cr.e }, null));
   seclist.appendChild(d);
 }
-document.getElementById("foot").textContent = "Built " + DATA.built + ". Baseline: v1.25 + docs commits (a4402d8). " + (DATA.longDone ? "Includes the 30-minute recordings." : "The 30-minute recordings (section 14) were still running when this was built.");
+document.getElementById("foot").textContent = "Built " + DATA.built + ". " + (DATA.baseline || "Baseline: v1.25 + docs commits (a4402d8).") + " " + (DATA.longDone ? "Includes the 30-minute recordings." : "The 30-minute recordings (section 14) were still running when this was built.");
 
 function refresh() {
   const tot = { ff: 0, cr: 0 }, pass = { ff: 0, cr: 0 }, fail = { ff: 0, cr: 0 };

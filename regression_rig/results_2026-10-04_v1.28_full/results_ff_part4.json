@@ -1,0 +1,27 @@
+{
+ "14.3": {
+  "status": "FAIL",
+  "evidence": "30-min Best-quality session, tab killed, reopened ('Found 1753 chunks (~29m 13s, 367.6 MB) from 10/4/2026, 10:09:58 PM.'), Recover & save took 132s: file 368 MB / 30.0 min, plays and seeks (slowest of 8 jumps 890ms). During the save: committed memory (whole process tree) 418 MB before -> peak 2710 MB (+2292 MB = 624% of the file size; a buffered save would add 100%+). For reference, resident memory (working set, drifts with the machine): 539 -> 2828 MB (+2289 MB)",
+  "at": "2026-10-04 22:42:49"
+ },
+ "14.1": {
+  "status": "FAIL",
+  "evidence": "30-min Best-quality recording (1754 chunks saved), Stop & save took 139s: file 363 MB. During 'Preparing/Saving': committed memory (whole process tree) 606 MB before -> peak 2424 MB (+1818 MB = 501% of the file size; a buffered save would add 100%+). For reference, resident memory (working set, drifts with the machine): 776 -> 2598 MB (+1822 MB). Banners during the run: none",
+  "at": "2026-10-04 23:21:19"
+ },
+ "14.2": {
+  "status": "PASS",
+  "evidence": "long file: player shows the full 30.1 min up front; 8 jumps across the whole length (50%, 5%, 95%, 25% ...) each land on the right frame (content-vs-time drift [0.0, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1] s), slowest 2927ms",
+  "at": "2026-10-04 23:21:19"
+ },
+ "13.1L": {
+  "status": "PASS",
+  "evidence": "longer-file half of 13.1/13.2: 30.1-min file reports its total length and seeks (see 14.2)",
+  "at": "2026-10-04 23:21:19"
+ },
+ "ERR:s14_long": {
+  "status": "ERROR",
+  "evidence": "Page.wait_for_function: Timeout 20000ms exceeded. |  | ui={\"status\": \"Clearing out your last recording first \\u2014 after a long recording this can take a few minutes. Recording will begin when it\\u2019s done.\", \"timer\": \"00:30:06\", \"chunks\": \"\", \"err\": \"\", \"errClass\": \"error-banner\", \"recovery\": false, \"recoveryInfo\": \"A previous recording was interrupted. You can recover it or discard it.\", \"dlConfirm\": false, \"stitchFallback\": false, \"saveNeedsClick\": false, \"placeholder\": false, \"screenActive\": true, \"camActive\": false, \"micActive\": true, \"btnSelect\": {\"vis\": true, \"text\": \"Change Screen\", \"sel\": true}, \"btnRecord\": {\"vis\": true, \"dis\": true, \"text\": \"Starting...\"}, \"btnPause\": {\"vis\": false, \"text\": \"Pause\"}, \"btnChange\": false, \"btnStop\": {\"vis\": false, \"text\": \"Stop & save\"}, \"btnStopReview\": {\"vis\": false, \"text\": \"Stop & review\"}, \"btnUndo\": false, \"controls\": true, \"review\": false, \"reviewStatus\": \"\", \"captions\": false, \"captionStatus | console=[]",
+  "at": "2026-10-04 23:21:41"
+ }
+}
