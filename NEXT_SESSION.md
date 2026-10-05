@@ -6,7 +6,11 @@ stalled, so the 120-item checklist was run by a new Playwright rig
 (`regression_rig/`, committed on main, NOT pushed). 208 browser checks
 passed; the pass found real defects, logged as REVIEW #27–#33. **The build is
 not final.** `index.html` then got two one-line fixes (v1.26, 191a3b6: opaque
-canvas + first frame painted at once), rig-verified; harness still 173/1234.
+canvas + first frame painted at once), rig-verified. Later the same day:
+**v1.27 (#29) and v1.28 (#31 message, #32)**, both rig-verified and
+owner-checked in real Chrome on the local file, committed on main, NOT
+pushed — the hosted page is still v1.26. Harness now **181 / 1287**
+(prefixes end at FO).
 Browsers have moved: Chrome 154, Firefox 157 (baseline was FF 153).
 **Direction change this session: Chrome-first** (see Ground rules); README
 updated to recommend Chrome/Edge.
@@ -26,12 +30,20 @@ updated to recommend Chrome/Edge.
   sharing", auto-stops) → "Save failed … use Recovery".
   **FIXED v1.27** ("Recording stopped — ready to save" banner; the Save
   recording click runs the same save). Owner check PASSED 2026-10-04 in
-  real Chrome on the local file. Harness now **178 / 1266** (FH–FL).
+  real Chrome on the local file.
 - **#30 Firefox save memory spike** (+1.1 to +1.8 GB on 100–400 MB files,
   test build 151). Needs owner confirmation on real Firefox (Y11).
 - **#31 Firefox: Record stuck on "Starting…"** behind cleanup after a large
-  confirmed save.
-- **#32/#33** small UX items; README and checklist corrections.
+  confirmed save. **EXPLAINED v1.28** (status-line message); the wait itself
+  remains — owner decision: message only. Rig Firefox, synthetic data: 15 s
+  at 75 MB, over 5 min at 375 MB (`regression_rig/cleanup_wait.py`).
+- **#32** small UX items: caption-export notes in the editor and the "Kept"
+  label **FIXED v1.28**, owner check PASSED; storage-stall item documented
+  only. **#33** README part done; checklist wording still open.
+- v1.27/v1.28 rig results: `regression_rig/results_2026-10-04_v1.28/`
+  (Chrome part 1 is from the v1.27 build; parts 2–3 and the Firefox
+  cleanup-wait run are v1.28; `s15_review_c` errored once in a full part-2
+  run on v1.27 and passed alone and in the next full run — cause not found).
 - Evidence: `regression_rig/results_2026-10-04/` (per-item JSON, built
   results page, memory samples). Results page artifact:
   claude.ai/artifact/WdEhAyUEdwEMdU84xPiWrs (owner's 11-task short list).
@@ -183,8 +195,8 @@ updated to recommend Chrome/Edge.
   fixes.** Order:
   1. DONE for #29 (Y2 confirmed 2026-10-04). Y11 (#30, Firefox memory) still
      open and optional under Chrome-first.
-  2. Fix session(s): #27 DONE (v1.26), #29 DONE (v1.27). Next:
-     #31, #32. Under Chrome-first, #28 is documented
+  2. Fix session(s): DONE — #27 (v1.26), #29 (v1.27), #31 message and
+     #32 (v1.28). Under Chrome-first, #28 is documented
      in the README rather than fixed, and #30 is fixed only if Y11 confirms
      it AND it risks losing a recording. Docs #33: README part done
      2026-10-04; checklist wording still open.
@@ -193,7 +205,9 @@ updated to recommend Chrome/Edge.
   4. Owner runs the remaining short-list tasks once, on the final build:
      the Chrome column in full; Firefox as a smoke pass (Y1, Y8, Y10).
   5. Then #19's faculty guide.
-- Unpushed: main is ahead of origin (rig, results, Chrome-first docs, v1.26). The rig commit
+- Unpushed: main is ahead of origin by the v1.27 and v1.28 commits (fix,
+  rig, docs). Push when the owner says so, then repeat the two real-Chrome
+  checks on the hosted page if wanted. Older note: the rig commit
   includes `original_checklist.html`, previously kept out of the repo —
   decide before pushing.
 - Roadmap remainder (REVIEW feature map): chapter hotkeys + sidecar

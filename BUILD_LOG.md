@@ -2270,6 +2270,48 @@ appeared, dialog opened, file plays to the end.
 Not covered: a multi-part save (stitch fallback, recovery bail) whose
 second dialog opens after a long first write can still be refused.
 
+### v1.28 — Small UX items (#32) and an explained Record wait (#31) (2026-10-04)
+
+**Caption export feedback (#32).** In Chrome the "Captions saved…" and
+"Save cancelled…" notes went only to the recorder status bar, which is
+hidden while the editor is open. `captionExport` now also writes them to
+the editor's own status line (the status-bar calls stay).
+
+**"Kept m:ss" (#32).** A cut never keeps past the requested time, so the
+kept length sits a frame short of it and the floored label read one
+second low (typed 0:07 → "Kept 0:06"). The post-cut status now uses
+`formatKeptMinSec`, which allows a tenth of a second before flooring.
+Plain rounding was tried and dropped: a scrub to 13.6 s read "Re-record
+from 0:13" then "Kept 0:14". `formatMinSec` (the button label) is
+unchanged.
+
+**Record waiting behind the last save's cleanup (#31, Firefox).** After
+"It's there — all set", the background delete holds the storage and the
+next recording's first write queues behind it; Record sat on a silent
+"Starting…". `confirmDownloadArrived` now counts its cleanup from the
+click (`backgroundCleanupsRunning`), and `startRecording` shows
+"Clearing out your last recording first — after a long recording this
+can take a few minutes. Recording will begin when it's done." "All set"
+no longer overwrites that line while Record is waiting. **The wait itself
+is unchanged** (owner decision 2026-10-04: message only, under
+Chrome-first). Shortening it means deleting in small batches inside
+`deleteSession` / `cleanupCompleted`.
+
+**Verification.** Harness: **181 scenarios / 1287 assertions** (FM, FN,
+FO new; EE/EF/EK's "Kept" pins moved to `formatKeptMinSec`). Rig, Chrome
+154: part 2 35 pass / 0 fail (typed 0:07 → "Kept 0:07", 0:20 → "Kept
+0:20"); part 3 all pass with 16.11/16.12 now requiring the note inside
+the editor. Rig, Playwright Firefox 151, new `cleanup_wait.py` run
+alone: 75 MB stored session, message shown, recording started after
+14.5 s; the previous commit (control) waited 15.4 s on "Starting…" with
+no message; a 375 MB stored session had not started after 5 minutes.
+Synthetic stored data, test build — real Firefox 157 not measured.
+Chrome part 1 and the other Firefox parts were not re-run for v1.28.
+
+**Owner check PASSED 2026-10-04**, real Chrome, local file: "Kept 0:07"
+after typing 0:07; "Captions saved…" and "Save cancelled…" both visible
+inside the editor.
+
 ---
 
 ## Known limitations

@@ -811,7 +811,7 @@ trim: 12-min recovery, 173 MB file, 394 MB → 2,481 MB (+2.1 GB). Four runs
 now agree. Chrome on the same measure: +74 MB on 139 MB, +56 MB on 347 MB —
 a fixed working cost, not one that grows with the file.
 
-### 31. Firefox: Record waits on "Starting…" behind the previous save's cleanup — P2
+### 31. Firefox: Record waits on "Starting…" behind the previous save's cleanup — P2 — EXPLAINED v1.28 (wait remains; documented Firefox limit)
 
 After "It's there — all set" on a long recording, the next Record click had
 not started 20 s later (both times: after 129 MB and 400 MB saves).
@@ -819,7 +819,23 @@ not started 20 s later (both times: after 129 MB and 400 MB saves).
 background `deleteSession` sweep is still running; no message is shown. It
 did start eventually in one run; the wait was not measured.
 
-### 32. Small UX items from the pass — P3
+**v1.28:** the wait is now explained on the status line ("Clearing out your
+last recording first — after a long recording this can take a few minutes.
+Recording will begin when it's done."); the wait itself is unchanged (owner
+decision 2026-10-04: message only, under Chrome-first). Measured with
+`regression_rig/cleanup_wait.py` in Playwright Firefox 151 on synthetic stored
+data: 75 MB → recording started after 14.5 s (15.4 s, silent, on the previous
+commit); 375 MB → not started after 5 minutes. Real Firefox 157 not measured.
+If this is ever engineered: delete in small batches inside `deleteSession` /
+`cleanupCompleted` so the new recording's writes can interleave.
+
+### 32. Small UX items from the pass — P3 — first two ✓ FIXED v1.28; third documented only
+
+**v1.28:** caption export notes now also appear in the editor's status line;
+the post-cut "Kept" label allows a tenth of a second before flooring (typed
+0:07 → "Kept 0:07"). Owner check PASSED 2026-10-04 in real Chrome. The
+storage-stall item was not reproduced with Firefox alone and has no code
+change.
 
 - Caption export in Chrome: the "Captions saved…" and "Save cancelled…" notes
   go to the recorder status bar, which is hidden while the editor is open —
