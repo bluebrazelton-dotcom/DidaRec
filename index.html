@@ -738,8 +738,8 @@
 
   <!-- Stitch fallback (combining segments failed; offer separate files instead) -->
   <div class="download-confirm" id="stitchFallback">
-    <h3>Couldn't combine the segments</h3>
-    <p>The recording segments couldn't be combined into one file. Save each segment as its own numbered file instead?</p>
+    <h3>Couldn't join the parts into one video</h3>
+    <p>Your video was recorded in parts, and they couldn't be joined. Save each part as its own file instead?</p>
     <div class="recovery-actions">
       <button class="primary btn-save" onclick="stitchFallbackSaveParts()">Save as separate files</button>
       <button class="primary btn-record" onclick="stitchFallbackKeep()">Not now &mdash; keep them stored here</button>
@@ -949,7 +949,7 @@
 
 <footer>
   <div>Click "Select Screen" to choose which screen, window, or tab to record. Your browser will show a popup — this is a required security step the app cannot bypass.</div>
-  <div style="margin-top: 0.5rem;">DidaRec <span id="appVersion">v1.31</span> by DidaWorks &middot; Open source &middot; MIT License &middot; No account, no server, no watermark, no time limits</div>
+  <div style="margin-top: 0.5rem;">DidaRec <span id="appVersion">v1.32</span> by DidaWorks &middot; Open source &middot; MIT License &middot; No account, no server, no watermark, no time limits</div>
 </footer>
 
 <script>
@@ -3888,7 +3888,7 @@ async function saveSessionStreamedFSA(source, suggestedName) {
     });
   } catch (err) {
     if (err.name === 'AbortError') {
-      updateStatus('idle', 'Save cancelled — recording preserved, reload to recover it');
+      updateStatus('idle', 'Save cancelled. Your video is still here.');
       return 'cancelled';
     }
     throw err;
@@ -4005,7 +4005,7 @@ async function saveSessionsStreamedStitch(segments, suggestedName) {
       });
     } catch (err) {
       if (err.name === 'AbortError') {
-        updateStatus('idle', 'Save cancelled — recording preserved, reload to recover it');
+        updateStatus('idle', 'Save cancelled. Your video is still here.');
         return 'cancelled';
       }
       throw err;
@@ -4440,7 +4440,7 @@ async function verifyRecorderStarted() {
     // recorder has since died, this is a SALVAGE, never a delete: deleting
     // a session with captured footage in it would be data loss.
     if (rec && rec.state !== 'inactive') return; // still alive — healthy, nothing to do
-    showError('Recording stopped responding — saving what was captured so far.');
+    showError('The recording stopped by itself. Saving what was recorded so far.');
     stopTimer();
     state.stopMode = 'save'; // a dead recorder is never a moment for the review flow
     if (claimFinalize()) {
@@ -4510,7 +4510,7 @@ function checkWriteStall() {
 async function stopWatchdogFire() {
   stopWatchdogTimer = null;
   if (!claimFinalize()) return; // onstop already got there first — nothing to salvage
-  showError('Recording stopped responding — saving what was captured so far.');
+  showError('The recording stopped by itself. Saving what was recorded so far.');
   stopTimer();
   // A dead recorder is not a moment for the review flow — force 'save'
   // regardless of which Stop button the user clicked (mirrors E's salvage
@@ -4840,7 +4840,7 @@ async function stopRecording() {
     // which Stop button was clicked. claimFinalize() guards against a stop
     // watchdog (F) that's still pending from an earlier onerror also trying
     // to finalize this same recording.
-    showError('Recording stopped responding — saving what was captured so far.');
+    showError('The recording stopped by itself. Saving what was recorded so far.');
     stopTimer();
     state.stopMode = 'save';
     if (claimFinalize()) {
@@ -4898,6 +4898,7 @@ async function finalizeRecording() {
   state.stopMode = 'save';
   // Declared out here so the catch can hand it to offerSaveClick (REVIEW #29).
   let sessionMimeType = 'video/webm';
+  let keepAfter = false;
   try {
     // Read the session's mimeType so we can rebuild the blob with the right codec.
     const db = await openDB();
@@ -4924,7 +4925,7 @@ async function finalizeRecording() {
     // wrapped — the streamed save internals below are untouched.
     const stats = await withStorageWatchdog(sessionChunkStats(state.sessionId));
     if (stats.count === 0 && state.priorSegments.length === 0) {
-      showError('No recording data found.');
+      showError('There was nothing to save. The recording had not started yet.');
       resetUI();
       return;
     }
@@ -4946,7 +4947,7 @@ async function finalizeRecording() {
       return;
     }
 
-    await saveStoppedRecording(sessionMimeType);
+    keepAfter = await saveStoppedRecording(sessionMimeType);
 
   } catch (err) {
     if (err instanceof StorageWatchdogTimeoutError) {
@@ -4955,30 +4956,35 @@ async function finalizeRecording() {
       // save branch), so the recording is exactly as safe as it was before
       // Stop was clicked — the recovery banner will pick it up once
       // Firefox's storage layer comes back.
-      showError("Firefox's storage isn't responding, so this recording can't be saved right now. Your recording is safe — close all Firefox windows, restart Firefox, reopen this page, and use the recovery banner to save it.");
+      showError('Firefox isn\'t responding, so this video can\'t be saved right now. Nothing was lost. Close all Firefox windows, open Firefox again, come back to this page, and click "Recover & save".');
     } else if (isSaveDialogBlocked(err)) {
       // REVIEW #29 backstop: the click went stale before the dialog opened.
       offerSaveClick(sessionMimeType);
     } else {
       console.error('Failed to finalize:', err);
-      showError('Save failed: ' + err.message + '. Your recording is safe — refresh and use Recovery.');
+      showError(SAVE_DIDNT_FINISH);
+      keepAfter = true;
     }
   } finally {
     cleanupStreams();
     resetUI();
+    // v1.32: a cancelled or failed save leaves the video as a kept recording,
+    // with its "Save it now" box showing — nobody is told to reload the page.
+    if (keepAfter) keepUnsavedRecording().catch((e) => console.error('Kept-recording banner failed:', e));
   }
 }
 
 // The save half of finalizeRecording, shared with the "Save recording" button
 // (REVIEW #29). Reads state.sessionId / state.priorSegments, which stay put
 // between a stop and that click because startRecording refuses to run while a
-// save is pending.
+// save is pending. Returns true when the save was cancelled, so the caller can
+// offer the video as a kept recording (v1.32).
 async function saveStoppedRecording(sessionMimeType) {
   if (state.priorSegments.length > 0) {
     // Multi-segment: streamed stitch of prior segments + current into one
     // file (Known Limitation #1, closed in v1.13 — this used to buffer
     // every segment; see saveSessionsStreamedStitch).
-    await stitchAndSave(sessionMimeType);
+    return (await stitchAndSave(sessionMimeType)) === true;
   } else {
     // Single segment: streamed save. Only delete the session on a CONFIRMED save.
     const result = await saveFile({ kind: 'session', sessionId: state.sessionId, mimeType: sessionMimeType });
@@ -4988,9 +4994,11 @@ async function saveStoppedRecording(sessionMimeType) {
     } else if (result === 'downloaded') {
       offerDownloadConfirm([state.sessionId], 1);
     } else {
-      showError('Save cancelled — your recording is still here. Reload the page to recover it.');
+      showError(SAVE_CANCELLED_KEPT);
+      return true;
     }
   }
+  return false;
 }
 
 // ============================================================
@@ -5021,22 +5029,26 @@ async function savePendingRecording() {
   savePendingMimeType = null;
   document.getElementById('saveNeedsClick').classList.remove('visible');
   showError('');
+  let keep = false;
   try {
-    await saveStoppedRecording(mimeType);
+    keep = await saveStoppedRecording(mimeType);
   } catch (err) {
     if (isSaveDialogBlocked(err)) {
       offerSaveClick(mimeType);
     } else {
       console.error('Failed to save stopped recording:', err);
-      showError('Save failed: ' + err.message + '. Your recording is safe — refresh and use Recovery.');
+      showError(SAVE_DIDNT_FINISH);
+      keep = true;
     }
   }
+  if (keep) await keepUnsavedRecording();
 }
 
 function keepPendingRecording() {
   savePendingMimeType = null;
   document.getElementById('saveNeedsClick').classList.remove('visible');
-  showError('Your recording is kept safe in this browser. Reload the page and click "Recover & save" to save it.');
+  showError('Your video is kept here. Click "Save it now" when you\'re ready.');
+  keepUnsavedRecording().catch((e) => console.error('Kept-recording banner failed:', e));
 }
 
 // Rider 1: the shared streamed-parts fallback. Each part is a v1.11
@@ -5069,7 +5081,7 @@ async function saveSegmentsAsParts(segments) {
 // bails to the in-app stitch-fallback banner (Rider 2, REVIEW #10) instead of
 // the old blocking confirm() — the banner drives saveSegmentsAsParts.
 async function stitchAndSave(currentMimeType) {
-  updateStatus('idle', 'Stitching segments together...');
+  updateStatus('idle', 'Joining the parts of your video…');
 
   try {
     // Which prior segments actually have data (counted via cursor — REVIEW #5;
@@ -5110,7 +5122,8 @@ async function stitchAndSave(currentMimeType) {
       // Keep every session until the user confirms the download arrived.
       offerDownloadConfirm([...state.priorSegments.map(s => s.sessionId), state.sessionId], 1);
     } else {
-      showError('Save cancelled — all segments preserved. Reload the page to recover them.');
+      showError(SAVE_CANCELLED_KEPT);
+      return true; // cancelled — the caller offers it as a kept recording
     }
 
   } catch (err) {
@@ -5165,7 +5178,7 @@ async function saveFile(source, suggestedName) {
     } catch (err) {
       if (err.name === 'AbortError') {
         // User cancelled the picker — recording is still in IndexedDB, keep it.
-        updateStatus('idle', 'Save cancelled — recording preserved, reload to recover it');
+        updateStatus('idle', 'Save cancelled. Your video is still here.');
         return 'cancelled';
       }
       throw err;
@@ -5280,10 +5293,8 @@ function keepDownloadSession() {
   downloadPendingIds = [];
   downloadPendingFiles = 0;
   document.getElementById('downloadConfirm').classList.remove('visible');
-  const bannerUp = document.getElementById('recoveryBanner').classList.contains('visible');
-  showError(bannerUp
-    ? 'Your recording is kept safe in this browser — click "Recover & save" above to try again.'
-    : 'Your recording is kept safe in this browser. Reload the page and click "Recover & save" to try again.');
+  showError('Your video is kept here. Click "Save it now" to try again.');
+  keepUnsavedRecording().catch((e) => console.error('Kept-recording banner failed:', e));
 }
 
 // ============================================================
@@ -5303,7 +5314,8 @@ async function stitchFallbackSaveParts() {
   document.getElementById('stitchFallback').classList.remove('visible');
   const { cancelled, downloadedIds } = await saveSegmentsAsParts(segments);
   if (cancelled) {
-    showError('Save cancelled — remaining segments are still here. Reload the page to recover them.');
+    showError('Save cancelled. The parts not saved yet are still here. Click "Save it now" when you\'re ready.');
+    await keepUnsavedRecording();
   } else if (downloadedIds.length > 0) {
     // Sessions stay until the download is confirmed — same pattern as every
     // other download-fallback save; confirmDownloadArrived clears priorSegments.
@@ -5316,7 +5328,8 @@ async function stitchFallbackSaveParts() {
 function stitchFallbackKeep() {
   stitchFallbackSegments = null;
   document.getElementById('stitchFallback').classList.remove('visible');
-  showError('Stitching failed. Your recordings are safe in the browser — refresh and use Recovery.');
+  showError('Nothing was lost. Your video is kept here until you save it.');
+  keepUnsavedRecording().catch((e) => console.error('Kept-recording banner failed:', e));
 }
 
 // ============================================================
@@ -5372,15 +5385,11 @@ async function checkForRecovery() {
     if (sessionInfos.length === 0) return;
 
     const sizeMB = (totalBytes / (1024 * 1024)).toFixed(1);
-    const mins = Math.floor(totalChunks / 60);
-    const secs = totalChunks % 60;
-
-    const segmentNote = sessionInfos.length > 1
-      ? ` across ${sessionInfos.length} segments`
-      : '';
-
+    const partsNote = sessionInfos.length > 1 ? ` in ${sessionInfos.length} parts` : '';
+    const started = new Date(sessionInfos[0].startTime).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
+    // One stored piece is about one second of video.
     document.getElementById('recoveryInfo').textContent =
-      `Found ${totalChunks} chunks (~${mins}m ${secs}s, ${sizeMB} MB)${segmentNote} from ${new Date(sessionInfos[0].startTime).toLocaleString()}.`;
+      `About ${describeVideoLength(totalChunks)} of video${partsNote} (${sizeMB} MB), started ${started}.`;
     setRecoveryBannerMode(false); // offerKeptRecording() switches it afterwards when that's the case
     document.getElementById('recoveryBanner').classList.add('visible');
 
@@ -5392,7 +5401,7 @@ async function checkForRecovery() {
     window._recoveryMimeType = sessionInfos[sessionInfos.length - 1].mimeType;
   } catch (err) {
     if (err instanceof StorageWatchdogTimeoutError) {
-      showError("Firefox's storage isn't responding, so DidaRec can't check for recordings to recover. Close ALL Firefox windows, restart Firefox, then reopen this page — any interrupted recording is still safe.");
+      showError("Firefox isn't responding, so DidaRec can't check for an unsaved video. Nothing was lost. Close ALL Firefox windows, open Firefox again, then come back to this page.");
       // R5: the raced-out openDB() call is still out there — if/when it
       // resolves, close that connection instead of leaking it open forever.
       if (dbPromise) dbPromise.then(d => { try { d.close(); } catch (e) {} }).catch(() => {});
@@ -5417,6 +5426,35 @@ function setRecoveryBannerMode(kept) {
   document.getElementById('btnRecoverySave').textContent = kept ? 'Save it now' : 'Recover & save';
 }
 
+// v1.32 wording shared by several sites.
+var KEPT_STATUS = 'Your earlier video is kept. Select a screen and click Record to add to it.';
+var SAVE_CANCELLED_KEPT = 'Save cancelled. Your video is still here. Click "Save it now" when you\'re ready.';
+var SAVE_DIDNT_FINISH = 'The save didn\'t finish. Nothing was lost. Click "Save it now" to try again.';
+
+function saveButtonName() { return recoveryKeptMode ? 'Save it now' : 'Recover & save'; }
+function saveCancelledNote() { return 'Save cancelled. Your video is still here. Click "' + saveButtonName() + '" when you\'re ready.'; }
+
+// "About 8 seconds" / "About 2 minutes 5 seconds" for the banner's info line.
+function describeVideoLength(totalSec) {
+  const m = Math.floor(totalSec / 60), sec = totalSec % 60;
+  const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
+  if (m === 0) return plural(sec, 'second');
+  return plural(m, 'minute') + (sec ? ' ' + plural(sec, 'second') : '');
+}
+
+// v1.32: after a cancelled or failed save (or "Not now"), whatever is still
+// unsaved in storage becomes the kept recording: the banner shows in kept
+// mode with "Save it now", and Record adds to it — the same state Back to
+// recorder leaves. Replaces every "reload the page to recover it" message.
+async function keepUnsavedRecording() {
+  if (state.recording) return;
+  await checkForRecovery();
+  if (!document.getElementById('recoveryBanner').classList.contains('visible')) return;
+  state.priorSegments = (window._recoverySessions || []).map((x) => ({ sessionId: x.id, mimeType: x.mimeType || 'video/webm' }));
+  setRecoveryBannerMode(true);
+  updateStatus('idle', KEPT_STATUS);
+}
+
 async function offerKeptRecording() {
   if (state.priorSegments.length === 0 || state.recording) return;
   await checkForRecovery();
@@ -5432,6 +5470,9 @@ function recoveryResolved() {
   state.priorSegments = [];
   reviewState.undo = null;
   document.getElementById('btnUndoReRecord').style.display = 'none';
+  // Any "Save cancelled / the save didn't finish — your video is still here"
+  // message is no longer true once that video is saved or discarded.
+  showError('');
 }
 
 async function recoverRecording() {
@@ -5452,8 +5493,8 @@ async function recoverRecording() {
     }
 
     if (segments.length === 0) {
-      showError('No recording data found to recover.');
       recoveryResolved();
+      showError('There was nothing to recover.'); // after recoveryResolved, which clears the message area
       return;
     }
 
@@ -5468,7 +5509,7 @@ async function recoverRecording() {
       } else if (result === 'downloaded') {
         offerDownloadConfirm([segments[0].id], 1);
       } else {
-        showError('Save cancelled — your recording stays in the list until you save it.');
+        showError(saveCancelledNote());
       }
       return;
     }
@@ -5476,7 +5517,7 @@ async function recoverRecording() {
     // Multiple segments from repeated crashes: streamed stitch (Known
     // Limitation #1, closed in v1.13 — this path used to buffer every
     // segment; single-crash recovery above was already fully streamed).
-    updateStatus('idle', 'Stitching recovered segments...');
+    updateStatus('idle', 'Joining the parts of your video…');
     const stitchSegs = segments.map(s => ({ sessionId: s.id, mimeType: s.mimeType }));
     const result = await saveSessionsStreamedStitch(stitchSegs);
 
@@ -5491,7 +5532,7 @@ async function recoverRecording() {
       return;
     }
     if (result === 'cancelled') {
-      showError('Save cancelled — all segments stay in the list until you save them.');
+      showError(saveCancelledNote());
       return;
     }
 
@@ -5499,10 +5540,10 @@ async function recoverRecording() {
     // straight to streamed parts (no in-app prompt here, unlike stitchAndSave —
     // same auto-proceed pattern recovery always used, just streamed instead of
     // buffered). Delete only the segments we actually write.
-    showError('Could not stitch the segments — saving each part as a separate file.');
+    showError("The parts couldn't be joined, so each one is being saved as its own file.");
     const { cancelled, downloadedIds } = await saveSegmentsAsParts(stitchSegs);
     if (cancelled) {
-      showError('Save cancelled — the remaining parts stay in the list until you save them.');
+      showError('Save cancelled. The parts not saved yet are still here. Click "' + saveButtonName() + '" when you\'re ready.');
     } else if (downloadedIds.length > 0) {
       offerDownloadConfirm(downloadedIds, downloadedIds.length);
     } else {
@@ -5510,7 +5551,7 @@ async function recoverRecording() {
     }
   } catch (err) {
     console.error('Recovery failed:', err);
-    showError('Recovery failed: ' + err.message);
+    showError("Couldn't save that video just now. Nothing was lost. Try " + '"' + saveButtonName() + '"' + ' again.');
   }
 }
 
@@ -5546,7 +5587,7 @@ async function continueRecording() {
   // "Save it now" remains one click away (no refresh needed to get it back).
   setRecoveryBannerMode(true);
   const segCount = state.priorSegments.length;
-  updateStatus('idle', `${segCount} prior segment${segCount > 1 ? 's' : ''} preserved. Select a screen and click Record to continue.`);
+  updateStatus('idle', KEPT_STATUS);
 }
 
 // ============================================================
@@ -5659,7 +5700,7 @@ function resetUI() {
   updateRecordButton();
   // Show segment indicator if continuing a recording
   if (state.priorSegments.length > 0) {
-    updateStatus('idle', `${state.priorSegments.length} prior segment(s) preserved — select a screen and record to continue`);
+    updateStatus('idle', KEPT_STATUS);
   } else {
     updateStatus('idle', 'Ready');
   }
@@ -5696,7 +5737,11 @@ function updateStatus(mode, text) {
 }
 
 function updateChunkCount(n) {
-  document.getElementById('chunkCount').textContent = n > 0 ? `${n} chunks saved` : '';
+  // Plain words on screen (v1.32); the number itself stays available to the
+  // test rig as data-count.
+  const el = document.getElementById('chunkCount');
+  el.textContent = n > 0 ? 'Saving as you go' : '';
+  if (el.dataset) el.dataset.count = String(n);
 }
 
 function showError(msg) {
@@ -6631,7 +6676,7 @@ async function openReviewPane(segments) {
     if (stats.count > 0) { withData.push(seg); totalBytes += stats.bytes; }
   }
   if (withData.length === 0) {
-    showError('No recording data found.');
+    showError('There was nothing to save. The recording had not started yet.');
     closeReviewPane();
     resetUI();
     return;

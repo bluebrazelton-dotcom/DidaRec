@@ -473,7 +473,7 @@ async function scenario(name, fn) {
     await drain();
     const sessions = await readStore('sessions');
     assert(sessions.length === 3, 'all 3 sessions kept after stitch cancel (got ' + sessions.length + ')');
-    assert(state.priorSegments.length === 2, 'priorSegments untouched after cancel');
+    assert(state.priorSegments.length === 3, 'after a cancelled joined save, all three parts are the kept recording (v1.32)');
   });
 
   // D — stitchAndSave success deletes all segments
@@ -517,7 +517,7 @@ async function scenario(name, fn) {
     assert(!ids.includes(s1), 's1 deleted (was written)');
     assert(ids.includes(s2) && ids.includes(s3), 's2 & s3 preserved (not written)');
     assert(lastWritten.length === 1, 'exactly one part written before cancel (got ' + lastWritten.length + ')');
-    assert(recordedErrors.some(m => /separate file/i.test(m)), 'told parts saved separately');
+    assert(recordedErrors.some(m => /its own file/i.test(m)), 'told parts saved separately');
   });
 
   // E2 — recovery, stitch BAILS, all parts save -> all deleted.
@@ -655,7 +655,7 @@ async function scenario(name, fn) {
     const chunks = await readStore('chunks');
     assert(sessions.length === 1, 'session still kept after decline (got ' + sessions.length + ')');
     assert(chunks.length === 2, 'chunks still kept after decline (got ' + chunks.length + ')');
-    assert(recordedErrors.some(m => /kept safe|recover/i.test(m)), 'user told how to get it back');
+    assert(recordedErrors.some(m => /kept here|Save it now/i.test(m)), 'user told how to get it back');
     assert(!documentMock.getElementById('downloadConfirm').classList.contains('visible'), 'confirm bar dismissed');
   });
 
@@ -1305,7 +1305,7 @@ async function scenario(name, fn) {
     assert(closedFiles === 0 && lastWritten.length === 0, 'no file finalized');
     const sessions = await readStore('sessions');
     assert(sessions.length === 1, 'session kept after failed save (got ' + sessions.length + ')');
-    assert(recordedErrors.some(m => /Save failed/.test(m) && /safe/i.test(m)), 'failure message points at recovery');
+    assert(recordedErrors.some(m => /save didn.t finish/i.test(m) && /Nothing was lost/.test(m)), 'failure message points at recovery');
   });
 
   // V3 — progress + close ordering through the real finalize path
@@ -1353,7 +1353,7 @@ async function scenario(name, fn) {
     await drain();
     assert(documentMock.getElementById('recoveryBanner').classList.contains('visible'), 'banner shown');
     const txt = documentMock.getElementById('recoveryInfo').textContent;
-    assert(/^Found 5 chunks \(~0m 5s, 0\.0 MB\) across 2 segments/.test(txt), 'banner text correct (got: ' + txt + ')');
+    assert(/^About 5 seconds of video in 2 parts \(0\.0 MB\), started /.test(txt), 'banner text correct (got: ' + txt + ')');
   });
 
   // Z — carry cap exceeded → un-indexed streaming save (raw bytes, still saves)
@@ -1839,7 +1839,7 @@ async function scenario(name, fn) {
     assert(sessions.length === 2, 'both sessions intact (got ' + sessions.length + ')');
     const chunks = await readStore('chunks');
     assert(chunks.length === 6, 'chunks intact (got ' + chunks.length + ')');
-    assert(recordedErrors.some(m => /preserved|reload/i.test(m)), 'cancel messaging surfaced');
+    assert(recordedErrors.some(m => /still here/i.test(m)), 'cancel messaging surfaced');
   });
 
   // AU — FSA mid-write failure -> abort, sessions kept, in-app fallback offered
@@ -1912,7 +1912,7 @@ async function scenario(name, fn) {
     assert(!documentMock.getElementById('stitchFallback').classList.contains('visible'), 'banner hidden after keep');
     const sessions2 = await readStore('sessions');
     assert(sessions2.length === 2, 'sessions kept after choosing keep (got ' + sessions2.length + ')');
-    assert(recordedErrors.some(m => /safe in the browser/i.test(m)), 'faculty message recorded');
+    assert(recordedErrors.some(m => /Nothing was lost/i.test(m)), 'faculty message recorded');
   });
 
   // AW — recoverRecording streamed stitch
@@ -1943,7 +1943,7 @@ async function scenario(name, fn) {
       windowMock.showSaveFilePicker = pickerSequence(['ok']);
       await api.recoverRecording();
       await drain();
-      assert(recordedErrors.some(m => /Could not stitch/i.test(m)), '"Could not stitch" message recorded');
+      assert(recordedErrors.some(m => /couldn.t be joined/i.test(m)), '"Could not stitch" message recorded');
       assert(!documentMock.getElementById('stitchFallback').classList.contains('visible'), 'no stitchFallback banner on recovery bail');
       assert(lastWritten.length === 3, 'three parts saved (got ' + lastWritten.length + ')');
       const sessions = await readStore('sessions');
@@ -3896,7 +3896,7 @@ Real cue text
     assert(windowMock._recoverySessions.length === 1 && windowMock._recoverySessions[0].id === keptId,
       'checkForRecovery lists only the non-discarded session');
     const info = documentMock.getElementById('recoveryInfo').textContent;
-    assert(/Found 3 chunks/.test(info), 'the totals count only the kept session\'s chunks (got: ' + info + ')');
+    assert(/About 3 seconds of video/.test(info), 'the totals count only the kept session\'s chunks (got: ' + info + ')');
 
     // ---- deleteDiscardedSessions removes exactly the flagged ones ----
     await S.deleteDiscardedSessions();
@@ -4290,7 +4290,7 @@ Real cue text
     try { await api.checkForRecovery(); } catch (e) { threw = true; }
     sandbox.openDB = origOpenDB;
     assert(!threw, 'checkForRecovery does not throw on a storage-watchdog timeout');
-    assert(recordedErrors.some(m => /storage isn.t responding/i.test(m) && /recover/i.test(m)),
+    assert(recordedErrors.some(m => /Firefox isn.t responding/i.test(m) && /unsaved video/i.test(m)),
       'guidance error shown (got: ' + JSON.stringify(recordedErrors) + ')');
     assert(!documentMock.getElementById('recoveryBanner').classList.contains('visible'), 'no recovery banner is shown');
   });
@@ -4306,7 +4306,7 @@ Real cue text
     try { await api.finalizeRecording(); } catch (e) { threw = true; }
     sandbox.sessionChunkStats = origStats;
     assert(!threw, 'finalizeRecording does not throw on a storage-watchdog timeout');
-    assert(recordedErrors.some(m => /storage isn.t responding/i.test(m) && /saved right now/i.test(m)),
+    assert(recordedErrors.some(m => /Firefox isn.t responding/i.test(m) && /saved right now/i.test(m)),
       'guidance error shown (got: ' + JSON.stringify(recordedErrors) + ')');
     const sessions = await readStore('sessions');
     assert(sessions.length === 1 && sessions[0].id === id && sessions[0].completed === false,
@@ -4456,10 +4456,13 @@ Real cue text
     assert(sessionsAfterCancel.find(s => s.id === diedSid1) !== undefined,
       'R1 regression guard: a cancelled salvage save leaves the chunk-bearing session intact — the old bug deleted it unconditionally, with no save attempted at all');
     assert(lastWritten.length === 0, 'nothing was written — the save was cancelled, not skipped');
-    assert(recordedErrors.some(m => /stopped responding/i.test(m)), 'the salvage message (not the silent-start-failure message) is shown');
+    assert(recordedErrors.some(m => /stopped by itself/i.test(m)), 'the salvage message (not the silent-start-failure message) is shown');
     assert(state.stopMode === 'save', 'salvage forces save, never review');
 
     // Now prove the salvage save actually completes end-to-end when confirmed.
+    // v1.32: the cancelled save above left that video as a kept recording, and Record would add to it.
+    // Discard it first, as a user starting over would.
+    await sandbox.discardRecovery(); await drain();
     recordedErrors.length = 0; finalizeCalls = 0; lastWritten.length = 0;
     state.screenStream = makeStream([{ kind: 'video', getSettings: () => ({ width: 1280, height: 720 }), addEventListener() {}, stop() {} }]);
     windowMock.showSaveFilePicker = pickerSequence(['ok']);
@@ -4521,7 +4524,7 @@ Real cue text
     assert(lastWritten.length === 1, 'the seeded chunks were actually saved');
     let sessions = await readStore('sessions');
     assert(sessions.find(s => s.id === id1) === undefined, 'the session is deleted after the confirmed salvage save');
-    assert(recordedErrors.some(m => /stopped responding/i.test(m)), 'the salvage message is shown (got ' + JSON.stringify(recordedErrors) + ')');
+    assert(recordedErrors.some(m => /stopped by itself/i.test(m)), 'the salvage message is shown (got ' + JSON.stringify(recordedErrors) + ')');
     assert(state.stopMode === 'save', 'a dead recorder always forces the save stopMode, never review');
 
     // --- mock inactive recorder ---
@@ -4543,7 +4546,7 @@ Real cue text
     assert(lastWritten.length === 1, 'the seeded chunks were saved for the inactive-recorder case too');
     sessions = await readStore('sessions');
     assert(sessions.find(s => s.id === id2) === undefined, 'the second session is deleted after its salvage save');
-    assert(recordedErrors.some(m => /stopped responding/i.test(m)), 'the salvage message is shown for the inactive-recorder case');
+    assert(recordedErrors.some(m => /stopped by itself/i.test(m)), 'the salvage message is shown for the inactive-recorder case');
 
     // --- genuinely idle: recording === false stays a silent no-op ---
     finalizeCalls = 0; recordedErrors.length = 0;
@@ -4581,7 +4584,7 @@ Real cue text
     await api.stopWatchdogFire();
     await drain();
     assert(finalizeCalls === 1, 'the watchdog forced exactly one finalize');
-    assert(recordedErrors.some(m => /stopped responding/i.test(m)), 'the watchdog salvage message is shown');
+    assert(recordedErrors.some(m => /stopped by itself/i.test(m)), 'the watchdog salvage message is shown');
     const sessions = await readStore('sessions');
     assert(lastWritten.length === 1 && sessions.length === 0, 'the watchdog salvage actually saved and cleaned up the session');
 
@@ -4632,7 +4635,7 @@ Real cue text
     await api.stopWatchdogFire();
     await drain();
     assert(finalizeCalls === 1, 'the watchdog salvaged exactly once, without waiting for the hung write');
-    assert(recordedErrors.some(m => /stopped responding/i.test(m)), 'the watchdog salvage message is shown');
+    assert(recordedErrors.some(m => /stopped by itself/i.test(m)), 'the watchdog salvage message is shown');
     assert(lastWritten.length === 1, 'the salvage saved the one chunk that had actually landed (the gated second chunk was not waited for)');
     let sessions = await readStore('sessions');
     assert(sessions.length === 0, 'the session is deleted after the salvage save completes');
@@ -4720,7 +4723,7 @@ Real cue text
     await drain();
     assert(finalizeCalls === 1, 'the watchdog salvages exactly once after the swallowed stop() throw');
     assert(recordedErrors.some(m => /Recording error: device lost again/.test(m)), 'the onerror message is still shown even though stop() threw');
-    assert(recordedErrors.some(m => /stopped responding/i.test(m)), 'the watchdog salvage message is also shown');
+    assert(recordedErrors.some(m => /stopped by itself/i.test(m)), 'the watchdog salvage message is also shown');
     assert(lastWritten.length === 1, 'the chunk captured before the error was still saved via the watchdog salvage');
 
     sandbox.finalizeRecording = origFinalize;
@@ -6357,7 +6360,7 @@ Real cue text
 
     sandbox.keepPendingRecording();
     assert(!saveBannerUp() && sandbox.savePendingMimeType === null, 'FK: Not now clears the banner');
-    assert(recordedErrors.some(m => /Recover & save/.test(m)), 'FK: Not now points at Recovery');
+    assert(recordedErrors.some(m => /Save it now/.test(m)), 'FK: Not now points at Recovery');
     assert((await readStore('sessions')).length === 1 && lastWritten.length === 0, 'FK: nothing saved or deleted');
 
     state.sources = { screen: true, camera: true, mic: false };
@@ -6529,7 +6532,7 @@ Real cue text
     assert(recBannerUp() && sandbox.recoveryKeptMode === true, 'FS: banner up in kept mode');
     assert(el29('recoveryTitle').textContent === 'Recording kept — not saved yet', 'FS: kept title (got ' + el29('recoveryTitle').textContent + ')');
     assert(el29('btnRecoveryContinue').style.display === 'none' && el29('btnRecoverySave').textContent === 'Save it now', 'FS: Continue hidden, Save it now offered');
-    assert(/Found 3 chunks/.test(el29('recoveryInfo').textContent), 'FS: chunk count shown (got ' + el29('recoveryInfo').textContent + ')');
+    assert(/About 3 seconds of video/.test(el29('recoveryInfo').textContent), 'FS: length shown (got ' + el29('recoveryInfo').textContent + ')');
     assert(state.priorSegments.length === 1, 'FS precondition: footage armed for Record');
 
     windowMock.showSaveFilePicker = pickerSequence(['ok']);
@@ -6577,7 +6580,7 @@ Real cue text
 
     await S.setSessionCut(a, 2, 2000); // 4 one-byte chunks, cut at byte 2
     await sandbox.offerKeptRecording();
-    assert(/Found 2 chunks/.test(el29('recoveryInfo').textContent), 'FT: a cut segment is reported at its kept size (got ' + el29('recoveryInfo').textContent + ')');
+    assert(/About 2 seconds of video/.test(el29('recoveryInfo').textContent), 'FT: a cut segment is reported at its kept size (got ' + el29('recoveryInfo').textContent + ')');
   });
 
   await scenario('FU fit, not stretch: a screen with a different shape is drawn centred at its own proportions; the same shape still fills the canvas', async () => {
@@ -6749,6 +6752,81 @@ Real cue text
     await sandbox.stopRecording();
     await drain();
     assert(!lk('toggleScreen') && !lk('toggleCamera') && !lk('toggleMic') && el29('toggleScreen').title === '', 'FZ: idle — no padlocks, no notes');
+  });
+
+  // ---------- v1.32: plain-language messages; cancelled/failed saves become a kept recording ----------
+  await scenario('GA a cancelled save (Chrome) leaves the video as a kept recording: the banner shows in kept mode at once, nobody is told to reload, Save it now saves it, and Record would add to it', async () => {
+    const id = await seed(4);
+    state.sessionId = id; state.chunkIndex = 4;
+    windowMock.showSaveFilePicker = pickerSequence(['abort', 'ok']);
+    await api.finalizeRecording();
+    await drain();
+    assert(recBannerUp() && sandbox.recoveryKeptMode === true, 'GA: kept banner up right after the cancel');
+    assert(state.priorSegments.length === 1 && state.priorSegments[0].sessionId === id, 'GA: the cancelled video is the kept chain (Record adds to it)');
+    assert(recordedErrors.some(m => /Save cancelled\. Your video is still here\. Click "Save it now"/.test(m)), 'GA: plain cancel message (got ' + JSON.stringify(recordedErrors) + ')');
+    assert(!recordedErrors.concat(statusHistory).some(m => /reload|refresh/i.test(m || '')), 'GA: nothing tells the user to reload or refresh');
+    assert(statusHistory[statusHistory.length - 1] === sandbox.KEPT_STATUS, 'GA: status line says the earlier video is kept (got ' + statusHistory[statusHistory.length - 1] + ')');
+    await api.recoverRecording();
+    await drain();
+    assert(lastWritten.length === 1 && (await readStore('sessions')).length === 0, 'GA: Save it now wrote the file and cleared storage');
+    assert(!recBannerUp() && state.priorSegments.length === 0, 'GA: banner gone, chain cleared');
+    assert(!documentMock.getElementById('errorBanner').classList.contains('visible'), 'GA: the "Save cancelled" message is cleared once the video is saved');
+
+    // Same after Discard (owner check 2026-10-05: the red message used to stay).
+    const id2 = await seed(2);
+    state.sessionId = id2; state.chunkIndex = 2;
+    windowMock.showSaveFilePicker = pickerSequence(['abort']);
+    await api.finalizeRecording();
+    await drain();
+    assert(documentMock.getElementById('errorBanner').classList.contains('visible'), 'GA precondition: cancel message showing');
+    await sandbox.discardRecovery();
+    await drain();
+    assert(!documentMock.getElementById('errorBanner').classList.contains('visible') && !recBannerUp(), 'GA: Discard clears the message and the box');
+  });
+
+  await scenario('GB a save that fails part-way says so in plain words (no raw browser error), keeps the video, and offers Save it now; "Not now" on the #29 banner and "It didn\'t arrive" do the same', async () => {
+    const id = await seed(3);
+    state.sessionId = id; state.chunkIndex = 3;
+    windowMock.showSaveFilePicker = pickerSequence(['ok']);
+    failWriteAfter = 0;
+    await api.finalizeRecording();
+    await drain();
+    assert(recordedErrors.some(m => /The save didn't finish\. Nothing was lost\. Click "Save it now"/.test(m)), 'GB: plain failure message (got ' + JSON.stringify(recordedErrors) + ')');
+    assert(!recordedErrors.some(m => /disk error|Save failed/.test(m)), 'GB: the raw error text is not shown');
+    assert(recBannerUp() && sandbox.recoveryKeptMode === true && state.priorSegments.length === 1, 'GB: kept banner and chain after the failure');
+    assert((await readStore('sessions')).length === 1, 'GB: the video is still stored');
+
+    await resetState();
+    const id2 = await seed(2);
+    state.sessionId = id2; state.chunkIndex = 2;
+    windowMock.showSaveFilePicker = pickerSequence(['ok']);
+    sandbox.navigator.userActivation = { isActive: false };
+    await api.finalizeRecording();
+    await drain();
+    sandbox.keepPendingRecording();
+    await drain();
+    assert(recBannerUp() && sandbox.recoveryKeptMode === true && state.priorSegments.length === 1, 'GB: Not now on the Save recording banner -> kept banner');
+
+    await resetState();
+    const id3 = await seed(2);
+    sandbox.offerDownloadConfirm([id3], 1);
+    sandbox.keepDownloadSession();
+    await drain();
+    assert(recBannerUp() && sandbox.recoveryKeptMode === true && state.priorSegments.length === 1, 'GB: "It didn\'t arrive" -> kept banner');
+    assert(recordedErrors.some(m => /Your video is kept here\. Click "Save it now" to try again\./.test(m)), 'GB: and says how to try again');
+  });
+
+  await scenario('GC wording: the counter and the banner info line use plain words; lengths read naturally', async () => {
+    sandbox.updateChunkCount(7);
+    assert(documentMock.getElementById('chunkCount').textContent === 'Saving as you go', 'GC: counter says Saving as you go');
+    sandbox.updateChunkCount(0);
+    assert(documentMock.getElementById('chunkCount').textContent === '', 'GC: counter empty at zero');
+    assert(sandbox.describeVideoLength(1) === '1 second' && sandbox.describeVideoLength(8) === '8 seconds', 'GC: seconds');
+    assert(sandbox.describeVideoLength(60) === '1 minute' && sandbox.describeVideoLength(125) === '2 minutes 5 seconds' && sandbox.describeVideoLength(61) === '1 minute 1 second', 'GC: minutes');
+    await seed(8);
+    await sandbox.checkForRecovery();
+    const t = documentMock.getElementById('recoveryInfo').textContent;
+    assert(/^About 8 seconds of video \(0\.0 MB\), started /.test(t) && !/chunk|segment/i.test(t), 'GC: info line in plain words (got ' + t + ')');
   });
 
   console.log('\n================  ' + passed + ' passed, ' + failed + ' failed  ================');
