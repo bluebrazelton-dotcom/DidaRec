@@ -4413,10 +4413,15 @@ async function startRecording() {
   const btnRecord = document.getElementById('btnRecord');
   btnRecord.disabled = true;
   btnRecord.textContent = 'Starting...';
+  if (backgroundCleanupsRunning > 0) {
+    // REVIEW #31
+    recordWaitingOnCleanup = true;
+    updateStatus('idle', CLEANUP_WAIT_MSG);
+  }
 
   try {
     // Cleanup any old completed sessions
-    await cleanupCompleted();
+    try { await cleanupCompleted(); } finally { recordWaitingOnCleanup = false; }
 
     // Screen stream should already be captured via selectScreen()
     // If camera-only mode (no screen), skip screen capture
@@ -5034,6 +5039,12 @@ function formatDateForFilename() {
 // recovery banner on next load is the backstop if the bar is ignored).
 var downloadPendingIds = [];
 var downloadPendingFiles = 0;
+// REVIEW #31: how many confirmDownloadArrived background sweeps are still
+// deleting. The next recording's first storage write queues behind them
+// (same object stores), so startRecording says so instead of a silent wait.
+var backgroundCleanupsRunning = 0;
+var recordWaitingOnCleanup = false;
+var CLEANUP_WAIT_MSG = 'Clearing out your last recording first — after a long recording this can take a few minutes. Recording will begin when it’s done.';
 
 function offerDownloadConfirm(sessionIds, fileCount) {
   // Append, don't overwrite: a 2nd unresolved download while the bar is up
@@ -5057,6 +5068,9 @@ async function confirmDownloadArrived() {
   const fileCount = downloadPendingFiles;
   downloadPendingIds = [];
   downloadPendingFiles = 0;
+  // REVIEW #31: counted from the click itself, so a Record click that lands
+  // before the cheap writes below finish is still told about the wait.
+  backgroundCleanupsRunning++;
 
   // Mark durable before anything else: cheap, O(sessions) (one record `put`
   // each), not O(chunks). completeSession() flips `completed: true`, which is
@@ -5075,6 +5089,7 @@ async function confirmDownloadArrived() {
     console.error('Confirming the download failed:', err);
     downloadPendingIds = ids.concat(downloadPendingIds);
     downloadPendingFiles = fileCount + downloadPendingFiles;
+    backgroundCleanupsRunning--;
     showError('Couldn\'t finish confirming the download — your recording is still safe. Try "It\'s there — all set" again.');
     return;
   }
@@ -5087,7 +5102,9 @@ async function confirmDownloadArrived() {
   state.priorSegments = [];
   document.getElementById('downloadConfirm').classList.remove('visible');
   document.getElementById('recoveryBanner').classList.remove('visible');
-  updateStatus('idle', 'All set');
+  // REVIEW #31: if Record was already clicked and is waiting on this cleanup,
+  // keep its explanation on the status line instead of "All set".
+  updateStatus('idle', recordWaitingOnCleanup ? CLEANUP_WAIT_MSG : 'All set');
 
   // Physical cleanup happens in the background, un-awaited by the click
   // handler. What gets deleted is unchanged from before — same ids, same
@@ -5103,6 +5120,8 @@ async function confirmDownloadArrived() {
       await deleteDiscardedSessions();
     } catch (err) {
       console.error('Background cleanup after confirmed download failed:', err);
+    } finally {
+      backgroundCleanupsRunning--;
     }
   })();
 }
@@ -6287,6 +6306,8 @@ async function captionExport(format) {
       if (err.name === 'AbortError') {
         // Cancel is not an error — quiet status note, draft untouched.
         updateStatus('idle', 'Save cancelled — your caption edits are still here.');
+        // REVIEW #32: the recorder status bar is hidden while the editor is open.
+        captionSetStatus('Save cancelled — your caption edits are still here.');
         return 'cancelled';
       }
       throw err;
@@ -6297,6 +6318,7 @@ async function captionExport(format) {
       await writable.close();
       captionEditorState.dirty = false;
       updateStatus('idle', "Captions saved next to your video's name.");
+      captionSetStatus("Captions saved next to your video's name.");
       return 'saved';
     } catch (err) {
       showError("Couldn't save the captions file. Your edits are still in the editor — try saving again.");
@@ -6371,6 +6393,15 @@ function formatMinSec(ms) {
   const m = Math.floor(totalSec / 60);
   const s = totalSec % 60;
   return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+// The post-cut "Kept" status only (REVIEW #32): a cut never keeps past the
+// requested time, so the kept length sits a frame short of it and flooring
+// read one second low (typed 0:07 → "Kept 0:06"). Allow a tenth of a second
+// before flooring — not plain rounding, which would disagree with the
+// "Re-record from 0:13" button after a scrub to 13.6 s ("Kept 0:14").
+function formatKeptMinSec(ms) {
+  return formatMinSec(ms + 100);
 }
 
 async function openReviewPane(segments) {
@@ -6630,7 +6661,7 @@ async function applyReviewCutPlan(plan, T) {
   state.priorSegments = keptSegments;
   closeReviewPane();
   resetUI();
-  updateStatus('idle', `Kept ${formatMinSec(keptMs || 0)}. Select a screen and click Record to continue from there.`);
+  updateStatus('idle', `Kept ${formatKeptMinSec(keptMs || 0)}. Select a screen and click Record to continue from there.`);
   document.getElementById('btnUndoReRecord').style.display = '';
 }
 

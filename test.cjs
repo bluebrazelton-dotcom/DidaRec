@@ -336,6 +336,7 @@ async function resetState() {
   documentMock.getElementById('stitchFallback').classList.remove('visible');
   // REVIEW #29: pending "Save recording" click + the userActivation mock its
   // scenarios install (absent by default = the pre-#29 behavior everywhere else).
+  sandbox.backgroundCleanupsRunning = 0; sandbox.recordWaitingOnCleanup = false; // REVIEW #31
   sandbox.savePendingMimeType = null;
   documentMock.getElementById('saveNeedsClick').classList.remove('visible');
   delete sandbox.navigator.userActivation;
@@ -5200,7 +5201,7 @@ Real cue text
     assert(s.cutAtByte === expectedCutAtByte, 'EE: the stored cutAtByte is the REFINED byte (got ' + s.cutAtByte + ', Rule A would be ' + plan.cutAtByte + ')');
     assert(s.cutAtByte !== plan.cutAtByte, 'EE: the stored cutAtByte is NOT Rule A\'s whole-cluster-drop byte');
     assert(s.cutAtMs === 1300, 'EE: the stored cutAtMs is the refined keptMs (got ' + s.cutAtMs + ')');
-    assert(statusHistory.some((m) => m === `Kept ${S.formatMinSec(1300)}. Select a screen and click Record to continue from there.`),
+    assert(statusHistory.some((m) => m === `Kept ${S.formatKeptMinSec(1300)}. Select a screen and click Record to continue from there.`),
       'EE: the post-cut status message reports the REFINED kept duration');
     assert(recordedErrors.length === 0, 'EE: a successful refinement never surfaces an error banner');
     assert(documentMock.getElementById('reviewPane').classList.contains('visible') === false, 'EE: the review pane closes on a successful cut');
@@ -5262,7 +5263,7 @@ Real cue text
     assert(s.cutAtByte === plan.cutAtByte, 'EF: the stored cutAtByte falls back to Rule A\'s whole-cluster byte (got ' + s.cutAtByte + ')');
     assert(s.cutAtMs === plan.keptMs, 'EF: the stored cutAtMs falls back to Rule A\'s keptMs (got ' + s.cutAtMs + ')');
     assert(recordedErrors.length === 0, 'EF: a contained refinement failure never surfaces a user-facing error banner');
-    assert(statusHistory.some((m) => m === `Kept ${S.formatMinSec(plan.keptMs)}. Select a screen and click Record to continue from there.`),
+    assert(statusHistory.some((m) => m === `Kept ${S.formatKeptMinSec(plan.keptMs)}. Select a screen and click Record to continue from there.`),
       'EF: the pane still reports success with Rule A\'s kept duration — behaves exactly as v1.20 did');
     assert(documentMock.getElementById('reviewPane').classList.contains('visible') === false, 'EF: the review pane still closes normally on the (Rule-A-fallback) successful cut');
     assert(documentMock.getElementById('btnUndoReRecord').style.display === '', 'EF: the Undo re-record affordance still appears');
@@ -5525,7 +5526,7 @@ Real cue text
       'EK: priorSegments keeps only the first two segments');
     assert(documentMock.getElementById('reviewPane').classList.contains('visible') === false, 'EK: the review pane closes on a successful redo');
     assert(documentMock.getElementById('btnUndoReRecord').style.display === '', 'EK: the Undo re-record affordance appears');
-    assert(statusHistory.some((m) => m === `Kept ${S.formatMinSec(oraclePlan.keptMs)}. Select a screen and click Record to continue from there.`),
+    assert(statusHistory.some((m) => m === `Kept ${S.formatKeptMinSec(oraclePlan.keptMs)}. Select a screen and click Record to continue from there.`),
       'EK: the post-redo status reports the same kept duration computeCutPlan\'s own last-segment cut would');
 
     // ---- undo restores exactly (arms the FULL pane chain, un-discards only what this redo discarded) ----
@@ -6374,6 +6375,71 @@ Real cue text
     assert(!saveBannerUp() && sandbox.savePendingMimeType === null, 'FL: no banner in download mode');
     assert(downloadClicks.length === 1, 'FL: the download fired (got ' + downloadClicks.length + ')');
     assert(documentMock.getElementById('downloadConfirm').classList.contains('visible'), 'FL: the usual "did it arrive?" bar is showing');
+  });
+
+  // ---------- REVIEW #32: small UX items ----------
+  await scenario('FM the post-cut "Kept" label forgives a frame short of the second (typed 0:07 no longer reads "Kept 0:06") but otherwise floors like the Re-record-from label', async () => {
+    assert(sandbox.formatKeptMinSec(6967) === '0:07', 'FM: 6.967 s kept reads 0:07 (got ' + sandbox.formatKeptMinSec(6967) + ')');
+    assert(sandbox.formatKeptMinSec(19950) === '0:20', 'FM: 19.95 s kept reads 0:20');
+    assert(sandbox.formatKeptMinSec(6300) === '0:06', 'FM: a cut that really landed early (6.3 s) still reads 0:06');
+    assert(sandbox.formatKeptMinSec(13600) === '0:13', 'FM: a scrub to 13.6 s reads 0:13, same as its "Re-record from 0:13" button');
+    assert(sandbox.formatKeptMinSec(59950) === '1:00', 'FM: carries into the minute');
+    assert(sandbox.formatKeptMinSec(0) === '0:00', 'FM: zero stays 0:00');
+    assert(sandbox.formatMinSec(6967) === '0:06', 'FM: formatMinSec itself (the Re-record-from label) is unchanged');
+  });
+
+  await scenario('FN Chrome caption export: the saved and cancelled notes also land in the editor\'s own status line (the recorder status bar is hidden behind the editor)', async () => {
+    const ec = api.captionEditorState;
+    ec.videoInfo = { name: 'lecture.webm', size: 1, lastModified: 1, objectUrl: 'blob:mock' };
+    ec.fileKey = api.captionFileKey(ec.videoInfo);
+    ec.cues = [{ id: null, start: 0, end: 1, text: 'x', settings: '' }];
+    const cs = () => documentMock.getElementById('captionStatus').textContent;
+
+    windowMock.showSaveFilePicker = pickerSequence(['abort']);
+    assert(await api.captionExport('vtt') === 'cancelled', 'FN precondition: cancelled');
+    assert(/Save cancelled/.test(cs()), 'FN: the cancel note is in the editor status line (got ' + JSON.stringify(cs()) + ')');
+    assert(statusHistory.some(m => /cancelled/i.test(m)), 'FN: the recorder status bar still gets it too');
+
+    windowMock.showSaveFilePicker = pickerSequence(['ok']);
+    assert(await api.captionExport('vtt') === 'saved', 'FN precondition: saved');
+    assert(/Captions saved/.test(cs()), 'FN: the saved note is in the editor status line (got ' + JSON.stringify(cs()) + ')');
+    assert(recordedErrors.length === 0, 'FN: neither path shows an error');
+  });
+
+  // ---------- REVIEW #31: Record waiting behind the last save's cleanup ----------
+  await scenario('FO Record clicked while the previous download\'s background cleanup is still deleting says so; with no cleanup running the message never appears; the counter returns to zero', async () => {
+    const MSG = /Clearing out your last recording/;
+    const camOnly = () => {
+      state.sources = { screen: true, camera: true, mic: false };
+      state.cameraStream = makeStream([{ kind: 'video', getSettings: () => ({ width: 320, height: 240 }), addEventListener() {}, stop() {} }]);
+      sandbox.toggleSource('screen');
+    };
+    // The real path: a confirmed download leaves a background sweep running.
+    const id = await seed(3);
+    sandbox.offerDownloadConfirm([id], 1);
+    camOnly();
+    // Record clicked straight after "all set", before that click's own writes finish.
+    const confirming = sandbox.confirmDownloadArrived();
+    assert(sandbox.backgroundCleanupsRunning === 1, 'FO: the cleanup is counted from the click itself (got ' + sandbox.backgroundCleanupsRunning + ')');
+    const starting = api.startRecording();
+    assert(statusHistory.some(m => MSG.test(m)), 'FO: the wait is explained (got ' + JSON.stringify(statusHistory.slice(-3)) + ')');
+    await confirming;
+    assert(!statusHistory.includes('All set'), 'FO: "All set" does not overwrite the explanation while Record is waiting (got ' + JSON.stringify(statusHistory.slice(-4)) + ')');
+    await starting;
+    assert(sandbox.recordWaitingOnCleanup === false, 'FO: the waiting flag clears once the cleanup is through');
+    await drain();
+    assert(state.recording === true, 'FO: the recording does start once the cleanup is through');
+    assert(sandbox.backgroundCleanupsRunning === 0, 'FO: counter back to zero after the sweep (got ' + sandbox.backgroundCleanupsRunning + ')');
+    assert((await readStore('sessions')).every(s => s.id !== id), 'FO: the confirmed session was deleted');
+    await sandbox.stopRecording();
+    await drain();
+
+    await resetState();
+    camOnly();
+    await api.startRecording();
+    assert(!statusHistory.some(m => MSG.test(m)), 'FO: no cleanup running, no message');
+    await sandbox.stopRecording();
+    await drain();
   });
 
   console.log('\n================  ' + passed + ' passed, ' + failed + ' failed  ================');
