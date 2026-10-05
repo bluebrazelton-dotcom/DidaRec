@@ -923,7 +923,13 @@ errors, and "Reload the page to recover it". All reworded (owner-approved
 table); a cancelled or failed save now leaves a kept recording with **Save it
 now** showing, so nothing asks for a reload. Owner check PASSED 2026-10-05.
 
-### 41. The left Screen button means different things at different times — OPEN, next (v1.33)
+### 41. The left Screen button means different things at different times — ✓ FIXED v1.33
+
+**Fixed v1.33:** dark = open the picker, always; lit = stop showing the
+screen; camera-only = webcam on with no screen selected (Record available,
+Select Screen always visible); the at-least-one message is gone; the preview
+is wiped when it returns to the placeholder. Owner check PASSED 2026-10-05.
+Original note follows.
 
 Owner, 2026-10-05: after coming back from a recording, clicking the left
 Screen button "just toggles whether Select Screen is visible". By design
@@ -945,6 +951,29 @@ is captured at about 320×240 today (fine for the corner, soft at full frame),
 so full screen must re-open it at a higher resolution; and the camera must be
 fitted or cropped, not stretched — webcam-only mode stretches it to the frame
 today, so this fixes that too.
+
+### 43. Review page: see every part and work on one at a time — FUTURE, to explore (owner, 2026-10-05)
+
+Show all recorded parts of a video on the review page, play each one by
+itself, and change or replace a single part. Starting points already in the
+app: each part is its own stored session; the review preview joins them in
+order; "Redo last take" discards the newest part and re-arms recording; a cut
+truncates one part by metadata. What is new: a per-part list with its own
+player, and recording a replacement INTO a middle position (today new takes
+only append). Questions to settle first: how parts are named and ordered on
+screen, whether parts can be reordered or deleted individually, and what
+Undo means with several edits.
+
+### 44. Save a video project and come back to it later — FUTURE, to explore (owner, 2026-10-05)
+
+Keep an unfinished video as a named project instead of only "the kept
+recording". Starting point: unsaved parts already persist in the browser's
+storage until saved or discarded (that is what recovery and the kept banner
+use). Questions to settle first: one project or several at once; what happens
+to a project after its video is saved (today the stored parts are deleted);
+browser storage can be cleared or run out, so a project kept only there can
+be lost — consider an export/import project file as the durable form; and
+how this sits with #43's per-part editing.
 
 ### 39. "Stop sharing" now pauses instead of ending the recording (Y2) — ✓ CHANGED v1.29
 

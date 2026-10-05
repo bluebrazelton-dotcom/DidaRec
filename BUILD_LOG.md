@@ -2501,6 +2501,55 @@ Guide answer and screenshots refreshed. Firefox and part 4 not run.
 wording, cancel → kept box, info line, Save it now. The stale red
 message after Discard was the one finding, fixed above.
 
+### v1.33 — The Screen button means one thing (#41) (2026-10-05)
+
+Owner, after the v1.32 check: coming back from a recording, the left
+Screen button "just toggles whether Select Screen is visible". It was an
+on/off switch for a separate "include a screen" intent, which gave one
+button four meanings (the v1.12 camera-only entrance, the v1.22.2
+dark-click picker shortcut, toggle-off, re-enable).
+
+**Now.** Dark = open the picker, always, webcam on or off. Lit = stop
+showing that screen (`deselectScreen`). There is no separate intent:
+`syncScreenMode()` derives `state.sources.screen` from what is selected
+— camera-only is exactly "webcam on, no screen selected", reached by
+turning the webcam on with no screen, or by releasing the screen with
+the webcam on. Record is available in that state; Select Screen is
+always visible. `refreshIdlePreview()` redraws the idle preview (screen,
+webcam full-frame, or the placeholder) after any such change, and is
+what the picker's cancel path and the pre-recording "screen ended"
+path use. The "At least one of Screen or Webcam has to stay on…"
+message is gone (unreachable). The placeholder text says "Webcam is on
+— click Record to record just yourself, or Select Screen to add a
+screen" when that is the case; after a recording with the webcam still
+on, Record is available at once and the camera stays off until Record
+or Select Screen (owner informed; no objection). A webcam that fails to
+start now turns its button back off with a plain message instead of
+staying lit with nothing behind it.
+
+**Preview wipe (owner check).** Releasing a screen left its last frame
+behind the placeholder text; the preview is now cleared to black
+whenever it returns to the placeholder, including webcam-off in
+camera-only. Rig 1.7 and 18.1 read the preview and require black; a
+control copy without the fix fails 18.1.
+
+**Verification.** Harness: **197 scenarios / 1405 assertions** (AG, AH,
+AI, EI rewritten; EI2 new; five scenarios' camera-only setup moved from
+the old Screen click to `refreshIdlePreview()`). Rig, Chrome 154: the
+first part-1 pass failed exactly the seven checks that pinned the old
+meanings (1.4, 1.6, 1.7, 1.8, 5.2, 7.6, 18.1) and nothing else; after
+rewriting them, parts 1–3 on the final file: 61 / 39 / 17 pass, one
+failure (2.1) where Chrome's fake device list came up empty in that
+run — unrelated to this change, pass when re-run alone.
+Guide's webcam-only answer updated. Firefox and part 4 not run.
+
+**Owner check PASSED 2026-10-05**, real Chrome, local file: dark click
+opens the picker; lit click releases the screen (black preview with the
+message, after the wipe fix); with the webcam on the dark click still
+opens the picker and the webcam returns to the corner; webcam-only
+recording and playback work. Noted for v1.34: the webcam is stretched
+when it fills the frame.
+
 ---
 
 ## Known limitations

@@ -1,6 +1,22 @@
 # DidaRec — Next Session, Start Here
 
-**Newest (2026-10-05): v1.32 — plain-language messages (#40 DONE).**
+**Newest (2026-10-05): v1.33 — the Screen button means one thing (#41
+DONE).** Harness **197 / 1405** (EI2 new). Owner check passed on the local
+file.
+- ● **Screen mode is DERIVED, not toggled** (v1.33): `syncScreenMode()`
+  sets `state.sources.screen = !!screenStream || !sources.camera`.
+  Camera-only = webcam on + no screen. Dark Screen click = `selectScreen()`;
+  lit = `deselectScreen()`. Call `refreshIdlePreview()` after anything that
+  changes the selected screen or the webcam outside a recording — it also
+  wipes the canvas when the placeholder returns. The "four meanings of a
+  Screen click" (EI) and the at-least-one guard (AG/AI) are history.
+- ● The webcam is captured at ~320×240 and drawn STRETCHED when it fills the
+  frame — v1.34 (#42) fixes both.
+**Queue now:** (1) **#42 Webcam full screen, v1.34** (see below).
+(2) Scripted demo video. (3) Optional Firefox + part-4 rig re-run.
+Future, to explore: #43, #44 (see below).
+
+**Before that, the same day: v1.32 — plain-language messages (#40 DONE).**
 Harness **195 / 1392** (prefixes end at GC). Owner check passed on the
 local file.
 - ● **Vocabulary rule for every on-screen message:** "video", "part",
@@ -11,7 +27,7 @@ local file.
   (`keepUnsavedRecording`): storage's unsaved sessions become
   priorSegments and the banner shows in kept mode. Recording again ADDS to
   it unless discarded. `recoveryResolved` clears the message area.
-**Queue now:** (1) **#41 Screen button redesign, v1.33** — dark = open the
+Queue as of v1.32 (kept for the record): (1) #41 Screen button redesign — DONE v1.33 (dark = open the
 picker always; green = stop showing the screen; webcam-only = webcam on
 with no screen selected; Select Screen always visible. Show the change
 first; many EI/AH-era pins move; update the guide's webcam-only answer.
@@ -20,6 +36,10 @@ switchable before recording and while paused (owner: pause-only); re-open
 the camera at a higher resolution for it; fit/crop, never stretch (also
 fixes webcam-only's stretch). (3) Scripted demo video (can show #42).
 (4) Optional Firefox + part-4 rig re-run.
+**Future, to explore — not scheduled (owner, 2026-10-05):** REVIEW #43
+(review page shows every part; play, change or replace one at a time) and
+#44 (save a video project and come back to it later). Both need a design
+conversation before any code; see the open questions in REVIEW.
 
 **Before that, the same day: v1.31 — faculty guide shipped (#19 DONE).**
 `guide.html` + `guide-img/` beside the app, "How to use" link in the
