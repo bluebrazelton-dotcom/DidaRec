@@ -57,6 +57,11 @@ against a saved baseline.
 
 ## Other scripts
 
+- `cleanup_wait.py ff [chunks]` (REVIEW #31) stores a large session directly,
+  confirms it as a finished download, clicks Record at once and times the wait
+  and the status line. Default 1500 chunks x 256 KB; 300 chunks takes about two
+  minutes. Run alone.
+
 - `dbg3.py cr [mic] [--headed]` dumps the stored cluster structure of a
   recording (how the Chrome BlockGroup finding was diagnosed).
 - `make_alpha_copy.py` writes a scratch copy of the app with an opaque canvas

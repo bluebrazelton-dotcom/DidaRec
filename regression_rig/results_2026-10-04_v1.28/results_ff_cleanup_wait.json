@@ -1,0 +1,7 @@
+{
+ "31": {
+  "status": "PASS",
+  "evidence": "stored 300 chunks x 256 KB (75 MB) in 93s; 'all set' then Record at once: recording started after 14.5s; wait explained on the status line: True; status line over time: [(0.1, 'Clearing out your last recording first — after a long recording this can take a few minutes. Recording will begin when it’s done.', 'Starting...'), (14.5, 'Recording', 'Starting...')]",
+  "at": "2026-10-04 18:05:07"
+ }
+}

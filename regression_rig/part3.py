@@ -193,8 +193,10 @@ def s16_captions(r):
     vtt = open(P("export_lecture.vtt"), encoding="utf-8").read(); srt = open(P("export_lecture.srt"), encoding="utf-8").read()
     n = len(cur["cues"])
     okx = n_vtt == "lecture.vtt" and n_srt == "lecture.srt" and vtt.startswith("WEBVTT") and vtt.count("-->") == n and srt.strip().startswith("1") and srt.count("-->") == n and "," in srt.split("-->")[0] and all(t in vtt and t in srt for _, _, t in cur["cues"])
-    fb = ("after a successful save the only confirmation ('%s') is written to the recorder's status bar, which is hidden while the editor is open (visible=%s) - no visible feedback in the editor" % (after_save["mainStatus"], after_save["statusBarShown"])) if r.kind == "cr" else ("editor shows '%s'" % after_save["status"])
-    r.check("16.11", okx, "lecture.webm -> suggested '%s' and '%s'; both files well-formed with all %d edited cues (VTT header, SRT numbering and comma milliseconds). Feedback: %s" % (n_vtt, n_srt, n, fb))
+    fb = "editor shows '%s'" % after_save["status"]
+    if r.kind == "cr":   # REVIEW #32: the recorder status bar is hidden behind the editor, so the note must be in the editor
+        okx = okx and "Captions saved" in (after_save["status"] or "")
+    r.check("16.11", okx,"lecture.webm -> suggested '%s' and '%s'; both files well-formed with all %d edited cues (VTT header, SRT numbering and comma milliseconds). Feedback: %s" % (n_vtt, n_srt, n, fb))
     r._cap_feedback = (after_save["mainStatus"], after_save["statusBarShown"], after_save["status"])
 
     # ---- 16.12 export cancel (Chrome)
@@ -204,8 +206,8 @@ def s16_captions(r):
         r.wait(1200)
         r.reload(); r.page.click("#btnCaptionEditor"); open_video(r, A, "lecture.webm")
         y = cap(r)
-        r.check("16.12", e == "" and "Save cancelled" in x["mainStatus"] and y["draftBanner"],
-                "save dialog cancelled -> no error banner; note '%s' set on the recorder status bar (hidden while the editor is open: visible=%s, so the note is not actually seen); draft still restorable after reload=%s" % (x["mainStatus"], x["statusBarShown"], y["draftBanner"]))
+        r.check("16.12", e == "" and "Save cancelled" in (x["status"] or "") and y["draftBanner"],
+                "save dialog cancelled -> no error banner; editor shows '%s'; draft still restorable after reload=%s" % (x["status"], y["draftBanner"]))
         r.page.click("#captionDraftBanner button.btn-record"); r.wait(300)
 
     # ---- 16.17 draft banner doesn't leak rows; 16.2 drag-and-drop
