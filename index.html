@@ -312,7 +312,16 @@
   .btn-pause {
     background: var(--border);
     color: var(--text);
+    /* Wide enough for "Resume recording", so the label swap on Pause
+       doesn't move the buttons beside it (owner pass Y1). */
+    min-width: 12.5em;
   }
+  /* Paused: resuming is the main action — same red as Record. */
+  .btn-pause.resume {
+    background: var(--accent);
+    color: white;
+  }
+  .btn-pause.resume:hover { background: var(--accent-hover); }
 
   /* REVIEW #23: paused-only screen swap — same neutral look as its neighbor
      Pause/Resume, since it's part of the same "while paused" control cluster. */
@@ -683,11 +692,11 @@
 <main>
   <!-- Recovery banner (shown on load if interrupted recording found) -->
   <div class="recovery-banner" id="recoveryBanner">
-    <h3>Interrupted recording found</h3>
+    <h3 id="recoveryTitle">Interrupted recording found</h3>
     <p id="recoveryInfo">A previous recording was interrupted. You can recover it or discard it.</p>
     <div class="recovery-actions">
-      <button class="primary btn-record" onclick="continueRecording()">Continue recording</button>
-      <button class="primary btn-save" onclick="recoverRecording()">Recover &amp; save</button>
+      <button class="primary btn-record" id="btnRecoveryContinue" onclick="continueRecording()">Continue recording</button>
+      <button class="primary btn-save" id="btnRecoverySave" onclick="recoverRecording()">Recover &amp; save</button>
       <button class="primary btn-stop" onclick="discardRecovery()">Discard</button>
     </div>
   </div>
@@ -803,6 +812,9 @@
       <button class="primary btn-caption-editor" id="btnCaptionEditor" onclick="openCaptionEditor()">Caption editor</button>
       <button class="primary btn-pause" id="btnPause" onclick="pauseResume()" style="display:none;">Pause</button>
       <button class="primary btn-change-screen" id="btnChangeScreen" onclick="changeScreenPaused()" style="display:none;">Change screen</button>
+      <!-- Invisible stand-in that holds Change screen's slot while recording
+           and unpaused, so the row doesn't reflow on Pause (owner pass Y1). -->
+      <button class="primary btn-change-screen" id="changeScreenSpacer" style="display:none; visibility:hidden;" aria-hidden="true" tabindex="-1" disabled>Change screen</button>
       <button class="primary btn-stop" id="btnStop" onclick="stopRecording()" style="display:none;">Stop &amp; save</button>
       <button class="primary btn-stop-review" id="btnStopReview" onclick="stopAndReview()" style="display:none;">Stop &amp; review</button>
       <button class="primary btn-select-screen" id="btnSelectScreen" onclick="selectScreen()">Select Screen</button>
@@ -933,6 +945,7 @@ const state = {
   screenEndedTrack: null,   // REVIEW #23: the video track a live 'ended' listener
                              // is currently wired to — see wireScreenEndedListener
   screenEndedHandler: null, // the handler itself, so it can be removed by reference
+  screenLost: false,        // true while paused because the browser's "Stop sharing" ended the capture
   cameraStream: null,
   audioContext: null,
   audioMixDest: null,        // REVIEW #23: the MediaStreamAudioDestinationNode from
@@ -2047,9 +2060,20 @@ function startCompositing() {
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Draw screen (full canvas)
+    // Draw screen. The canvas keeps the FIRST screen's shape for the whole
+    // recording; a source with a different shape (a paused Change screen, or
+    // a shared window resized mid-recording) is fitted inside it at its own
+    // proportions, centred, over the black fill above — never stretched.
+    // Same shape (within the 1080p cap's rounding): full canvas, as before.
     if (state.screenStream && screenVideo.readyState >= 2) {
-      ctx.drawImage(screenVideo, 0, 0, canvas.width, canvas.height);
+      const vw = screenVideo.videoWidth, vh = screenVideo.videoHeight;
+      const s = (vw && vh) ? Math.min(canvas.width / vw, canvas.height / vh) : 0;
+      const dw = Math.round(vw * s), dh = Math.round(vh * s);
+      if (!s || (canvas.width - dw <= 2 && canvas.height - dh <= 2)) {
+        ctx.drawImage(screenVideo, 0, 0, canvas.width, canvas.height);
+      } else {
+        ctx.drawImage(screenVideo, Math.round((canvas.width - dw) / 2), Math.round((canvas.height - dh) / 2), dw, dh);
+      }
     }
 
     // Draw webcam — full-canvas if camera-only, PiP overlay if screen is on
@@ -4012,7 +4036,17 @@ function wireScreenEndedListener(stream) {
   const track = stream.getVideoTracks()[0];
   const handler = () => {
     if (state.recording) {
-      stopRecording();
+      // Owner pass 2026-10-05: the browser's "Stop sharing" PAUSES the
+      // recording instead of ending it — Change screen then Resume carries
+      // on in the same file. A dead recorder can't be paused; that case
+      // still goes to stopRecording's salvage.
+      if (state.mediaRecorder && state.mediaRecorder.state !== 'inactive') {
+        state.screenLost = true;
+        if (!state.paused) pauseResume();
+        showInfoBanner('Screen sharing stopped, so the recording is paused. Choose Change screen to keep going, or Stop & save.');
+      } else {
+        stopRecording();
+      }
     } else {
       // Screen share ended before recording started — reset
       state.screenStream = null;
@@ -4169,6 +4203,7 @@ async function changeScreenPaused() {
   oldStream.getTracks().forEach((t) => t.stop());
 
   state.screenStream = newStream;
+  state.screenLost = false; // a live screen again — Resume is allowed (see the 'ended' handler)
   screenVideo.srcObject = newStream;
   await screenVideo.play();
   wireScreenEndedListener(newStream);
@@ -4195,6 +4230,10 @@ async function changeScreenPaused() {
 function updateChangeScreenVisibility() {
   document.getElementById('btnChangeScreen').style.display =
     (state.recording && state.paused && !!state.screenStream) ? '' : 'none';
+  // The invisible stand-in takes the slot whenever the real button would
+  // appear on Pause, so the row is the same width either way.
+  document.getElementById('changeScreenSpacer').style.display =
+    (state.recording && !state.paused && !!state.screenStream) ? '' : 'none';
 }
 
 function updateRecordButton() {
@@ -4608,6 +4647,10 @@ async function startRecording() {
     // a new recording starts (no restore UI after recording resumes).
     document.getElementById('btnUndoReRecord').style.display = 'none';
     reviewState.undo = null;
+    // The "Recording kept — not saved yet" banner's footage is now part of
+    // this recording's chain; it will be saved with it.
+    if (recoveryKeptMode) document.getElementById('recoveryBanner').classList.remove('visible');
+    updateChangeScreenVisibility(); // reserves Change screen's slot from the first frame
     updateToggleUI();
     updateStatus('recording', 'Recording');
     startTimer();
@@ -4646,6 +4689,11 @@ function pauseResume() {
   if (!state.mediaRecorder) return;
 
   if (state.paused) {
+    if (state.screenLost) {
+      // Paused by the browser's "Stop sharing": there is no screen to record.
+      showError('Choose Change screen first — screen sharing has stopped.');
+      return;
+    }
     state.mediaRecorder.resume();
     state.paused = false;
     state.pausedDuration += Date.now() - state.pauseStart;
@@ -4655,12 +4703,14 @@ function pauseResume() {
     lastChunkWriteOkAt = Date.now();
     writeStallWarned = false;
     document.getElementById('btnPause').textContent = 'Pause';
+    document.getElementById('btnPause').classList.remove('resume');
     updateStatus('recording', 'Recording');
   } else {
     state.mediaRecorder.pause();
     state.paused = true;
     state.pauseStart = Date.now();
-    document.getElementById('btnPause').textContent = 'Resume';
+    document.getElementById('btnPause').textContent = 'Resume recording';
+    document.getElementById('btnPause').classList.add('resume');
     updateStatus('paused', 'Paused');
   }
   updateChangeScreenVisibility(); // REVIEW #23: shows/hides "Change screen" with the pause state
@@ -5207,8 +5257,14 @@ async function checkForRecovery() {
       // every session at page load just to display a size/duration line.
       const stats = await sessionChunkStats(session.id);
       if (stats.count > 0) {
-        totalChunks += stats.count;
-        totalBytes += stats.bytes;
+        // A re-record cut (cutAtByte on the session record) keeps only the
+        // bytes before it; report the kept part, not everything stored.
+        let keptFrac = 1;
+        if (typeof session.cutAtByte === 'number' && isFinite(session.cutAtByte) && session.cutAtByte >= 0 && stats.bytes > 0) {
+          keptFrac = Math.min(1, session.cutAtByte / stats.bytes);
+        }
+        totalChunks += Math.round(stats.count * keptFrac);
+        totalBytes += Math.round(stats.bytes * keptFrac);
         sessionInfos.push({ id: session.id, mimeType: session.mimeType, startTime: session.startTime, chunkCount: stats.count });
       }
     }
@@ -5225,6 +5281,7 @@ async function checkForRecovery() {
 
     document.getElementById('recoveryInfo').textContent =
       `Found ${totalChunks} chunks (~${mins}m ${secs}s, ${sizeMB} MB)${segmentNote} from ${new Date(sessionInfos[0].startTime).toLocaleString()}.`;
+    setRecoveryBannerMode(false); // offerKeptRecording() switches it afterwards when that's the case
     document.getElementById('recoveryBanner').classList.add('visible');
 
     // Store all session IDs for recovery/continue
@@ -5243,6 +5300,38 @@ async function checkForRecovery() {
     }
     console.error('Recovery check failed:', err);
   }
+}
+
+// The recovery banner has two looks. Page load: "Interrupted recording
+// found" with Continue / Recover & save / Discard. Kept mode (owner pass
+// 2026-10-05): the recorder is idle with footage that was kept but not saved
+// — after Back to recorder, a re-record cut, Undo, or Continue recording —
+// and the same banner offers "Save it now" without a page refresh. Continue
+// is hidden there because Record already continues the chain.
+var recoveryKeptMode = false;
+
+function setRecoveryBannerMode(kept) {
+  recoveryKeptMode = !!kept;
+  document.getElementById('recoveryTitle').textContent = kept ? 'Recording kept — not saved yet' : 'Interrupted recording found';
+  document.getElementById('btnRecoveryContinue').style.display = kept ? 'none' : '';
+  document.getElementById('btnRecoverySave').textContent = kept ? 'Save it now' : 'Recover & save';
+}
+
+async function offerKeptRecording() {
+  if (state.priorSegments.length === 0 || state.recording) return;
+  await checkForRecovery();
+  if (document.getElementById('recoveryBanner').classList.contains('visible')) setRecoveryBannerMode(true);
+}
+
+// Every "the banner's recording is now saved or gone" exit. In kept mode that
+// recording was state.priorSegments, so the armed chain and its Undo go too;
+// at page load both are already empty.
+function recoveryResolved() {
+  document.getElementById('recoveryBanner').classList.remove('visible');
+  if (state.recording) return; // a load-time banner used mid-recording: leave the live recording's state alone
+  state.priorSegments = [];
+  reviewState.undo = null;
+  document.getElementById('btnUndoReRecord').style.display = 'none';
 }
 
 async function recoverRecording() {
@@ -5264,7 +5353,7 @@ async function recoverRecording() {
 
     if (segments.length === 0) {
       showError('No recording data found to recover.');
-      document.getElementById('recoveryBanner').classList.remove('visible');
+      recoveryResolved();
       return;
     }
 
@@ -5275,7 +5364,7 @@ async function recoverRecording() {
       if (result === 'saved') {
         await deleteSession(segments[0].id);
         await deleteDiscardedSessions(); // sweep any soft-deleted siblings from an earlier review-pane cut
-        document.getElementById('recoveryBanner').classList.remove('visible');
+        recoveryResolved();
       } else if (result === 'downloaded') {
         offerDownloadConfirm([segments[0].id], 1);
       } else {
@@ -5294,7 +5383,7 @@ async function recoverRecording() {
     if (result === 'saved') {
       for (const s of segments) await deleteSession(s.id);
       await deleteDiscardedSessions(); // sweep any soft-deleted siblings from an earlier review-pane cut
-      document.getElementById('recoveryBanner').classList.remove('visible');
+      recoveryResolved();
       return;
     }
     if (result === 'downloaded') {
@@ -5317,7 +5406,7 @@ async function recoverRecording() {
     } else if (downloadedIds.length > 0) {
       offerDownloadConfirm(downloadedIds, downloadedIds.length);
     } else {
-      document.getElementById('recoveryBanner').classList.remove('visible');
+      recoveryResolved();
     }
   } catch (err) {
     console.error('Recovery failed:', err);
@@ -5335,7 +5424,9 @@ async function discardRecovery() {
     // discard — sweep any discarded siblings too (they're excluded from
     // window._recoverySessions, since checkForRecovery filters them out).
     await deleteDiscardedSessions();
-    document.getElementById('recoveryBanner').classList.remove('visible');
+    const wasKept = recoveryKeptMode;
+    recoveryResolved();
+    if (wasKept && !state.recording) updateStatus('idle', 'Ready'); // was "N prior segment(s) preserved…"
   } catch (err) {
     console.error('Discard failed:', err);
   }
@@ -5351,7 +5442,9 @@ async function continueRecording() {
     });
   }
 
-  document.getElementById('recoveryBanner').classList.remove('visible');
+  // The banner stays, in kept mode: the footage is armed for Record, and
+  // "Save it now" remains one click away (no refresh needed to get it back).
+  setRecoveryBannerMode(true);
   const segCount = state.priorSegments.length;
   updateStatus('idle', `${segCount} prior segment${segCount > 1 ? 's' : ''} preserved. Select a screen and click Record to continue.`);
 }
@@ -5426,6 +5519,7 @@ function cleanupStreams() {
   state.mediaRecorder = null;
   state.recording = false;
   state.paused = false;
+  state.screenLost = false;
 }
 
 // ============================================================
@@ -5442,6 +5536,8 @@ function resetUI() {
   document.getElementById('btnStopReview').textContent = 'Stop & review';
   document.getElementById('btnPause').style.display = 'none';
   document.getElementById('btnPause').textContent = 'Pause';
+  document.getElementById('btnPause').classList.remove('resume');
+  document.getElementById('changeScreenSpacer').style.display = 'none';
   document.getElementById('btnChangeScreen').style.display = 'none';
   document.getElementById('btnChangeScreen').disabled = false;
   document.getElementById('btnChangeScreen').textContent = 'Change screen';
@@ -6535,6 +6631,7 @@ function reviewBackToRecorder() {
   state.priorSegments = reviewState.segments.slice();
   closeReviewPane();
   resetUI();
+  offerKeptRecording().catch((err) => console.error('Kept-recording banner failed:', err));
 }
 
 // "Re-record from here". T is the scrub position on the STITCHED/global
@@ -6663,6 +6760,7 @@ async function applyReviewCutPlan(plan, T) {
   resetUI();
   updateStatus('idle', `Kept ${formatKeptMinSec(keptMs || 0)}. Select a screen and click Record to continue from there.`);
   document.getElementById('btnUndoReRecord').style.display = '';
+  offerKeptRecording().catch((err) => console.error('Kept-recording banner failed:', err));
 }
 
 // "Redo last take" (#25a): discards the newest segment WHOLE and re-arms
@@ -6777,6 +6875,7 @@ async function undoReRecord() {
     reviewState.undo = null;
     document.getElementById('btnUndoReRecord').style.display = 'none';
     resetUI();
+    offerKeptRecording().catch((err) => console.error('Kept-recording banner failed:', err));
   } catch (err) {
     console.error('Undo re-record failed:', err);
     // Runs from the idle state the cut landed in (the review pane is already

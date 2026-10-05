@@ -337,6 +337,11 @@ async function resetState() {
   // REVIEW #29: pending "Save recording" click + the userActivation mock its
   // scenarios install (absent by default = the pre-#29 behavior everywhere else).
   sandbox.backgroundCleanupsRunning = 0; sandbox.recordWaitingOnCleanup = false; // REVIEW #31
+  // v1.29: Stop-sharing pause flag, kept-recording banner mode, paused-row layout bits.
+  state.screenLost = false;
+  sandbox.setRecoveryBannerMode(false);
+  documentMock.getElementById('btnPause').classList.remove('resume');
+  documentMock.getElementById('changeScreenSpacer').style.display = 'none';
   sandbox.savePendingMimeType = null;
   documentMock.getElementById('saveNeedsClick').classList.remove('visible');
   delete sandbox.navigator.userActivation;
@@ -5939,16 +5944,14 @@ Real cue text
     assert(track2._handlerCount('ended') === 0, "EU: track2's ended listener was removed on swap #2");
     assert(track3._handlerCount('ended') === 1, 'EU: track3 has exactly one ended listener — no accumulation across repeated swaps');
 
-    // ---- a GENUINE ended event on the current (post-swap) track still
-    // works exactly as before: state.recording is true, so it stops the
-    // recording. ----
+    // ---- a GENUINE ended event on the current (post-swap) track: since
+    // v1.29 the browser's "Stop sharing" PAUSES the recording (already
+    // paused here) instead of stopping it. ----
     track3._fireEnded();
-    assert(stopRecordingCalls === 1, 'EU: a genuine ended event after a swap still calls stopRecording (got ' + stopRecordingCalls + ')');
+    assert(stopRecordingCalls === 0, 'EU: a genuine ended event after a swap no longer stops the recording (got ' + stopRecordingCalls + ' stopRecording calls)');
+    assert(state.recording === true && state.paused === true && state.screenLost === true, 'EU: the recording is alive, paused, and marked as having lost its screen');
     S.stopRecording = origStopRecording;
-    // The spy forwards to the real stopRecording(), so that genuine ended
-    // event just kicked off a real (zero-chunk) finalize cascade — drain it
-    // now so its "No recording data found" / resetUI tail can't land in a
-    // LATER scenario's fresh recordedErrors array instead of this one's.
+    await sandbox.stopRecording();
     await drain();
   });
 
@@ -6440,6 +6443,172 @@ Real cue text
     assert(!statusHistory.some(m => MSG.test(m)), 'FO: no cleanup running, no message');
     await sandbox.stopRecording();
     await drain();
+  });
+
+  // ---------- v1.29: owner-pass items (2026-10-05) ----------
+  const recBannerUp = () => documentMock.getElementById('recoveryBanner').classList.contains('visible');
+  const el29 = (id) => documentMock.getElementById(id);
+  const startScreenRecording = async (id) => {
+    state.sources = { screen: true, camera: false, mic: false };
+    const track = makeEndedCapableTrack('video', id || 'scr-a');
+    const stream = makeStream([track]);
+    state.screenStream = stream;
+    S.wireScreenEndedListener(stream);
+    await api.startRecording();
+    return track;
+  };
+
+  await scenario('FP the browser\'s "Stop sharing" pauses the recording instead of ending it: calm notice, Resume refused until Change screen brings a screen back, then resume works', async () => {
+    const track = await startScreenRecording();
+    assert(state.recording === true && state.paused === false, 'FP precondition: recording, not paused');
+    track._fireEnded();
+    assert(state.recording === true && state.paused === true, 'FP: still recording, now paused');
+    assert(state.screenLost === true, 'FP: marked as having lost its screen');
+    assert(recordedErrors.some(m => /Screen sharing stopped, so the recording is paused/.test(m)), 'FP: the notice explains what happened (got ' + JSON.stringify(recordedErrors) + ')');
+    assert(el29('errorBanner').classList.contains('info'), 'FP: shown as a calm notice, not an error');
+    assert(el29('btnChangeScreen').style.display === '', 'FP: Change screen is offered');
+    assert(el29('btnPause').textContent === 'Resume recording', 'FP: the pause button reads Resume recording');
+
+    sandbox.pauseResume();
+    assert(state.paused === true, 'FP: Resume is refused while there is no screen');
+    assert(recordedErrors.some(m => /Choose Change screen first/.test(m)), 'FP: and says why');
+
+    const track2 = makeEndedCapableTrack('video', 'scr-b');
+    sandbox.navigator.mediaDevices.getDisplayMedia = async () => makeStream([track2]);
+    await S.changeScreenPaused();
+    assert(state.screenLost === false && state.paused === true, 'FP: a new screen clears the flag; still paused');
+    sandbox.pauseResume();
+    assert(state.paused === false, 'FP: Resume works once a screen is back');
+    await sandbox.stopRecording();
+    await drain();
+    assert(state.screenLost === false, 'FP: flag is clear after the recording ends');
+  });
+
+  await scenario('FQ "Stop sharing" while already paused keeps the pause (no double toggle); Stop & save from the lost-screen pause saves normally; a dead recorder still goes to salvage', async () => {
+    const track = await startScreenRecording();
+    sandbox.pauseResume();
+    track._fireEnded();
+    assert(state.paused === true && state.screenLost === true, 'FQ: still paused after Stop sharing during a pause');
+    await api.addChunk(state.sessionId, 0, new Blob(['xy'])); state.chunkIndex = 1;
+    await sandbox.stopRecording();
+    await drain();
+    assert(state.recording === false && downloadClicks.length === 1, 'FQ: Stop & save from the lost-screen pause produced the file (downloads: ' + downloadClicks.length + ')');
+
+    await resetState();
+    const t2 = await startScreenRecording('scr-c');
+    let stops = 0; const orig = S.stopRecording;
+    S.stopRecording = (...a) => { stops++; return orig(...a); };
+    state.mediaRecorder = null; // recorder died behind the app's back
+    t2._fireEnded();
+    assert(stops === 1 && state.screenLost === false, 'FQ: with no live recorder the ended event still routes to stopRecording\'s salvage');
+    S.stopRecording = orig;
+    await drain();
+  });
+
+  await scenario('FR pause row: the button reads "Resume recording" with the resume look while paused and "Pause" otherwise; an invisible stand-in holds Change screen\'s slot while recording unpaused', async () => {
+    await startScreenRecording();
+    assert(el29('btnPause').textContent !== 'Resume recording' && !el29('btnPause').classList.contains('resume'), 'FR: recording: plain Pause');
+    assert(el29('changeScreenSpacer').style.display === '' && el29('btnChangeScreen').style.display === 'none', 'FR: recording unpaused: stand-in holds the slot, real button hidden');
+    sandbox.pauseResume();
+    assert(el29('btnPause').textContent === 'Resume recording' && el29('btnPause').classList.contains('resume'), 'FR: paused: Resume recording, resume look');
+    assert(el29('changeScreenSpacer').style.display === 'none' && el29('btnChangeScreen').style.display === '', 'FR: paused: real button in the slot, stand-in gone');
+    sandbox.pauseResume();
+    assert(el29('btnPause').textContent === 'Pause' && !el29('btnPause').classList.contains('resume'), 'FR: resumed: back to Pause');
+    assert(el29('changeScreenSpacer').style.display === '', 'FR: resumed: stand-in back');
+    await sandbox.stopRecording();
+    await drain();
+    assert(el29('changeScreenSpacer').style.display === 'none' && !el29('btnPause').classList.contains('resume'), 'FR: idle: neither');
+  });
+
+  await scenario('FS kept-recording banner: Back to recorder shows "Recording kept — not saved yet" with Save it now (no Continue button); saving clears the kept chain; Record hides the banner', async () => {
+    const id = await seed(3);
+    Object.assign(api.reviewState, { active: true, segments: [{ sessionId: id, mimeType: 'video/webm' }] });
+    sandbox.reviewBackToRecorder();
+    await drain();
+    assert(recBannerUp() && sandbox.recoveryKeptMode === true, 'FS: banner up in kept mode');
+    assert(el29('recoveryTitle').textContent === 'Recording kept — not saved yet', 'FS: kept title (got ' + el29('recoveryTitle').textContent + ')');
+    assert(el29('btnRecoveryContinue').style.display === 'none' && el29('btnRecoverySave').textContent === 'Save it now', 'FS: Continue hidden, Save it now offered');
+    assert(/Found 3 chunks/.test(el29('recoveryInfo').textContent), 'FS: chunk count shown (got ' + el29('recoveryInfo').textContent + ')');
+    assert(state.priorSegments.length === 1, 'FS precondition: footage armed for Record');
+
+    windowMock.showSaveFilePicker = pickerSequence(['ok']);
+    await api.recoverRecording();
+    await drain();
+    assert(lastWritten.length === 1 && (await readStore('sessions')).length === 0, 'FS: Save it now wrote the file and deleted the session');
+    assert(!recBannerUp() && state.priorSegments.length === 0, 'FS: banner gone and the kept chain cleared (got ' + state.priorSegments.length + ')');
+
+    // Record instead of saving: the banner goes, the footage stays in the chain.
+    const id2 = await seed(2);
+    Object.assign(api.reviewState, { active: true, segments: [{ sessionId: id2, mimeType: 'video/webm' }] });
+    sandbox.reviewBackToRecorder();
+    await drain();
+    assert(recBannerUp(), 'FS: banner up again for the second kept recording');
+    state.sources = { screen: true, camera: true, mic: false };
+    state.cameraStream = makeStream([{ kind: 'video', getSettings: () => ({ width: 320, height: 240 }), addEventListener() {}, stop() {} }]);
+    sandbox.toggleSource('screen');
+    await api.startRecording();
+    assert(state.recording === true && !recBannerUp(), 'FS: starting to record hides the kept banner');
+    assert(state.priorSegments.length === 1 && state.priorSegments[0].sessionId === id2, 'FS: the kept footage is still the chain\'s first segment');
+    await sandbox.stopRecording();
+    await drain();
+  });
+
+  await scenario('FT kept-recording banner: Discard clears the kept chain and Undo; page-load banner keeps its own wording, and its Continue recording click switches it to kept mode instead of hiding it; a cut segment is reported at its kept size', async () => {
+    const id = await seed(4);
+    Object.assign(api.reviewState, { active: true, segments: [{ sessionId: id, mimeType: 'video/webm' }] });
+    sandbox.reviewBackToRecorder();
+    await drain();
+    api.reviewState.undo = { cutSessionId: null, discardedSessionIds: [], restoreSegments: [] };
+    await sandbox.discardRecovery();
+    await drain();
+    assert(!recBannerUp() && state.priorSegments.length === 0 && api.reviewState.undo === null, 'FT: Discard cleared banner, chain and Undo');
+    assert((await readStore('sessions')).length === 0, 'FT: the stored recording is gone');
+    assert(statusHistory[statusHistory.length - 1] === 'Ready', 'FT: status back to Ready (got ' + statusHistory[statusHistory.length - 1] + ')');
+
+    await resetState();
+    const a = await seed(4);
+    await sandbox.checkForRecovery();
+    assert(recBannerUp() && sandbox.recoveryKeptMode === false, 'FT: page-load banner is in its normal mode');
+    assert(el29('recoveryTitle').textContent === 'Interrupted recording found' && el29('btnRecoveryContinue').style.display === '' && el29('btnRecoverySave').textContent === 'Recover & save', 'FT: page-load wording and all three buttons');
+    await sandbox.continueRecording();
+    assert(recBannerUp() && sandbox.recoveryKeptMode === true && state.priorSegments.length === 1, 'FT: Continue recording arms the footage and leaves the banner up in kept mode');
+    assert(el29('btnRecoveryContinue').style.display === 'none', 'FT: no second Continue click possible');
+
+    await S.setSessionCut(a, 2, 2000); // 4 one-byte chunks, cut at byte 2
+    await sandbox.offerKeptRecording();
+    assert(/Found 2 chunks/.test(el29('recoveryInfo').textContent), 'FT: a cut segment is reported at its kept size (got ' + el29('recoveryInfo').textContent + ')');
+  });
+
+  await scenario('FU fit, not stretch: a screen with a different shape is drawn centred at its own proportions; the same shape still fills the canvas', async () => {
+    const calls = [];
+    const origDraw = ctxStub.drawImage;
+    ctxStub.drawImage = (...a) => { calls.push(a); };
+    const sv = api.screenVideo;
+    const saved = { vw: sv.videoWidth, vh: sv.videoHeight };
+    state.sources = { screen: true, camera: false, mic: false };
+    state.screenStream = makeStream([{ kind: 'video', getSettings: () => ({ width: 1280, height: 720 }), addEventListener() {}, removeEventListener() {}, stop() {} }]);
+
+
+    sv.videoWidth = 1280; sv.videoHeight = 720;
+    api.startCompositing();
+    let c = calls.filter(a => a[0] === sv).pop();
+    assert(c && c[1] === 0 && c[2] === 0 && c[3] === 1280 && c[4] === 720, 'FU: same shape fills the canvas (got ' + JSON.stringify(c && c.slice(1)) + ')');
+
+    calls.length = 0;
+    sv.videoWidth = 800; sv.videoHeight = 600;   // 4:3 into 16:9
+    flushRaf(); if (state.drawFrame) state.drawFrame();
+    c = calls.filter(a => a[0] === sv).pop();
+    assert(c && c[1] === 160 && c[2] === 0 && c[3] === 960 && c[4] === 720, 'FU: 800x600 is drawn 960x720 centred with 160px bars (got ' + JSON.stringify(c && c.slice(1)) + ')');
+
+    calls.length = 0;
+    sv.videoWidth = 300; sv.videoHeight = 900;   // tall narrow window
+    if (state.drawFrame) state.drawFrame();
+    c = calls.filter(a => a[0] === sv).pop();
+    assert(c && c[1] === 520 && c[2] === 0 && c[3] === 240 && c[4] === 720, 'FU: a tall narrow window keeps its proportions (got ' + JSON.stringify(c && c.slice(1)) + ')');
+
+    api.stopCompositing();
+    ctxStub.drawImage = origDraw;
+    sv.videoWidth = saved.vw; sv.videoHeight = saved.vh;
   });
 
   console.log('\n================  ' + passed + ' passed, ' + failed + ' failed  ================');
