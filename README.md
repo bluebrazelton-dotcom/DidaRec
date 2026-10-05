@@ -10,10 +10,13 @@ A free, open-source screen recorder by DidaWorks. Runs entirely in your browser 
 - Webcam picture-in-picture overlay — draggable, resizable, with rectangle/square/circle shapes
 - Pause and resume recording
 - **Change screen while paused** — pause, pick a different screen or window to share, resume. The swap never gets recorded; the saved file plays as one continuous take
+- **Stop sharing pauses, it doesn't end** — if you end the share from the browser's own "Stop sharing" bar, the recording pauses. Choose Change screen and resume to carry on in the same file, or Stop & save
+- A screen or window with a different shape is fitted into the picture with black bars, never stretched
 - Recording quality presets and microphone noise suppression
 - Crash-resilient recording — survives browser crashes, tab closures, power loss
 - Continue Recording — pick up where a crash left off and stitch segments automatically
 - Automatic recovery of interrupted recordings on reopen
+- A "Recording kept — not saved yet" banner whenever footage is waiting to be saved, so saving never needs a page refresh
 - **Review pane with take controls** — stop into a review screen instead of saving immediately, then:
   - **Redo last take** — one click discards your most recent segment and re-arms recording from right before it, so a botched take costs you nothing but the botched part
   - **Re-record from a point you scrub to**, or type a time (`m:ss`, like `1:30`, or `h:mm:ss` for longer recordings) and cut from there directly

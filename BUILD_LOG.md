@@ -2312,6 +2312,64 @@ Chrome part 1 and the other Firefox parts were not re-run for v1.28.
 after typing 0:07; "Captions saved…" and "Save cancelled…" both visible
 inside the editor.
 
+### v1.29 — Owner-pass fixes: Stop sharing pauses, fit not stretch, kept-recording banner, pause row (2026-10-05)
+
+Five changes from the owner's Chrome short-list pass on the hosted v1.28
+(REVIEW #35–#39).
+
+**Stop sharing pauses (#39).** The screen track's `ended` handler no
+longer calls `stopRecording` on a live recorder. It sets
+`state.screenLost`, pauses (if not already paused) and shows a calm
+notice: "Screen sharing stopped, so the recording is paused. Choose
+Change screen to keep going, or Stop & save." `pauseResume` refuses to
+resume while `screenLost` is set; a successful `changeScreenPaused`
+clears it, as does `cleanupStreams`. A dead recorder still goes to
+`stopRecording`'s salvage. The #29 "Save recording" banner stays for
+stops nobody clicks (watchdog, salvage).
+
+**Fit, not stretch (#38).** `drawOneFrame` fits a screen source whose
+shape differs from the canvas (a paused Change screen, or a shared
+window resized mid-recording) inside the frame at its own proportions,
+centred over the black fill. Same shape, within 2 px for the 1080p
+cap's rounding, draws full-canvas exactly as before. Recorder, chunk
+writes and save flows untouched.
+
+**Kept-recording banner (#35).** The recorder could sit idle with
+footage that was kept but not saved, with no save control short of a
+page refresh. The recovery banner now has a kept mode — "Recording kept
+— not saved yet", **Save it now** / **Discard**, Continue hidden because
+Record already continues — shown after Back to recorder, a re-record
+cut, Undo re-record, and the page-load banner's Continue recording
+(which used to hide the banner). New: `offerKeptRecording`,
+`setRecoveryBannerMode`, `recoveryResolved` (every saved/discarded exit
+of `recoverRecording` / `discardRecovery` now also clears
+`state.priorSegments` and the Undo state). `startRecording` hides the
+banner in kept mode. The info line reports a cut segment at its kept
+size, at page load too.
+
+**Pause row (#36, #37).** The pause button reads "Resume recording" in
+Record's red while paused. It has a fixed minimum width, and an
+invisible stand-in holds Change screen's slot while recording unpaused,
+so the row no longer reflows on Pause. At about 1400 px wide the action
+buttons therefore sit on the second line for the whole recording.
+
+**Verification.** Harness: **187 scenarios / 1331 assertions** (FP–FU
+new; EU's tail updated to the pause behaviour). Rig, Chrome 154, parts
+1–3: 60 / 38 / 17 pass, 0 fail. New or changed checks: 5.7 (ended →
+paused → Resume refused → Change screen → resume → one file, screens
+[1, 2, 3, 4]); 5.8 (800×600 into 1280×720 → picture 960 px wide at
+x = 160); 5.1b (button positions identical recording / paused /
+resumed); 5.7b restaged as an app-initiated stop; 15.17–15.19 (kept
+banner: save, save after a cut = kept 12.4 s only, discard). Control on
+v1.28: 5.1b shows the jump (top 726 → 804 → 726); the other new checks
+cannot run there. Firefox not run for v1.29; part 4 not re-run.
+
+**Owner check PASSED 2026-10-05**, real Chrome, local file: pause row
+steady with red "Resume recording"; Stop sharing paused, Change screen
+and resume continued the recording; a narrow window was fitted with
+black bars; Back to recorder showed the kept banner and Save it now
+produced a playable file.
+
 ---
 
 ## Known limitations

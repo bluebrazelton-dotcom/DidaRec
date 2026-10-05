@@ -1,5 +1,16 @@
 # DidaRec — Next Session, Start Here
 
+**Newest (2026-10-05): v1.29, owner-pass fixes.** The owner ran the Chrome
+short list on the hosted v1.28 (REVIEW "Owner pass 2026-10-05": all passed
+except Y4; Firefox tasks and Y11 skipped by choice) and raised six items.
+v1.29 fixes five (#35–#39): Stop sharing PAUSES the recording, a
+differently shaped screen is fitted not stretched, a "Recording kept — not
+saved yet" banner, "Resume recording" in red, and a pause row that no
+longer jumps. Harness **187 / 1331** (prefixes end at FU). Rig Chrome parts
+1–3 clean; Firefox and part 4 NOT re-run for v1.29. Owner check PASSED
+2026-10-05 on the local file. **Next: #34 (mic mute / webcam off while
+paused), then #19's faculty guide.**
+
 Close-out snapshot, 2026-10-04 (post-#20 machine pass).
 Supersedes the 2026-08-06 snapshot. This session: the owner-run #20 pass had
 stalled, so the 120-item checklist was run by a new Playwright rig
@@ -118,8 +129,16 @@ updated to recommend Chrome/Edge.
   nodes together, both teardown sites).
 - ● **The screen 'ended' listener is a tracked (track, handler) pair**
   (wire/unwireScreenEndedListener) — deliberate swap stops can't trip
-  it even on a browser that fires 'ended' on script stop(); genuine
-  "Stop sharing" still stops the recording. Never re-inline it.
+  it even on a browser that fires 'ended' on script stop(). Never
+  re-inline it. **Since v1.29 a genuine "Stop sharing" PAUSES the
+  recording** (state.screenLost; Resume refused until changeScreenPaused
+  succeeds); only a dead recorder still goes to stopRecording.
+- ● **The recovery banner has two modes** (v1.29): page load, and "kept"
+  (idle with unsaved priorSegments — offerKeptRecording). Every exit that
+  saves or discards the banner's recording goes through recoveryResolved,
+  which also clears priorSegments and Undo.
+- ● **The screen is drawn fitted, not stretched** (v1.29): the canvas keeps
+  the first screen's shape; drawOneFrame letterboxes anything else.
 - ● The seam-offset formula has FOUR lockstep sites: concatenateWebM /
   scanSegmentsForStitch / computeCutPlan / computeRedoLastTakePlan
   (EK's oracle pins #4 against #3; DS assertNoOverlap enforces).
@@ -211,12 +230,16 @@ updated to recommend Chrome/Edge.
      2026-10-04; checklist wording still open.
   3. DONE 2026-10-04/05: rig re-run on v1.28 (parts 1–3 ≈ 25 min per
      browser; part 4 ≈ 65–75 min per browser).
-  4. **NEXT:** Owner runs the remaining short-list tasks once, on the final build:
-     the Chrome column in full; Firefox as a smoke pass (Y1, Y8, Y10).
-  5. Then #19's faculty guide.
-- Pushed through v1.28 (ef7224e). Not yet committed at the time of writing:
-  the full re-run results folder, the results-page build script/template
-  updates, and this handoff update — commit when the owner says so.
+  4. DONE 2026-10-05 for Chrome (hosted v1.28; results in REVIEW "Owner
+     pass 2026-10-05"). Firefox smoke pass and Y11 skipped by owner choice.
+     The pass produced v1.29.
+  5. **NEXT:** #34 — mic mute / webcam off while paused (feature, about
+     the size of #23). Optional before it: a Firefox + part-4 rig re-run on
+     v1.29.
+  6. Then #19's faculty guide.
+- Everything through v1.29 is committed and pushed (owner's go-ahead
+  2026-10-05). v1.29 rig results: `regression_rig/results_2026-10-05_v1.29/`
+  (Chrome parts 1–3). The results-page artifact still describes v1.28.
 - Roadmap remainder (REVIEW feature map): chapter hotkeys + sidecar
   export, mediabunny remux (Cues/MP4) — all unscheduled,
   owner-priority-driven. (Stale "caption VTT/SRT import" entry removed

@@ -859,6 +859,57 @@ change.
 
 ---
 
+## Owner pass 2026-10-05 (Chrome, hosted v1.28)
+
+The owner ran the short list in real Chrome on the hosted page. Y1, Y2, Y3,
+Y5, Y6, Y9, Y10 passed; **Y4 failed** (a very narrow window stretched to the
+first screen's shape was not acceptable); Y7, Y8 (Firefox) and Y11 were not
+run, by choice. The pass also raised the items below.
+
+### 34. Mic and webcam can't be switched off while paused — feature — OPEN, next
+
+Every source control is locked for the whole recording, so the only way to
+stop the webcam or mic mid-recording is to stop. Feasible while paused:
+Webcam off/on (the compositor simply stops drawing the overlay) and Mic
+mute/unmute (the track goes silent; the track set stays fixed). Adding a mic
+to a recording that started without one stays impossible (v1.21.2 rule).
+About the size of #23; owner decision 2026-10-05: explore after the v1.29
+fixes.
+
+### 35. Kept footage had no save control without a refresh — ✓ FIXED v1.29
+
+After Back to recorder or a re-record cut the recorder showed only "N prior
+segment(s) preserved…"; saving without recording more needed a page refresh
+to bring up Recover & save. Fixed with the recovery banner's kept mode
+("Recording kept — not saved yet", Save it now / Discard, chunk count and
+size). Owner check PASSED 2026-10-05.
+
+### 36. Resume button — ✓ FIXED v1.29
+
+Reads "Resume recording" in Record's red while paused. Owner check PASSED.
+
+### 37. Buttons dropped to the next row on Pause (Y1) — ✓ FIXED v1.29
+
+Change screen appearing and the longer label widened the row past the wrap
+point. The slot and the width are now reserved for the whole recording. Rig
+5.1b; reproduced on v1.28 as the control. Owner check PASSED.
+
+### 38. A differently shaped screen was stretched (Y4) — ✓ FIXED v1.29
+
+Fitted inside the frame at its own proportions with black bars. Rig 5.8.
+Owner check PASSED with a narrow window.
+
+### 39. "Stop sharing" now pauses instead of ending the recording (Y2) — ✓ CHANGED v1.29
+
+Owner decision 2026-10-05, replacing the v1.24 rule that a genuine Stop
+sharing stops the recording. The recording pauses with a notice; Change
+screen then Resume recording continues in the same file; Stop & save and Stop
+& review work from that pause. Accepted trade-off: someone expecting Stop
+sharing to end the recording is left with a paused one (safe and
+recoverable). Rig 5.7. Owner check PASSED.
+
+---
+
 ## Feature map vs. the research-derived plan
 
 **Tier 1 (~70% done):** DONE — screen+webcam+mic, PiP (drag/resize/shape — exceeds
