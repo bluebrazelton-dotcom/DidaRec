@@ -334,6 +334,11 @@ async function resetState() {
   documentMock.getElementById('downloadConfirm').classList.remove('visible');
   documentMock.getElementById('recoveryBanner').classList.remove('visible');
   documentMock.getElementById('stitchFallback').classList.remove('visible');
+  // REVIEW #29: pending "Save recording" click + the userActivation mock its
+  // scenarios install (absent by default = the pre-#29 behavior everywhere else).
+  sandbox.savePendingMimeType = null;
+  documentMock.getElementById('saveNeedsClick').classList.remove('visible');
+  delete sandbox.navigator.userActivation;
   // REVIEW #26: now that showError() is wrapped (not replaced — see
   // ORIG_showError above) and actually runs, it really does mutate
   // errorBanner's classList across scenarios; reset both classes the same
@@ -6250,6 +6255,125 @@ Real cue text
 
     await sandbox.stopRecording();
     await drain();
+  });
+
+  // ---------- REVIEW #29: a save that starts from a click ----------
+  // Chrome's showSaveFilePicker only opens during a user gesture. A stop the
+  // user didn't click in the page (the browser's "Stop sharing", a watchdog)
+  // has none, so finalizeRecording offers a "Save recording" button instead.
+  const saveBannerUp = () => documentMock.getElementById('saveNeedsClick').classList.contains('visible');
+  const blockedPicker = (counter) => async () => { counter.n++; const e = new Error('Must be handling a user gesture to show a file picker.'); e.name = 'SecurityError'; throw e; };
+
+  await scenario('FH a stop with no click on the page (Chrome) offers "Save recording" instead of failing; the click saves and deletes the session', async () => {
+    const id = await seed(2);
+    state.sessionId = id; state.chunkIndex = 2;
+    let pickerCalls = 0;
+    const okPicker = pickerSequence(['ok']);
+    windowMock.showSaveFilePicker = async (o) => { pickerCalls++; return okPicker(o); };
+    sandbox.navigator.userActivation = { isActive: false };
+    await api.finalizeRecording();
+    await drain();
+    assert(pickerCalls === 0, 'FH: the save dialog was never attempted without a click (got ' + pickerCalls + ')');
+    assert(saveBannerUp(), 'FH: the Save recording banner is showing');
+    assert(!recordedErrors.some(m => /Save failed/.test(m)), 'FH: no "Save failed" message (got ' + JSON.stringify(recordedErrors) + ')');
+    assert((await readStore('sessions')).length === 1 && (await readStore('chunks')).length === 2, 'FH: the recording is still stored while the banner waits');
+
+    sandbox.navigator.userActivation = { isActive: true };   // the button click
+    const p1 = sandbox.savePendingRecording(), p2 = sandbox.savePendingRecording(); // double-click
+    await p1; await p2;
+    await drain();
+    assert(pickerCalls === 1, 'FH: one save dialog for a double-click (got ' + pickerCalls + ')');
+    assert(lastWritten.length === 1 && lastWritten[0].size === 2, 'FH: the file was written once');
+    assert((await readStore('sessions')).length === 0 && (await readStore('chunks')).length === 0, 'FH: session deleted after the confirmed save');
+    assert(!saveBannerUp() && sandbox.savePendingMimeType === null, 'FH: banner gone, nothing pending');
+  });
+
+  await scenario('FI backstop: the dialog is refused mid-save (click went stale) — same banner, no "Save failed"; a refused click re-offers', async () => {
+    const id = await seed(2);
+    state.sessionId = id; state.chunkIndex = 2;
+    const c = { n: 0 };
+    windowMock.showSaveFilePicker = blockedPicker(c);
+    sandbox.navigator.userActivation = { isActive: true };   // looked fine at the check, refused at the call
+    await api.finalizeRecording();
+    await drain();
+    assert(c.n === 1 && saveBannerUp(), 'FI: refused dialog leads to the Save recording banner');
+    assert(!recordedErrors.some(m => /Save failed/.test(m)), 'FI: no "Save failed" message');
+    await sandbox.savePendingRecording();
+    await drain();
+    assert(c.n === 2 && saveBannerUp() && sandbox.savePendingMimeType !== null, 'FI: a second refusal re-offers the button');
+    assert((await readStore('sessions')).length === 1, 'FI: recording still stored');
+    windowMock.showSaveFilePicker = pickerSequence(['abort']);
+    await sandbox.savePendingRecording();
+    await drain();
+    assert(!saveBannerUp() && recordedErrors.some(m => /Save cancelled/.test(m)), 'FI: cancelling the dialog behaves like any cancelled save');
+    assert((await readStore('sessions')).length === 1, 'FI: recording kept after cancel');
+  });
+
+  await scenario('FJ continued (multi-segment) recording, stop with no click: Save recording banner — never the stitch-fallback banner — and the click writes one stitched file', async () => {
+    const [p1, cur] = await seedSegments([syntheticWebm(), syntheticWebm()]);
+    state.priorSegments = [{ sessionId: p1, mimeType: 'video/webm' }];
+    state.sessionId = cur; state.chunkIndex = 3;
+    const c = { n: 0 };
+    windowMock.showSaveFilePicker = blockedPicker(c);
+    sandbox.navigator.userActivation = { isActive: false };
+    await api.finalizeRecording();
+    await drain();
+    assert(c.n === 0 && saveBannerUp(), 'FJ: banner offered before any dialog attempt');
+    assert(!documentMock.getElementById('stitchFallback').classList.contains('visible'), 'FJ: stitch-fallback banner not shown');
+
+    // Stale-click variant inside stitchAndSave: the refusal must pass through its catch.
+    sandbox.navigator.userActivation = { isActive: true };
+    await sandbox.savePendingRecording();
+    await drain();
+    assert(c.n === 1 && saveBannerUp(), 'FJ: a refusal inside the stitch path re-offers Save recording');
+    assert(!documentMock.getElementById('stitchFallback').classList.contains('visible'), 'FJ: still no stitch-fallback banner');
+    assert(state.priorSegments.length === 1 && (await readStore('sessions')).length === 2, 'FJ: both segments intact');
+
+    windowMock.showSaveFilePicker = pickerSequence(['ok']);
+    await sandbox.savePendingRecording();
+    await drain();
+    assert(lastWritten.length === 1, 'FJ: one stitched file written (got ' + lastWritten.length + ')');
+    assert((await readStore('sessions')).length === 0 && state.priorSegments.length === 0, 'FJ: all segments deleted after the save');
+  });
+
+  await scenario('FK while a save click is pending Record is refused; "Not now" keeps the recording for Recovery and frees Record', async () => {
+    const id = await seed(2);
+    state.sessionId = id; state.chunkIndex = 2;
+    windowMock.showSaveFilePicker = pickerSequence(['ok']);
+    sandbox.navigator.userActivation = { isActive: false };
+    await api.finalizeRecording();
+    await drain();
+    assert(saveBannerUp(), 'FK precondition: banner up');
+
+    await api.startRecording();
+    assert(state.recording === false, 'FK: Record did not start');
+    assert(state.sessionId === id, 'FK: the pending session id is untouched');
+    assert(recordedErrors.some(m => /Save your stopped recording first/.test(m)), 'FK: told to save first');
+
+    sandbox.keepPendingRecording();
+    assert(!saveBannerUp() && sandbox.savePendingMimeType === null, 'FK: Not now clears the banner');
+    assert(recordedErrors.some(m => /Recover & save/.test(m)), 'FK: Not now points at Recovery');
+    assert((await readStore('sessions')).length === 1 && lastWritten.length === 0, 'FK: nothing saved or deleted');
+
+    state.sources = { screen: true, camera: true, mic: false };
+    state.cameraStream = makeStream([{ kind: 'video', getSettings: () => ({ width: 320, height: 240 }), addEventListener() {}, stop() {} }]);
+    sandbox.toggleSource('screen');
+    await api.startRecording();
+    assert(state.recording === true, 'FK: Record works again after Not now');
+    sandbox.navigator.userActivation = { isActive: true };
+    await sandbox.stopRecording();
+    await drain();
+  });
+
+  await scenario('FL Firefox (no save dialog API): a stop with no click still downloads directly — no Save recording banner', async () => {
+    const id = await seed(2);
+    state.sessionId = id; state.chunkIndex = 2;
+    sandbox.navigator.userActivation = { isActive: false };
+    await api.finalizeRecording();
+    await drain();
+    assert(!saveBannerUp() && sandbox.savePendingMimeType === null, 'FL: no banner in download mode');
+    assert(downloadClicks.length === 1, 'FL: the download fired (got ' + downloadClicks.length + ')');
+    assert(documentMock.getElementById('downloadConfirm').classList.contains('visible'), 'FL: the usual "did it arrive?" bar is showing');
   });
 
   console.log('\n================  ' + passed + ' passed, ' + failed + ' failed  ================');

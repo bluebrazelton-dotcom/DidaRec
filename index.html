@@ -712,6 +712,16 @@
     </div>
   </div>
 
+  <!-- Save needs a click (REVIEW #29: Chrome opens the save dialog only from a click) -->
+  <div class="download-confirm" id="saveNeedsClick">
+    <h3>Recording stopped &mdash; ready to save</h3>
+    <p>Your recording is safe in this browser. Click below to choose where to save it.</p>
+    <div class="recovery-actions">
+      <button class="primary btn-save" onclick="savePendingRecording()">Save recording</button>
+      <button class="primary btn-record" onclick="keepPendingRecording()">Not now &mdash; keep it stored here</button>
+    </div>
+  </div>
+
   <!-- Error display -->
   <div class="error-banner" id="errorBanner">
     <span id="errorBannerMsg"></span>
@@ -4392,6 +4402,13 @@ function withStorageWatchdog(promise) {
 }
 
 async function startRecording() {
+  // REVIEW #29: a stopped recording is still waiting for its save click. A
+  // new recording now would chain onto it at recovery, so ask for a decision
+  // first (Save recording / Not now both clear this).
+  if (savePendingMimeType !== null) {
+    showError('Save your stopped recording first, or choose Not now.');
+    return;
+  }
   showError('');
   const btnRecord = document.getElementById('btnRecord');
   btnRecord.disabled = true;
@@ -4724,10 +4741,12 @@ async function finalizeRecording() {
   // this call throws before reaching its own save branch.
   const stopMode = state.stopMode;
   state.stopMode = 'save';
+  // Declared out here so the catch can hand it to offerSaveClick (REVIEW #29).
+  let sessionMimeType = 'video/webm';
   try {
     // Read the session's mimeType so we can rebuild the blob with the right codec.
     const db = await openDB();
-    const sessionMimeType = await new Promise((resolve) => {
+    sessionMimeType = await new Promise((resolve) => {
       const tx = db.transaction('sessions', 'readonly');
       const req = tx.objectStore('sessions').get(state.sessionId);
       req.onsuccess = () => resolve(req.result?.mimeType || 'video/webm');
@@ -4764,23 +4783,15 @@ async function finalizeRecording() {
       return;
     }
 
-    if (state.priorSegments.length > 0) {
-      // Multi-segment: streamed stitch of prior segments + current into one
-      // file (Known Limitation #1, closed in v1.13 — this used to buffer
-      // every segment; see saveSessionsStreamedStitch).
-      await stitchAndSave(sessionMimeType);
-    } else {
-      // Single segment: streamed save. Only delete the session on a CONFIRMED save.
-      const result = await saveFile({ kind: 'session', sessionId: state.sessionId, mimeType: sessionMimeType });
-      if (result === 'saved') {
-        await deleteSession(state.sessionId);
-        await deleteDiscardedSessions(); // sweep any soft-deleted siblings from an earlier review-pane cut
-      } else if (result === 'downloaded') {
-        offerDownloadConfirm([state.sessionId], 1);
-      } else {
-        showError('Save cancelled — your recording is still here. Reload the page to recover it.');
-      }
+    // REVIEW #29: this stop didn't come from a click in the page (the
+    // browser's "Stop sharing", a watchdog, a salvage), so Chrome would refuse
+    // the save dialog. Offer a button instead; its click runs the same save.
+    if (saveDialogNeedsClick()) {
+      offerSaveClick(sessionMimeType);
+      return;
     }
+
+    await saveStoppedRecording(sessionMimeType);
 
   } catch (err) {
     if (err instanceof StorageWatchdogTimeoutError) {
@@ -4790,6 +4801,9 @@ async function finalizeRecording() {
       // Stop was clicked — the recovery banner will pick it up once
       // Firefox's storage layer comes back.
       showError("Firefox's storage isn't responding, so this recording can't be saved right now. Your recording is safe — close all Firefox windows, restart Firefox, reopen this page, and use the recovery banner to save it.");
+    } else if (isSaveDialogBlocked(err)) {
+      // REVIEW #29 backstop: the click went stale before the dialog opened.
+      offerSaveClick(sessionMimeType);
     } else {
       console.error('Failed to finalize:', err);
       showError('Save failed: ' + err.message + '. Your recording is safe — refresh and use Recovery.');
@@ -4798,6 +4812,76 @@ async function finalizeRecording() {
     cleanupStreams();
     resetUI();
   }
+}
+
+// The save half of finalizeRecording, shared with the "Save recording" button
+// (REVIEW #29). Reads state.sessionId / state.priorSegments, which stay put
+// between a stop and that click because startRecording refuses to run while a
+// save is pending.
+async function saveStoppedRecording(sessionMimeType) {
+  if (state.priorSegments.length > 0) {
+    // Multi-segment: streamed stitch of prior segments + current into one
+    // file (Known Limitation #1, closed in v1.13 — this used to buffer
+    // every segment; see saveSessionsStreamedStitch).
+    await stitchAndSave(sessionMimeType);
+  } else {
+    // Single segment: streamed save. Only delete the session on a CONFIRMED save.
+    const result = await saveFile({ kind: 'session', sessionId: state.sessionId, mimeType: sessionMimeType });
+    if (result === 'saved') {
+      await deleteSession(state.sessionId);
+      await deleteDiscardedSessions(); // sweep any soft-deleted siblings from an earlier review-pane cut
+    } else if (result === 'downloaded') {
+      offerDownloadConfirm([state.sessionId], 1);
+    } else {
+      showError('Save cancelled — your recording is still here. Reload the page to recover it.');
+    }
+  }
+}
+
+// ============================================================
+// Save needs a click (REVIEW #29)
+// ============================================================
+// Chrome's showSaveFilePicker only opens while the page is handling a click.
+// null = nothing pending; otherwise the stopped session's mimeType.
+var savePendingMimeType = null;
+
+function saveDialogNeedsClick() {
+  return ('showSaveFilePicker' in window)
+    && !!navigator.userActivation && navigator.userActivation.isActive === false;
+}
+
+function isSaveDialogBlocked(err) {
+  return !!err && err.name === 'SecurityError' && ('showSaveFilePicker' in window);
+}
+
+function offerSaveClick(mimeType) {
+  savePendingMimeType = mimeType;
+  document.getElementById('saveNeedsClick').classList.add('visible');
+}
+
+async function savePendingRecording() {
+  // Snapshot-then-clear first, so a double-click is a no-op.
+  const mimeType = savePendingMimeType;
+  if (mimeType === null) return;
+  savePendingMimeType = null;
+  document.getElementById('saveNeedsClick').classList.remove('visible');
+  showError('');
+  try {
+    await saveStoppedRecording(mimeType);
+  } catch (err) {
+    if (isSaveDialogBlocked(err)) {
+      offerSaveClick(mimeType);
+    } else {
+      console.error('Failed to save stopped recording:', err);
+      showError('Save failed: ' + err.message + '. Your recording is safe — refresh and use Recovery.');
+    }
+  }
+}
+
+function keepPendingRecording() {
+  savePendingMimeType = null;
+  document.getElementById('saveNeedsClick').classList.remove('visible');
+  showError('Your recording is kept safe in this browser. Reload the page and click "Recover & save" to save it.');
 }
 
 // Rider 1: the shared streamed-parts fallback. Each part is a v1.11
@@ -4875,6 +4959,9 @@ async function stitchAndSave(currentMimeType) {
     }
 
   } catch (err) {
+    // REVIEW #29: a refused save dialog is not a stitch failure — let the
+    // caller offer the "Save recording" button instead of separate parts.
+    if (isSaveDialogBlocked(err)) throw err;
     console.error('Stitching failed:', err);
     const segments = [...state.priorSegments, { sessionId: state.sessionId, mimeType: currentMimeType }];
     offerStitchFallback(segments);
