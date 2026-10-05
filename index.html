@@ -47,6 +47,10 @@
     letter-spacing: 0.02em;
   }
 
+  header .header-right { display: flex; align-items: center; gap: 1rem; }
+  header .help-link { color: var(--green); font-size: 0.85rem; font-weight: 600; text-decoration: none; }
+  header .help-link:hover, header .help-link:focus-visible { text-decoration: underline; }
+
   header .badge {
     font-size: 0.7rem;
     padding: 0.2rem 0.5rem;
@@ -703,7 +707,11 @@
 
 <header>
   <h1>DidaRec</h1>
-  <span class="badge">DidaWorks</span>
+  <span class="header-right">
+    <!-- New tab on purpose: a click mid-recording must never navigate away from the recording. -->
+    <a class="help-link" href="guide.html" target="_blank" rel="noopener">How to use</a>
+    <span class="badge">DidaWorks</span>
+  </span>
 </header>
 
 <main>
@@ -941,7 +949,7 @@
 
 <footer>
   <div>Click "Select Screen" to choose which screen, window, or tab to record. Your browser will show a popup — this is a required security step the app cannot bypass.</div>
-  <div style="margin-top: 0.5rem;">DidaRec <span id="appVersion">v1.30</span> by DidaWorks &middot; Open source &middot; MIT License &middot; No account, no server, no watermark, no time limits</div>
+  <div style="margin-top: 0.5rem;">DidaRec <span id="appVersion">v1.31</span> by DidaWorks &middot; Open source &middot; MIT License &middot; No account, no server, no watermark, no time limits</div>
 </footer>
 
 <script>

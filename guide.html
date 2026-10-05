@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How to use DidaRec</title>
+<style>
+  :root {
+    --bg: #fbfaf7; --ink: #1c2330; --muted: #566072; --line: #d9dde5;
+    --panel: #ffffff; --accent: #b3243f; --link: #1d4fbf; --tip: #eef5f1; --tip-line: #2e7d5b;
+    --warn: #fdf4e3; --warn-line: #9a6a00;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14181f; --ink: #e8ecf2; --muted: #a3adbd; --line: #2c3542;
+      --panel: #1b212b; --accent: #ff8296; --link: #9db8ff; --tip: #18261f; --tip-line: #58b98a;
+      --warn: #2b2412; --warn-line: #e0b450;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+    font-size: 1.0625rem; line-height: 1.65;
+  }
+  .skip { position: absolute; left: -999px; }
+  .skip:focus { left: 1rem; top: 1rem; background: var(--panel); padding: .5rem .75rem; border: 2px solid var(--link); }
+  main { max-width: 44rem; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+  h1 { font-size: 2rem; line-height: 1.2; margin: 1rem 0 .25rem; }
+  h2 { font-size: 1.4rem; line-height: 1.3; margin: 2.75rem 0 .5rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+  h3 { font-size: 1.1rem; margin: 1.75rem 0 .25rem; }
+  p { margin: .6rem 0; }
+  .lede { color: var(--muted); font-size: 1.15rem; }
+  a { color: var(--link); }
+  a:focus-visible { outline: 3px solid var(--link); outline-offset: 2px; }
+  ol, ul { padding-left: 1.4rem; margin: .6rem 0; }
+  li { margin: .45rem 0; }
+  /* The name of a button, exactly as it appears on screen */
+  b.btn { font-weight: 600; white-space: nowrap; border: 1px solid var(--line); border-radius: 6px; padding: 0 .35em; background: var(--panel); }
+  nav ul { list-style: none; padding: 0; }
+  nav li { margin: .3rem 0; }
+  .tip, .note { border-left: 4px solid var(--tip-line); background: var(--tip); padding: .75rem 1rem; border-radius: 0 8px 8px 0; margin: 1rem 0; }
+  .note { border-left-color: var(--warn-line); background: var(--warn); }
+  .tip p:first-child, .note p:first-child { margin-top: 0; } .tip p:last-child, .note p:last-child { margin-bottom: 0; }
+  figure { margin: 1.25rem 0; }
+  figure img { display: block; max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; }
+  figcaption { color: var(--muted); font-size: .95rem; margin-top: .4rem; }
+  dl { margin: .5rem 0; }
+  dt { font-weight: 600; margin-top: 1.1rem; }
+  dd { margin: .25rem 0 0; }
+  footer { color: var(--muted); font-size: .95rem; border-top: 1px solid var(--line); margin-top: 3rem; padding-top: 1rem; }
+  @media print {
+    body { background: #fff; color: #000; font-size: 11pt; }
+    nav, .skip { display: none; }
+    h2 { break-after: avoid; } figure, .tip, .note, li { break-inside: avoid; }
+    a { color: #000; text-decoration: none; }
+  }
+</style>
+</head>
+<body>
+<a class="skip" href="#start">Skip to the instructions</a>
+<main>
+  <p><a href="./">&larr; Back to DidaRec</a></p>
+  <h1>How to use DidaRec</h1>
+  <p class="lede">Record your screen, your voice and your webcam, right in your web browser. There is nothing to install and no account to create.</p>
+
+  <nav aria-label="On this page">
+    <ul>
+      <li><a href="#start">Before you start</a></li>
+      <li><a href="#first">Make your first recording</a></li>
+      <li><a href="#pause">Pause, and what you can change while paused</a></li>
+      <li><a href="#finish">When you finish</a></li>
+      <li><a href="#fix">Fix a mistake without starting over</a></li>
+      <li><a href="#wrong">If something goes wrong</a></li>
+      <li><a href="#captions">Add captions</a></li>
+      <li><a href="#answers">Quick answers</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="start">Before you start</h2>
+  <ul>
+    <li><strong>Use Chrome or Edge.</strong> Edge is already on every Windows computer.</li>
+    <li><strong>Open DidaRec:</strong> <a href="https://bluebrazelton-dotcom.github.io/DidaRec/">bluebrazelton-dotcom.github.io/DidaRec</a>. Save it as a bookmark so you can find it again.</li>
+    <li><strong>Your recording stays on your computer.</strong> Nothing is uploaded or sent anywhere.</li>
+  </ul>
+
+  <h2 id="first">Make your first recording</h2>
+  <figure>
+    <img src="guide-img/01-start.png" alt="The DidaRec page before recording. Along the bottom are the Screen, Webcam and Mic buttons on the left, and Select Screen and Record on the right.">
+    <figcaption>The buttons you need are along the bottom of the page.</figcaption>
+  </figure>
+  <ol>
+    <li>Click <b class="btn">Select Screen</b>. Your browser asks what you want to show. Pick a whole screen, one window, or one browser tab, then click <b class="btn">Share</b>.</li>
+    <li>Want your voice in the recording? Click <b class="btn">Mic</b>. Want your face in the corner? Click <b class="btn">Webcam</b>. The first time, your browser asks permission. Click <b class="btn">Allow</b>. A button is on when it is green.</li>
+    <li>Click <b class="btn">Record</b>. The timer starts counting.</li>
+    <li>When you are done, click <b class="btn">Stop &amp; save</b>.</li>
+    <li>Choose where to keep the file and click <b class="btn">Save</b>.</li>
+  </ol>
+  <div class="tip">
+    <p><strong>You can't lose your work.</strong> DidaRec saves as you go, every second. If your browser closes by accident, or the power goes out, open DidaRec again and it will offer your recording back.</p>
+  </div>
+
+  <h3>Getting the picture and sound you want</h3>
+  <ul>
+    <li><strong>Move your webcam picture:</strong> drag it to a new spot. Drag its bottom-right corner to make it bigger or smaller.</li>
+    <li><strong>Change its shape:</strong> choose Rectangle, Square or Circle from the list under <b class="btn">Webcam</b>.</li>
+    <li><strong>Sound from a video or website:</strong> in step 1, share the <em>tab</em> that is playing it, and switch on <strong>Also share tab audio</strong> before you click Share.</li>
+    <li><strong>File size:</strong> the <strong>Quality</strong> list offers Smaller file, Balanced, and Best quality. Balanced is right for most lectures.</li>
+  </ul>
+
+  <h2 id="pause">Pause, and what you can change while paused</h2>
+  <p>Click <b class="btn">Pause</b> whenever you need a moment. Nothing is recorded while you are paused. Click <b class="btn">Resume recording</b> to carry on. It all ends up in one video.</p>
+  <figure>
+    <img src="guide-img/03-paused.png" alt="DidaRec while paused. The red Resume recording button is next to Change screen, Stop and save, and Stop and review.">
+    <figcaption>While paused: Resume recording, Change screen, Stop &amp; save, Stop &amp; review.</figcaption>
+  </figure>
+  <p>While you are paused you can:</p>
+  <ul>
+    <li><strong>Show a different screen or window.</strong> Click <b class="btn">Change screen</b> and pick the new one. Your viewers never see you looking for it.</li>
+    <li><strong>Turn your webcam off or on.</strong> Click <b class="btn">Webcam</b>.</li>
+    <li><strong>Mute or unmute your microphone.</strong> Click <b class="btn">Mic</b>.</li>
+  </ul>
+  <figure>
+    <img src="guide-img/02-recording.png" alt="DidaRec while recording. A lecture slide fills the preview with the presenter's webcam picture in the corner. The Screen, Webcam and Mic buttons each show a small padlock. Pause, Stop and save, and Stop and review are below.">
+    <figcaption>While recording: a small padlock sits on Screen, Webcam and Mic.</figcaption>
+  </figure>
+  <div class="tip">
+    <p><strong>What the little padlock means.</strong> While you are recording, the Screen, Webcam and Mic buttons show a small padlock. They can't be changed by accident. Pause first, and the padlock comes off Webcam and Mic.</p>
+  </div>
+
+  <h2 id="finish">When you finish</h2>
+  <p>You have two ways to stop.</p>
+  <ul>
+    <li><b class="btn">Stop &amp; save</b> saves your video right away.</li>
+    <li><b class="btn">Stop &amp; review</b> lets you watch it first. From there you can save it, fix a mistake, or throw it away.</li>
+  </ul>
+  <p>Your video is saved as a <strong>.webm</strong> file. It plays in any web browser: drag the file onto a Chrome or Edge window. Most course sites and video sites accept it.</p>
+
+  <h2 id="fix">Fix a mistake without starting over</h2>
+  <p>Click <b class="btn">Stop &amp; review</b> instead of Stop &amp; save. Your recording opens in a player.</p>
+  <figure>
+    <img src="guide-img/04-review.png" alt="The review screen. A video player shows the recording. Underneath are the buttons Re-record from 0:07, a small box for typing a time, Re-record from this time, Save as is, and Discard recording. Back to recorder is at the top right.">
+    <figcaption>The review screen.</figcaption>
+  </figure>
+  <h3>Do the ending again</h3>
+  <ol>
+    <li>Play or drag the video to the last moment that was good.</li>
+    <li>Click <b class="btn">Re-record from&hellip;</b> (the button shows the time you chose). Everything after that moment is removed.</li>
+    <li>Click <b class="btn">Select Screen</b>, then <b class="btn">Record</b>, and carry on from there.</li>
+    <li>When you finish, click <b class="btn">Stop &amp; save</b>. You get one video with the fix already in it.</li>
+  </ol>
+  <p>If you know the time, type it in the small box (for example <strong>4:30</strong>) and click <b class="btn">Re-record from this time</b>.</p>
+  <p>Changed your mind? Click <b class="btn">Undo re-record</b> before you start recording again, and the part you removed comes back.</p>
+  <h3>Other choices on the review screen</h3>
+  <ul>
+    <li><b class="btn">Redo last take</b> appears when your video was recorded in more than one part. It removes only the most recent part, so you can do that part again.</li>
+    <li><b class="btn">Save as is</b> saves the video just as it is.</li>
+    <li><b class="btn">Back to recorder</b> keeps your video and lets you add more to it. A box at the top says <strong>Recording kept &mdash; not saved yet</strong>. Click <b class="btn">Save it now</b> there whenever you are ready.</li>
+    <li><b class="btn">Discard recording</b> deletes it. You are asked to confirm first.</li>
+  </ul>
+
+  <h2 id="wrong">If something goes wrong</h2>
+  <figure>
+    <img src="guide-img/05-recovery.png" alt="DidaRec just after reopening. A box at the top says Interrupted recording found, with three buttons: Continue recording, Recover and save, and Discard.">
+    <figcaption>If a recording was interrupted, this box is waiting when you open DidaRec again.</figcaption>
+  </figure>
+  <dl>
+    <dt>My browser closed, froze, or my computer shut down</dt>
+    <dd>Open DidaRec again. A box at the top says <strong>Interrupted recording found</strong>. Click <b class="btn">Recover &amp; save</b> to save what you had. Or click <b class="btn">Continue recording</b> to pick up where you left off, and both parts become one video.</dd>
+
+    <dt>I clicked my browser's "Stop sharing" bar</dt>
+    <dd>Your recording is paused, not lost. Click <b class="btn">Change screen</b> to share again, then <b class="btn">Resume recording</b>. Or click <b class="btn">Stop &amp; save</b> to finish.</dd>
+
+    <dt>I closed the save window without saving</dt>
+    <dd>Your recording is still there. Refresh the page and click <b class="btn">Recover &amp; save</b>.</dd>
+
+    <dt>A box says "Recording stopped &mdash; ready to save"</dt>
+    <dd>Click <b class="btn">Save recording</b> and choose where to keep it.</dd>
+
+    <dt>There is no sound from my computer in the video</dt>
+    <dd>Sound from your computer is only recorded if you switch on <strong>Also share tab audio</strong> (or <strong>Also share system audio</strong>) in the window where you choose what to share. Sharing a single window does not include its sound; share the tab or the whole screen instead.</dd>
+
+    <dt>My microphone or webcam does not appear</dt>
+    <dd>Click the padlock or settings icon at the left end of your browser's address bar and set Camera and Microphone to <strong>Allow</strong>. Then refresh the page.</dd>
+  </dl>
+  <div class="note">
+    <p><strong>One thing to avoid.</strong> A recording you have not saved yet is kept inside your browser. Clearing your browsing data erases it. Save first.</p>
+  </div>
+
+  <h2 id="captions">Add captions</h2>
+  <p>Captions are added after your video is saved. They are kept in a small separate file that sits next to your video.</p>
+  <figure>
+    <img src="guide-img/06-captions.png" alt="The caption editor. Buttons along the top: Open video, Import captions, Add caption, Save captions. The video plays in the middle with a caption shown on it. Below, each caption has a start time, an end time, its words, and a Delete button.">
+    <figcaption>The caption editor: your video in the middle, your captions listed underneath.</figcaption>
+  </figure>
+  <ol>
+    <li>Save your recording first.</li>
+    <li>Click <b class="btn">Caption editor</b>, then <b class="btn">Open video</b>, and choose your saved video.</li>
+    <li>Play the video. When someone starts speaking, click <b class="btn">Add caption</b> and type what is said.</li>
+    <li>Repeat for the rest of the video. You can fix the words or the times at any point.</li>
+    <li>Click <b class="btn">Save captions (.vtt)</b>. Keep the captions file in the same folder as your video, with the same name.</li>
+  </ol>
+  <p>Already have a captions file, for example one made automatically by your course site? Click <b class="btn">Import captions</b> to bring it in, correct it, and save it again.</p>
+  <p>Your caption work is remembered as you go. If you close the page, open the same video again and you can continue where you stopped.</p>
+
+  <h2 id="answers">Quick answers</h2>
+  <dl>
+    <dt>Where did my video go?</dt>
+    <dd>In the folder you picked when you clicked Save. If you are not sure, look in your Downloads or Videos folder for a file whose name starts with <strong>recording-</strong> and today's date.</dd>
+
+    <dt>Is there a time limit?</dt>
+    <dd>No. There is no time limit, no watermark and no account.</dd>
+
+    <dt>Can I record just my webcam, with no screen?</dt>
+    <dd>Yes. Click <b class="btn">Webcam</b> to turn it on, then click <b class="btn">Screen</b> to turn the screen off. Then click <b class="btn">Record</b>.</dd>
+
+    <dt>Why are some buttons locked while I record?</dt>
+    <dd>So nothing changes by accident in the middle of your video. Click <b class="btn">Pause</b> to change your screen, webcam or microphone.</dd>
+
+    <dt>Can I use Firefox?</dt>
+    <dd>Yes, with three differences. Your video arrives as a download, and DidaRec asks you to confirm it arrived. Sound from your computer is not recorded. And you cannot re-record from a point in the first few seconds of a recording. Chrome and Edge do not have these limits.</dd>
+
+    <dt>Who can I ask for help?</dt>
+    <dd>DidaRec is free and open source, made by DidaWorks. Report a problem at <a href="https://github.com/bluebrazelton-dotcom/DidaRec/issues">github.com/bluebrazelton-dotcom/DidaRec/issues</a>.</dd>
+  </dl>
+
+  <footer>
+    <p>This guide matches DidaRec v1.31. <a href="./">Back to DidaRec</a></p>
+  </footer>
+</main>
+</body>
+</html>
