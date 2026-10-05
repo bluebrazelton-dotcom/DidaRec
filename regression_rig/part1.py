@@ -303,12 +303,19 @@ def s5_change(r):
         msg = h["err"]; rec_banner = None
         if saved:
             r.ev("t => __dr.exportLast(t)", "5_change.webm")
+            r.check("5.7b", True, "extra: capture ended by the browser with no click on the page (page had an active user gesture at that moment: %s). Automatic save completed normally" % act)
+        elif h.get("saveNeedsClick"):
+            # REVIEW #29 (v1.27): the app offers a "Save recording" button; its click is a real gesture.
+            p = r.stop_save("5_change.webm", button="#saveNeedsClick button.btn-save")
+            h2 = r.ui()
+            r.check("5.7b", bool(p) and not msg and not h2["err"] and not h2.get("saveNeedsClick"),
+                    "extra: capture ended by the browser with no click on the page (page had an active user gesture at that moment: %s). The app showed the 'Recording stopped - ready to save' banner (error shown: '%s'); clicking Save recording produced the file (%s); afterwards banner showing: %s, error: '%s'"
+                    % (act, msg, bool(p), h2.get("saveNeedsClick"), h2["err"]))
         else:
             r.reload(); r.wait(800)
             rec_banner = r.ui()["recovery"]
             r.stop_save("5_change.webm", button="#recoveryBanner button.btn-save")
-        r.check("5.7b", saved, "extra: capture ended by the browser with no click on the page (page had an active user gesture at that moment: %s). Automatic save %s"
-                % (act, "completed normally" if saved else ("did NOT complete - the app showed: '%s'. Nothing was lost: after a reload the recovery banner offered the recording (%s) and Recover & save produced the file. Cause: Chrome only opens a save dialog during a user gesture, and this stop has none. (The save dialog here is a stand-in that mirrors that Chrome rule; confirm once in real Chrome.)" % (msg, rec_banner))))
+            r.check("5.7b", False, "extra: capture ended by the browser with no click on the page (page had an active user gesture at that moment: %s). Automatic save did NOT complete - the app showed: '%s'. Nothing was lost: after a reload the recovery banner offered the recording (%s) and Recover & save produced the file. Cause: Chrome only opens a save dialog during a user gesture, and this stop has none. (The save dialog here is a stand-in that mirrors that Chrome rule.)" % (act, msg, rec_banner))
     pr = r.probe("5_change.webm", step=0.5); sm = summarize(pr)
     ids = [s["id"] for s in pr["samples"] if s["valid"]]
     seq = [ids[0]] + [b_ for a_, b_ in zip(ids, ids[1:]) if b_ != a_]

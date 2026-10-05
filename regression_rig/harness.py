@@ -196,7 +196,7 @@ class Rig:
             status: txt('statusText'), timer: txt('timer'), chunks: txt('chunkCount'),
             err: vis('errorBanner') ? txt('errorBannerMsg') : '', errClass: eb.className,
             recovery: vis('recoveryBanner'), recoveryInfo: txt('recoveryInfo'),
-            dlConfirm: vis('downloadConfirm'), stitchFallback: vis('stitchFallback'),
+            dlConfirm: vis('downloadConfirm'), stitchFallback: vis('stitchFallback'), saveNeedsClick: vis('saveNeedsClick'),
             placeholder: vis('placeholder'),
             screenActive: document.getElementById('toggleScreen').classList.contains('active'),
             camActive: document.getElementById('toggleCamera').classList.contains('active'),
