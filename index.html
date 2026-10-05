@@ -190,6 +190,23 @@
 
   .toggle-btn svg { width: 16px; height: 16px; }
 
+  /* Locked during a recording (v1.30): the button keeps its normal on/off
+     colours — no greying — and wears a small padlock badge instead. The
+     badge comes off Webcam and Mic while paused, when they can be changed. */
+  .toggle-btn { position: relative; }
+  .toggle-btn.locked { cursor: not-allowed; }
+  .toggle-btn.locked::after {
+    content: '';
+    position: absolute;
+    top: -7px;
+    right: -7px;
+    width: 17px;
+    height: 17px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c9d1e0' stroke-width='2.6' stroke-linecap='round'%3E%3Crect x='5' y='11' width='14' height='10' rx='2'/%3E%3Cpath d='M8 11V7a4 4 0 018 0v4'/%3E%3C/svg%3E") center / 10px 10px no-repeat;
+  }
+
   /* Source groups: toggle + device selector stacked */
   .source-group {
     display: flex;
@@ -924,7 +941,7 @@
 
 <footer>
   <div>Click "Select Screen" to choose which screen, window, or tab to record. Your browser will show a popup — this is a required security step the app cannot bypass.</div>
-  <div style="margin-top: 0.5rem;">DidaRec by DidaWorks &middot; Open source &middot; MIT License &middot; No account, no server, no watermark, no time limits</div>
+  <div style="margin-top: 0.5rem;">DidaRec <span id="appVersion">v1.30</span> by DidaWorks &middot; Open source &middot; MIT License &middot; No account, no server, no watermark, no time limits</div>
 </footer>
 
 <script>
@@ -946,6 +963,7 @@ const state = {
                              // is currently wired to — see wireScreenEndedListener
   screenEndedHandler: null, // the handler itself, so it can be removed by reference
   screenLost: false,        // true while paused because the browser's "Stop sharing" ended the capture
+  micMuted: false,          // REVIEW #34: mic muted mid-recording (while paused); sources.mic stays true
   cameraStream: null,
   audioContext: null,
   audioMixDest: null,        // REVIEW #23: the MediaStreamAudioDestinationNode from
@@ -1345,7 +1363,12 @@ async function cleanupCompleted() {
 // Source toggles
 // ============================================================
 function toggleSource(source) {
-  if (state.recording) return; // Can't toggle mid-recording
+  if (state.recording) {
+    // Locked for the whole recording, with one exception (REVIEW #34): while
+    // PAUSED, Webcam and Mic can be switched — see togglePausedSource.
+    if (state.paused && (source === 'camera' || source === 'mic')) togglePausedSource(source);
+    return;
+  }
   // Screen shows dark when intent is on but nothing is captured (see
   // updateToggleUI) — with the webcam OFF, a click there can only mean
   // "get me a screen": open the picker directly instead of flipping intent
@@ -1479,17 +1502,85 @@ function stopMicHold() {
   }
 }
 
+// REVIEW #34: Webcam and Mic can be switched while a recording is PAUSED
+// (never while it is running — same rule as Change screen: nothing changes
+// on air). Neither touches the recorder, the chunk writes or the audio mix.
+//  - Webcam: the compositor draws the overlay from state.cameraStream every
+//    frame, so releasing/re-acquiring the camera is all it takes. It must NOT
+//    restart compositing (startCompositing resizes the canvas). Not offered in
+//    a camera-only recording, where the camera is the only picture.
+//  - Mic: a recording's audio track set is fixed at start, so this is a MUTE
+//    (track.enabled) of the mic already in the mix; a recording that started
+//    without the mic can't gain one. state.sources.mic stays true while muted
+//    so the mic hold survives; cleanupStreams turns a mute into a real Mic-off.
+var pausedCameraBusy = false;
+async function togglePausedSource(source) {
+  if (!state.recording || !state.paused) return;
+  if (source === 'mic') {
+    if (!state.micStream) return; // started without the mic — button is disabled anyway
+    state.micMuted = !state.micMuted;
+    state.micStream.getAudioTracks().forEach((t) => { t.enabled = !state.micMuted; });
+    showError('');
+    updateToggleUI();
+    return;
+  }
+  if (source !== 'camera' || !state.sources.screen || pausedCameraBusy) return;
+  showError('');
+  if (state.cameraStream) {
+    state.cameraStream.getTracks().forEach((t) => t.stop());
+    state.cameraStream = null;
+    cameraVideo.srcObject = null;
+    state.sources.camera = false;
+    updateToggleUI();
+    return;
+  }
+  pausedCameraBusy = true;
+  try {
+    const stream = await captureCamera();
+    if (!state.recording) {
+      // The recording ended while the camera prompt was up — don't leak it.
+      stream.getTracks().forEach((t) => t.stop());
+      return;
+    }
+    state.cameraStream = stream;
+    cameraVideo.srcObject = stream;
+    await cameraVideo.play();
+    state.sources.camera = true;
+  } catch (err) {
+    console.error('Webcam start while paused failed:', err);
+    showError("Couldn't start the webcam — your recording is unaffected. " + err.message);
+  } finally {
+    pausedCameraBusy = false;
+    updateToggleUI();
+  }
+}
+
 function updateToggleUI() {
   // Screen's lit state = actually capturing, not just intent: unlike camera/
   // mic, toggling Screen on doesn't acquire anything — Select Screen does.
   document.getElementById('toggleScreen').classList.toggle('active', state.sources.screen && !!state.screenStream);
   document.getElementById('toggleCamera').classList.toggle('active', state.sources.camera);
-  document.getElementById('toggleMic').classList.toggle('active', state.sources.mic);
-  // Disable toggles and selectors during recording
+  document.getElementById('toggleMic').classList.toggle('active', state.sources.mic && !state.micMuted);
+  // Disable toggles and selectors during recording — except Webcam and Mic
+  // while paused (REVIEW #34, see togglePausedSource).
   const disabled = state.recording;
+  const pausedEdit = state.recording && state.paused;
   document.getElementById('toggleScreen').disabled = disabled;
-  document.getElementById('toggleCamera').disabled = disabled;
-  document.getElementById('toggleMic').disabled = disabled;
+  document.getElementById('toggleCamera').disabled = disabled && !(pausedEdit && state.sources.screen);
+  document.getElementById('toggleMic').disabled = disabled && !(pausedEdit && !!state.micStream);
+  // Locked look (v1.30): a padlock badge (.locked) plus a hover note saying
+  // how to change it. Colours stay as they are — only the badge says "locked".
+  const LOCK_NOTE = 'Locked while recording — pause to change';
+  const lockUI = (id, pausedNote) => {
+    const btn = document.getElementById(id);
+    const locked = state.recording && btn.disabled;
+    btn.classList.toggle('locked', locked);
+    btn.title = !locked ? '' : (pausedEdit ? pausedNote : LOCK_NOTE);
+  };
+  lockUI('toggleScreen', 'Locked while recording — use Change screen');
+  lockUI('toggleCamera', 'Locked — the webcam is the only picture in this recording');
+  lockUI('toggleMic', "This recording started without the mic, so it can't be added now.");
+  if (state.recording && !pausedEdit) document.getElementById('toggleScreen').title = 'Locked while recording — pause and use Change screen';
   document.getElementById('cameraSelect').disabled = disabled || !state.sources.camera;
   document.getElementById('pipShapeSelect').disabled = disabled || !state.sources.camera;
   document.getElementById('mirrorToggle').disabled = disabled || !state.sources.camera;
@@ -4714,6 +4805,7 @@ function pauseResume() {
     updateStatus('paused', 'Paused');
   }
   updateChangeScreenVisibility(); // REVIEW #23: shows/hides "Change screen" with the pause state
+  updateToggleUI();               // REVIEW #34: unlocks/locks Webcam and Mic with the pause state
 }
 
 async function stopRecording() {
@@ -5499,6 +5591,15 @@ function cleanupStreams() {
   if (state.cameraStream) {
     state.cameraStream.getTracks().forEach(t => t.stop());
     state.cameraStream = null;
+  }
+  if (state.micMuted) {
+    // REVIEW #34: the recording ended with the mic muted. Un-mute the track
+    // (a muted hold would silently carry into the next recording) and make it
+    // a real Mic-off, matching the button the user last saw.
+    if (state.micStream) state.micStream.getAudioTracks().forEach((t) => { t.enabled = true; });
+    state.micMuted = false;
+    state.sources.mic = false;
+    stopMicHold();
   }
   releaseMicRecordingRef(); // preserves the hold if the mic toggle is still on — see its doc comment
   if (state.audioContext) {

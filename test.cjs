@@ -339,6 +339,7 @@ async function resetState() {
   sandbox.backgroundCleanupsRunning = 0; sandbox.recordWaitingOnCleanup = false; // REVIEW #31
   // v1.29: Stop-sharing pause flag, kept-recording banner mode, paused-row layout bits.
   state.screenLost = false;
+  state.micMuted = false; sandbox.pausedCameraBusy = false; // REVIEW #34
   sandbox.setRecoveryBannerMode(false);
   documentMock.getElementById('btnPause').classList.remove('resume');
   documentMock.getElementById('changeScreenSpacer').style.display = 'none';
@@ -6609,6 +6610,145 @@ Real cue text
     api.stopCompositing();
     ctxStub.drawImage = origDraw;
     sv.videoWidth = saved.vw; sv.videoHeight = saved.vh;
+  });
+
+  // ---------- REVIEW #34 (v1.30): Webcam and Mic while paused ----------
+  const camTrack = () => ({ kind: 'video', readyState: 'live', getSettings: () => ({ width: 320, height: 240 }), addEventListener() {}, stop() { this.readyState = 'ended'; } });
+  const startScreenRecWith = async ({ mic, cam }) => {
+    state.sources = { screen: true, camera: !!cam, mic: !!mic };
+    const st = makeEndedCapableTrack('video', 'scr-34');
+    const screen = makeStream([st]);
+    state.screenStream = screen;
+    S.wireScreenEndedListener(screen);
+    let micTrack = null, cTrack = null;
+    if (mic) {
+      micTrack = { kind: 'audio', readyState: 'live', enabled: true, id: 'mic-34', stop() { this.readyState = 'ended'; } };
+      state.heldMicStream = makeStream([micTrack]); state.heldMicDeviceId = state.selectedMic;
+    }
+    if (cam) { cTrack = camTrack(); state.cameraStream = makeStream([cTrack]); }
+    await api.startRecording();
+    return { micTrack, cTrack };
+  };
+
+  await scenario('FV while RECORDING (not paused) Webcam and Mic stay locked; pausing unlocks them; resuming locks them again; Screen and the dropdowns stay locked throughout', async () => {
+    await startScreenRecWith({ mic: true, cam: true });
+    assert(el29('toggleCamera').disabled === true && el29('toggleMic').disabled === true, 'FV: locked while recording');
+    const cam0 = state.cameraStream;
+    sandbox.toggleSource('camera'); sandbox.toggleSource('mic');
+    assert(state.cameraStream === cam0 && state.micMuted === false && state.sources.camera === true, 'FV: clicks while recording unpaused do nothing');
+    sandbox.pauseResume();
+    assert(el29('toggleCamera').disabled === false && el29('toggleMic').disabled === false, 'FV: unlocked while paused');
+    assert(el29('toggleScreen').disabled === true && el29('micSelect').disabled === true && el29('cameraSelect').disabled === true && el29('qualitySelect').disabled === true, 'FV: Screen and the dropdowns stay locked');
+    sandbox.toggleSource('screen');
+    assert(state.sources.screen === true && state.recording === true, 'FV: a Screen click while paused does nothing');
+    sandbox.pauseResume();
+    assert(el29('toggleCamera').disabled === true && el29('toggleMic').disabled === true, 'FV: locked again after Resume');
+    await sandbox.stopRecording();
+    await drain();
+  });
+
+  await scenario('FW mic mute while paused: the recording\'s mic track is disabled (mix untouched), the button goes dark, unmute restores it; ending the recording muted leaves a real Mic-off with the track re-enabled and the hold released', async () => {
+    const { micTrack } = await startScreenRecWith({ mic: true, cam: false });
+    assert(state.micStream && state.micStream.getAudioTracks()[0] === micTrack, 'FW precondition: the recording uses the held mic');
+    const connects = audioMixConnectCalls.length;
+    sandbox.pauseResume();
+    sandbox.toggleSource('mic');
+    assert(state.micMuted === true && micTrack.enabled === false, 'FW: muted — track disabled');
+    assert(state.sources.mic === true, 'FW: sources.mic stays true so the hold survives the mute');
+    assert(!el29('toggleMic').classList.contains('active'), 'FW: Mic button dark while muted');
+    assert(audioMixConnectCalls.length === connects && audioMixDisconnectCalls === 0, 'FW: the audio mix was not rewired');
+    sandbox.toggleSource('mic');
+    assert(state.micMuted === false && micTrack.enabled === true && el29('toggleMic').classList.contains('active'), 'FW: unmuted — track enabled, button lit');
+
+    sandbox.toggleSource('mic'); // mute again, then end the recording muted
+    await sandbox.stopRecording();
+    await drain();
+    assert(state.micMuted === false && micTrack.enabled === true, 'FW: after the recording the flag is clear and the track was re-enabled');
+    assert(state.sources.mic === false && state.heldMicStream === null && micTrack.readyState === 'ended', 'FW: a muted ending becomes a real Mic-off (hold released)');
+    assert(!el29('toggleMic').classList.contains('active') && el29('toggleMic').disabled === false, 'FW: Mic button off and usable again');
+  });
+
+  await scenario('FX a recording that started WITHOUT the mic cannot gain one: the Mic button stays locked while paused, with a hover note; an unmuted ending keeps the mic hold as before', async () => {
+    await startScreenRecWith({ mic: false, cam: false });
+    sandbox.pauseResume();
+    assert(el29('toggleMic').disabled === true, 'FX: Mic locked while paused (no mic in this recording)');
+    assert(/started without the mic/.test(el29('toggleMic').title), 'FX: hover note explains why (got ' + JSON.stringify(el29('toggleMic').title) + ')');
+    sandbox.toggleSource('mic');
+    assert(state.micMuted === false && state.sources.mic === false, 'FX: a click does nothing');
+    await sandbox.stopRecording();
+    await drain();
+    assert(el29('toggleMic').title === '', 'FX: note cleared when idle');
+
+    await resetState();
+    const { micTrack } = await startScreenRecWith({ mic: true, cam: false });
+    sandbox.pauseResume(); sandbox.pauseResume();
+    await sandbox.stopRecording();
+    await drain();
+    assert(state.sources.mic === true && state.heldMicStream !== null && micTrack.readyState === 'live', 'FX: never muted -> the mic hold survives the recording exactly as before');
+  });
+
+  await scenario('FY webcam while paused: off releases the camera and the overlay source; on re-acquires WITHOUT restarting compositing (canvas untouched); works when the recording started with the webcam off; a failed start is a gentle no-op; locked in a camera-only recording', async () => {
+    const { cTrack } = await startScreenRecWith({ mic: false, cam: true });
+    sandbox.pauseResume();
+    const drawFn = state.drawFrame;
+    await sandbox.togglePausedSource('camera');
+    assert(state.cameraStream === null && cTrack.readyState === 'ended' && state.sources.camera === false, 'FY: off — camera released');
+    assert(!el29('toggleCamera').classList.contains('active'), 'FY: Webcam button dark');
+    const t2 = camTrack();
+    sandbox.navigator.mediaDevices.getUserMedia = async () => makeStream([t2]);
+    await sandbox.togglePausedSource('camera');
+    assert(state.cameraStream && state.cameraStream.getTracks()[0] === t2 && state.sources.camera === true, 'FY: on — camera re-acquired');
+    assert(api.cameraVideo ? api.cameraVideo.srcObject === state.cameraStream : true, 'FY: the hidden camera video is fed the new stream');
+    assert(state.drawFrame === drawFn, 'FY: compositing was never restarted (same draw function — canvas size untouched)');
+    assert(state.recording === true && state.paused === true, 'FY: still paused and recording');
+
+    await sandbox.togglePausedSource('camera'); // off again
+    sandbox.navigator.mediaDevices.getUserMedia = async () => { const e = new Error('Could not start video source'); e.name = 'NotReadableError'; throw e; };
+    await sandbox.togglePausedSource('camera');
+    assert(state.cameraStream === null && state.sources.camera === false && state.recording === true && state.paused === true, 'FY: a failed start leaves the recording paused, webcam off');
+    assert(recordedErrors.some(m => /Couldn't start the webcam — your recording is unaffected/.test(m)), 'FY: with a gentle note');
+    await sandbox.stopRecording();
+    await drain();
+
+    await resetState();
+    await startScreenRecWith({ mic: false, cam: false }); // started with the webcam OFF
+    sandbox.pauseResume();
+    const t3 = camTrack();
+    sandbox.navigator.mediaDevices.getUserMedia = async () => makeStream([t3]);
+    await sandbox.togglePausedSource('camera');
+    assert(state.cameraStream && state.sources.camera === true, 'FY: webcam can be added to a screen recording that started without it');
+    await sandbox.stopRecording();
+    await drain();
+
+    await resetState();
+    state.sources = { screen: true, camera: true, mic: false };
+    state.cameraStream = makeStream([camTrack()]);
+    sandbox.toggleSource('screen'); // camera-only
+    await api.startRecording();
+    sandbox.pauseResume();
+    assert(el29('toggleCamera').disabled === true, 'FY: camera-only recording — Webcam stays locked while paused');
+    const only = state.cameraStream;
+    await sandbox.togglePausedSource('camera');
+    assert(state.cameraStream === only, 'FY: and a direct call does nothing');
+    await sandbox.stopRecording();
+    await drain();
+  });
+
+  await scenario('FZ locked look: padlock class and hover note on Screen/Webcam/Mic while recording; while paused the padlock comes off Webcam and Mic but stays on Screen; idle has none', async () => {
+    const lk = (id) => el29(id).classList.contains('locked');
+    await startScreenRecWith({ mic: true, cam: true });
+    assert(lk('toggleScreen') && lk('toggleCamera') && lk('toggleMic'), 'FZ: all three padlocked while recording');
+    assert(/pause to change/.test(el29('toggleCamera').title) && /pause to change/.test(el29('toggleMic').title), 'FZ: Webcam/Mic note says pause to change');
+    assert(/pause and use Change screen/.test(el29('toggleScreen').title), 'FZ: Screen note points at Change screen');
+    assert(el29('toggleCamera').classList.contains('active') && el29('toggleMic').classList.contains('active'), 'FZ: locked buttons keep their on look');
+    sandbox.pauseResume();
+    assert(!lk('toggleCamera') && !lk('toggleMic') && lk('toggleScreen'), 'FZ: paused — padlock off Webcam and Mic, still on Screen');
+    assert(el29('toggleCamera').title === '' && el29('toggleMic').title === '' && /use Change screen/.test(el29('toggleScreen').title), 'FZ: paused notes');
+    sandbox.pauseResume();
+    assert(lk('toggleCamera') && lk('toggleMic'), 'FZ: padlocks back after Resume');
+    await sandbox.stopRecording();
+    await drain();
+    assert(!lk('toggleScreen') && !lk('toggleCamera') && !lk('toggleMic') && el29('toggleScreen').title === '', 'FZ: idle — no padlocks, no notes');
   });
 
   console.log('\n================  ' + passed + ' passed, ' + failed + ' failed  ================');
