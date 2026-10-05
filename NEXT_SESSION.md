@@ -1,6 +1,27 @@
 # DidaRec — Next Session, Start Here
 
-**Newest (2026-10-05): v1.31 — faculty guide shipped (#19 DONE).**
+**Newest (2026-10-05): v1.32 — plain-language messages (#40 DONE).**
+Harness **195 / 1392** (prefixes end at GC). Owner check passed on the
+local file.
+- ● **Vocabulary rule for every on-screen message:** "video", "part",
+  "kept", "Save it now", "Nothing was lost". Never "chunk", "segment",
+  "stitch", "session", "reload/refresh", and never raw browser error text
+  (console only). Harness GA and rig 12.1b enforce the no-reload rule.
+- ● **A cancelled or failed save becomes a kept recording**
+  (`keepUnsavedRecording`): storage's unsaved sessions become
+  priorSegments and the banner shows in kept mode. Recording again ADDS to
+  it unless discarded. `recoveryResolved` clears the message area.
+**Queue now:** (1) **#41 Screen button redesign, v1.33** — dark = open the
+picker always; green = stop showing the screen; webcam-only = webcam on
+with no screen selected; Select Screen always visible. Show the change
+first; many EI/AH-era pins move; update the guide's webcam-only answer.
+(2) **#42 Webcam full screen, v1.34** — "Full screen" in the shape list,
+switchable before recording and while paused (owner: pause-only); re-open
+the camera at a higher resolution for it; fit/crop, never stretch (also
+fixes webcam-only's stretch). (3) Scripted demo video (can show #42).
+(4) Optional Firefox + part-4 rig re-run.
+
+**Before that, the same day: v1.31 — faculty guide shipped (#19 DONE).**
 `guide.html` + `guide-img/` beside the app, "How to use" link in the
 header (new tab), README link. Owner's principle for everything
 user-facing: plain language, "if tech isn't easy to use, it isn't

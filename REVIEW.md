@@ -916,6 +916,36 @@ point. The slot and the width are now reserved for the whole recording. Rig
 Fitted inside the frame at its own proportions with black bars. Rig 5.8.
 Owner check PASSED with a narrow window.
 
+### 40. App messages used technical words and told people to reload — ✓ FIXED v1.32
+
+"Chunks", "segments", "stitching", "prior segment(s) preserved", raw browser
+errors, and "Reload the page to recover it". All reworded (owner-approved
+table); a cancelled or failed save now leaves a kept recording with **Save it
+now** showing, so nothing asks for a reload. Owner check PASSED 2026-10-05.
+
+### 41. The left Screen button means different things at different times — OPEN, next (v1.33)
+
+Owner, 2026-10-05: after coming back from a recording, clicking the left
+Screen button "just toggles whether Select Screen is visible". By design
+today: with the webcam on, a dark Screen click switches to webcam-only (the
+v1.12 entrance; the "four meanings" pinned by EI/AH). Agreed redesign: dark
+= open the picker, always; green = stop showing that screen; webcam-only is
+simply "webcam on, no screen selected", with Record available and Select
+Screen always visible. Replaces the four-meanings logic; setup controls only,
+not recording or saving. Guide's webcam-only answer changes with it.
+
+### 42. Webcam full screen — feature — OPEN, queued as v1.34 (after #41)
+
+Owner, 2026-10-05: let the webcam fill the frame, switchable before recording
+and while PAUSED (owner decision: pause-only, same rule as Change screen /
+Webcam / Mic). Plan: a fourth entry, **Full screen**, in the webcam shape list
+(the list unlocks while paused); the shared screen stays live underneath and
+returns when the shape is switched back. Needs two things first: the camera
+is captured at about 320×240 today (fine for the corner, soft at full frame),
+so full screen must re-open it at a higher resolution; and the camera must be
+fitted or cropped, not stretched — webcam-only mode stretches it to the frame
+today, so this fixes that too.
+
 ### 39. "Stop sharing" now pauses instead of ending the recording (Y2) — ✓ CHANGED v1.29
 
 Owner decision 2026-10-05, replacing the v1.24 rule that a genuine Stop

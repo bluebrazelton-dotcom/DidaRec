@@ -2454,6 +2454,53 @@ Two lines in the guide rest on things not verified here: that most
 course sites accept `.webm`, and that the GitHub issues page is the
 right place to send faculty for help.
 
+### v1.32 — Plain-language messages; a cancelled or failed save becomes a kept recording (2026-10-05)
+
+Owner principle: "if tech isn't easy to use, it isn't adopted". The
+app's own messages no longer say "chunks", "segments", "stitching",
+"prior segment(s) preserved" or "reload the page", and never show raw
+browser error text (that goes to the console).
+
+**Wording** (owner-approved table, 15 rows, plus the page-load sibling
+of the Firefox-not-responding message): the counter reads "Saving as
+you go" (the number stays on the element as `data-count` for the rig);
+the banner's info line reads "About 8 seconds of video (0.3 MB),
+started 10/5/26, 11:11 AM." / "…in 2 parts…" (`describeVideoLength`);
+the idle status with kept footage is `KEPT_STATUS` ("Your earlier video
+is kept. Select a screen and click Record to add to it."); "Joining the
+parts of your video…"; "Couldn't join the parts into one video"; "The
+recording stopped by itself. Saving what was recorded so far."; "The
+save didn't finish. Nothing was lost. Click "Save it now" to try
+again." (`SAVE_DIDNT_FINISH`); "Save cancelled. Your video is still
+here. Click "Save it now" when you're ready." (`SAVE_CANCELLED_KEPT`).
+
+**Behaviour.** `keepUnsavedRecording()`: after a cancelled or failed
+save, "Not now" on the #29 banner or the stitch-fallback banner, or
+Firefox's "It didn't arrive", whatever is still unsaved in storage
+becomes `state.priorSegments`, and the recovery banner shows in kept
+mode with **Save it now** — no reload. `saveStoppedRecording` and
+`stitchAndSave` return true on a cancel so `finalizeRecording` can do
+this after its cleanup. Trade-off (owner-approved): recording again
+after a cancelled save now ADDS to the kept video unless it is
+discarded first; before, it started a separate one. `recoveryResolved`
+also clears the message area, so a stale "Save cancelled…" can't
+outlive the video's save or discard (found in the owner's check).
+
+**Verification.** Harness: **195 scenarios / 1392 assertions** (GA–GC
+new; 22 assertions that pinned old sentences updated; the R1 salvage
+scenario now discards its cancelled take before recording again). Rig,
+Chrome 154: parts 1–3 on the final file, 63 / 38 / 17 pass with one
+failure, 15.14, whose only miss was the preview length (24.3 s against
+a 16–24 s window — the two takes ran long in the full run; the cut and
+the saved file were correct). Re-run alone: pass (21.3 s). Also
+new check 12.1b (cancel → box at once → Save it now → playable file,
+message cleared, no "reload/refresh/chunk/segment" anywhere on screen).
+Guide answer and screenshots refreshed. Firefox and part 4 not run.
+
+**Owner check PASSED 2026-10-05**, real Chrome, local file: counter
+wording, cancel → kept box, info line, Save it now. The stale red
+message after Discard was the one finding, fixed above.
+
 ---
 
 ## Known limitations
