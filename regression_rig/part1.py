@@ -357,6 +357,77 @@ def s5_stop_nogesture(r):
         r.check("5.7b", False, "extra: recording stopped by the app with no click on the page (gesture active: %s): no Save recording banner; the app showed: '%s'" % (act, msg))
 
 
+def s34_paused_sources(r):
+    """REVIEW #34 (v1.30): Webcam off/on and Mic mute/unmute while paused; the saved file must show it."""
+    r.start()
+    r.cfg(camMode="canvas")
+    r.page.click("#toggleMic"); r.page.wait_for_function("!!state.heldMicStream")
+    r.select_screen(1)
+    r.page.click("#toggleCamera"); r.page.wait_for_function("!!state.cameraStream"); r.wait(800)
+    q = pip(r)
+    L = [q["x"] + q["w"] * 0.2, q["y"] + q["h"] * 0.5]; R = [q["x"] + q["w"] * 0.8, q["y"] + q["h"] * 0.5]
+    DIS = "() => [document.getElementById('toggleCamera').disabled, document.getElementById('toggleMic').disabled, document.getElementById('toggleScreen').disabled]"
+    LOCKS = "() => ['toggleScreen', 'toggleCamera', 'toggleMic'].map(id => { const e = document.getElementById(id); const a = getComputedStyle(e, '::after'); return [e.classList.contains('locked'), a.content !== 'none' && a.backgroundImage.includes('svg'), getComputedStyle(e).color, e.title]; })"
+    idle_locks = r.ev(LOCKS)
+    r.record(5)
+    locked_rec = r.ev(DIS)
+    rec_locks = r.ev(LOCKS)
+    bx = r.page.locator("#controlsBar").bounding_box(); r.page.screenshot(path=os.path.join(r.out, "34_locks_recording.png"), clip={"x": bx["x"] - 14, "y": bx["y"] - 14, "width": 520, "height": 70})
+    size0 = r.ev("[canvas.width, canvas.height]")
+    r.page.click("#btnPause"); r.wait(300)
+    t1 = secs(r.ui()["timer"]); unlocked = r.ev(DIS)
+    paused_locks = r.ev(LOCKS)
+    bx = r.page.locator("#controlsBar").bounding_box(); r.page.screenshot(path=os.path.join(r.out, "34_locks_paused.png"), clip={"x": bx["x"] - 14, "y": bx["y"] - 14, "width": 520, "height": 70})
+    ver = r.ev("document.getElementById('appVersion').textContent")
+    r.check("34.3", [x[1] for x in idle_locks] == [False, False, False] and [x[1] for x in rec_locks] == [True, True, True] and [x[1] for x in paused_locks] == [True, False, False]
+            and rec_locks[1][2] == idle_locks[1][2] and rec_locks[2][2] == idle_locks[2][2] and "pause to change" in rec_locks[1][3] and re.match(r"^v\d+\.\d+", ver or ""),
+            "extra (v1.30): padlock badge drawn on Screen/Webcam/Mic - idle %s, recording %s, paused %s; Webcam/Mic text colour idle vs recording %s/%s vs %s/%s (unchanged - not greyed); hover note while recording '%s'; footer version label '%s'"
+            % ([x[1] for x in idle_locks], [x[1] for x in rec_locks], [x[1] for x in paused_locks], idle_locks[1][2], idle_locks[2][2], rec_locks[1][2], rec_locks[2][2], rec_locks[1][3], ver))
+    r.page.click("#toggleCamera"); r.wait(300)
+    r.page.click("#toggleMic"); r.wait(300)
+    mid = r.ev("[!!state.cameraStream, state.micMuted, document.getElementById('toggleCamera').classList.contains('active'), document.getElementById('toggleMic').classList.contains('active')]")
+    r.page.click("#btnPause"); r.wait(5000)
+    locked_again = r.ev(DIS)
+    r.page.click("#btnPause"); r.wait(300); t2 = secs(r.ui()["timer"])
+    r.page.click("#toggleCamera"); r.page.wait_for_function("!!state.cameraStream"); r.wait(800)
+    r.page.click("#toggleMic"); r.wait(300)
+    back = r.ev("[!!state.cameraStream, state.micMuted, state.recording, state.paused]")
+    size1 = r.ev("[canvas.width, canvas.height]")
+    r.page.click("#btnPause"); r.wait(5000)
+    r.stop_save("34_paused_sources.webm")
+    after = r.ui()
+    pr = r.probe("34_paused_sources.webm", times=[t1 / 2.0, (t1 + t2) / 2.0, t2 + 2.5], points=[L, R]); sm = summarize(r.probe("34_paused_sources.webm", step=0.5))
+    p1, p2, p3 = [s["pts"] for s in pr["samples"]]
+    cam1 = near(p1[0], RED) and near(p1[1], GREEN); cam2 = near(p2[0], RED) or near(p2[1], GREEN); cam3 = near(p3[0], RED) and near(p3[1], GREEN)
+    au = r.audio("34_paused_sources.webm"); per = au.get("per") or []
+    seg = lambda a, b: [x for x in per[a:b]]
+    loud1 = min(seg(1, t1 - 1)) if t1 >= 3 else -1
+    quiet = max(seg(t1 + 1, t2 - 1)) if t2 - t1 >= 3 else 99
+    loud3 = min(seg(t2 + 1, t2 + 4)) if len(per) >= t2 + 4 else -1
+    ok = (locked_rec == [True, True, True] and unlocked == [False, False, True] and locked_again == [True, True, True]
+          and mid == [False, True, False, False] and back == [True, False, True, True] and size0 == size1
+          and cam1 and not cam2 and cam3 and loud1 > 0.01 and quiet < 0.002 and loud3 > 0.01
+          and sm["valid"] == sm["n"] and pr["duration"] > 13 and after["micActive"] and after["sources"]["camera"])
+    r.check("34.1", ok,
+            "extra (v1.30, REVIEW #34): Webcam/Mic/Screen buttons locked while recording=%s, while paused=%s (Webcam and Mic unlocked), after Resume=%s. Pause 1: webcam off + mic muted (camera held=%s, muted=%s). Pause 2: both back on (camera held=%s, muted=%s); canvas size unchanged=%s. Saved file %.1fs, %d/%d frames valid: overlay pixels left/right in stretch 1=%s (camera), stretch 2=%s (screen content, no overlay), stretch 3=%s (camera again; pauses at %ds and %ds); audio level per second %s -> quietest second with mic on %.4f / %.4f, loudest second while muted %.4f"
+            % (locked_rec, unlocked, locked_again, mid[0], mid[1], back[0], back[1], size0 == size1, pr["duration"], sm["valid"], sm["n"], p1, p2, p3, t1, t2, per, loud1, loud3, quiet))
+    # A recording that started without the mic cannot gain one; ending a recording muted leaves Mic off.
+    r.page.click("#toggleMic"); r.wait(400)          # mic OFF before recording
+    r.select_screen(1); r.record(3)
+    r.page.click("#btnPause"); r.wait(300)
+    nomic = r.ev("[document.getElementById('toggleMic').disabled, document.getElementById('toggleMic').title]")
+    r.page.click("#btnPause"); r.wait(500)
+    r.stop_save("34_nomic.webm")
+    r.page.click("#toggleMic"); r.page.wait_for_function("!!state.heldMicStream")
+    r.select_screen(1); r.record(3)
+    r.page.click("#btnPause"); r.wait(300); r.page.click("#toggleMic"); r.wait(300)
+    r.stop_save("34_muted_end.webm")
+    end = r.ev("[state.sources.mic, !!state.heldMicStream, state.micMuted, document.getElementById('toggleMic').classList.contains('active'), document.getElementById('toggleMic').disabled]")
+    r.check("34.2", nomic[0] is True and "started without the mic" in nomic[1] and end == [False, False, False, False, False],
+            "extra (v1.30): recording started with Mic off -> Mic button locked while paused=%s, hover note '%s'. Recording ended while muted -> Mic is off afterwards (mic on=%s, mic still held=%s, muted flag=%s, button lit=%s, button locked=%s)"
+            % (nomic[0], nomic[1], end[0], end[1], end[2], end[3], end[4]))
+
+
 def s5_noaudio(r):
     if r.kind != "cr":
         return
@@ -618,7 +689,7 @@ def s18_misc(r):
             "cancelled re-selection: button reads '%s' (selected style=%s), Record disabled=%s, placeholder shown=%s, Screen toggle lit=%s; banner='%s'" % (u["btnSelect"]["text"], u["btnSelect"]["sel"], u["btnRecord"]["dis"], u["placeholder"], u["screenActive"], u["err"]))
 
 
-ALL = [s1_load, s1_camera, s1_camonly_record, s2_devices, s2_deny, s3_basic, s4_pause, s5_change, s5_stop_nogesture, s5_noaudio, s6_quality, s7_pip, s8_background, s9_resilience, s17_hint, s18_misc]
+ALL = [s1_load, s1_camera, s1_camonly_record, s2_devices, s2_deny, s3_basic, s4_pause, s5_change, s5_stop_nogesture, s34_paused_sources, s5_noaudio, s6_quality, s7_pip, s8_background, s9_resilience, s17_hint, s18_misc]
 
 if __name__ == "__main__":
     kind = sys.argv[1]
