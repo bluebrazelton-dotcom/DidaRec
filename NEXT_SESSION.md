@@ -1,15 +1,30 @@
 # DidaRec — Next Session, Start Here
 
-**Newest (2026-10-05): v1.29, owner-pass fixes.** The owner ran the Chrome
+**Newest (2026-10-05): v1.30 — #34 done.** While paused, Webcam switches
+off/on and Mic mutes/unmutes (`togglePausedSource`); locked source buttons
+wear a padlock badge and keep their colours; the footer shows the build
+("v1.30" — bump `#appVersion` with every version). Harness **192 / 1370**
+(prefixes end at FZ). Rig Chrome parts 1–3 clean; Firefox and part 4 NOT
+re-run since v1.28. Owner check PASSED on the local file. **Next: #19's
+faculty guide** (optional first: a Firefox + part-4 rig re-run).
+- ● **Source toggles are pause-only** (v1.30). Webcam = real
+  release/re-acquire, never restart compositing mid-recording. Mic = MUTE
+  (track.enabled + state.micMuted); sources.mic stays true while muted so
+  the hold survives; cleanupStreams turns a muted ending into Mic-off.
+- ● **The owner checks released builds on the hosted page and unpushed
+  builds on the local file** — say which address in every check, and point
+  at the footer version.
+
+**Earlier the same day: v1.29, owner-pass fixes.** The owner ran the Chrome
 short list on the hosted v1.28 (REVIEW "Owner pass 2026-10-05": all passed
 except Y4; Firefox tasks and Y11 skipped by choice) and raised six items.
 v1.29 fixes five (#35–#39): Stop sharing PAUSES the recording, a
 differently shaped screen is fitted not stretched, a "Recording kept — not
 saved yet" banner, "Resume recording" in red, and a pause row that no
-longer jumps. Harness **187 / 1331** (prefixes end at FU). Rig Chrome parts
+longer jumps. Harness then 187 / 1331. Rig Chrome parts
 1–3 clean; Firefox and part 4 NOT re-run for v1.29. Owner check PASSED
-2026-10-05 on the local file. **Next: #34 (mic mute / webcam off while
-paused), then #19's faculty guide.**
+2026-10-05 on the local file. (#34 followed as v1.30 — mic mute / webcam off while
+paused.)
 
 Close-out snapshot, 2026-10-04 (post-#20 machine pass).
 Supersedes the 2026-08-06 snapshot. This session: the owner-run #20 pass had
@@ -233,12 +248,12 @@ updated to recommend Chrome/Edge.
   4. DONE 2026-10-05 for Chrome (hosted v1.28; results in REVIEW "Owner
      pass 2026-10-05"). Firefox smoke pass and Y11 skipped by owner choice.
      The pass produced v1.29.
-  5. **NEXT:** #34 — mic mute / webcam off while paused (feature, about
-     the size of #23). Optional before it: a Firefox + part-4 rig re-run on
-     v1.29.
-  6. Then #19's faculty guide.
-- Everything through v1.29 is committed and pushed (owner's go-ahead
-  2026-10-05). v1.29 rig results: `regression_rig/results_2026-10-05_v1.29/`
+  5. DONE v1.30: #34 — mic mute / webcam off while paused (feature, about
+     the size of #23). Still optional: a Firefox + part-4 rig re-run on
+     v1.30.
+  6. **NEXT:** #19's faculty guide.
+- Everything through v1.30 is committed and pushed (owner's go-ahead
+  2026-10-05). Rig results: `regression_rig/results_2026-10-05_v1.29/` and `…_v1.30/`
   (Chrome parts 1–3). The results-page artifact still describes v1.28.
 - Roadmap remainder (REVIEW feature map): chapter hotkeys + sidecar
   export, mediabunny remux (Cues/MP4) — all unscheduled,

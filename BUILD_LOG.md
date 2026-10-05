@@ -2370,6 +2370,59 @@ and resume continued the recording; a narrow window was fitted with
 black bars; Back to recorder showed the kept banner and Save it now
 produced a playable file.
 
+### v1.30 — Webcam and Mic while paused (#34); padlock on locked sources; version label (2026-10-05)
+
+**Webcam and Mic while paused (#34).** Source controls were locked for
+the whole recording. While PAUSED (never while running — same rule as
+Change screen), the Webcam and Mic buttons now work, via
+`togglePausedSource`:
+- **Webcam** off releases the camera (`state.cameraStream = null`,
+  `sources.camera = false`); on re-acquires it with `captureCamera()`.
+  The compositor draws the overlay from `state.cameraStream` every
+  frame, so nothing else is needed — and it must NOT restart compositing,
+  which would resize the canvas mid-recording. Works when the recording
+  started with the webcam off. Locked in a camera-only recording. A
+  failed start is a gentle no-op.
+- **Mic** is a mute: `track.enabled` on the recording's mic track plus
+  `state.micMuted`. The audio mix and its node order are untouched;
+  `sources.mic` stays true while muted so the mic hold survives. A
+  recording that started without the mic cannot gain one (button stays
+  locked, with a hover note). `cleanupStreams` re-enables the track and
+  turns a muted ending into a real Mic-off (hold released), so the next
+  recording never starts silently muted. Known limit: the system's
+  mic-in-use indicator stays on while muted.
+Owner decisions 2026-10-05: paused only; mute rather than release.
+Recorder, chunk writes and save flows untouched.
+
+**Padlock on locked sources.** Locked buttons kept their normal look, so
+locked and unlocked were indistinguishable. `updateToggleUI` now adds a
+`.locked` class (a small padlock badge drawn in CSS, `cursor:
+not-allowed`) and a hover note; colours are unchanged — no greying
+(owner request). Recording: Screen, Webcam, Mic all padlocked. Paused:
+the padlock comes off Webcam and Mic and stays on Screen.
+
+**Version label.** The footer shows the build (`#appVersion`, "v1.30").
+Bump it with every version: it is how the owner tells the hosted page
+from the local file.
+
+**Verification.** Harness: **192 scenarios / 1370 assertions** (FV–FZ
+new). Rig, Chrome 154, new scenario `s34_paused_sources` (34.1–34.3):
+one recording across two pauses — overlay pixels show camera, then
+plain screen, then camera again; mic audio at normal level, then exact
+silence while muted, then normal again; canvas size unchanged; padlock
+drawn exactly when locked; a recording started with Mic off keeps Mic
+locked; a muted ending leaves Mic off. Control on v1.29: the scenario
+cannot run (Webcam is locked while paused). One 34.x check failed in
+one run and passed alone; its fixed time windows were replaced with the
+app's own timer readings and it then passed in every run. Full Chrome
+parts 1–3 clean on the final file (counts in the commit's results
+folder). Firefox and part 4 not run for v1.30.
+
+**Owner check PASSED 2026-10-05**, real Chrome, local file: buttons
+locked while recording; webcam off and mic mute while paused; both back
+on; the saved file showed the middle stretch without overlay or voice.
+Padlock look approved.
+
 ---
 
 ## Known limitations

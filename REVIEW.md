@@ -866,7 +866,16 @@ Y5, Y6, Y9, Y10 passed; **Y4 failed** (a very narrow window stretched to the
 first screen's shape was not acceptable); Y7, Y8 (Firefox) and Y11 were not
 run, by choice. The pass also raised the items below.
 
-### 34. Mic and webcam can't be switched off while paused — feature — OPEN, next
+### 34. Mic and webcam can't be switched off while paused — feature — ✓ DONE v1.30
+
+**Done v1.30:** while paused, Webcam switches off/on (camera really released
+and re-acquired) and Mic mutes/unmutes (track disabled; mix untouched). Owner
+decisions 2026-10-05: paused only, and mute rather than release — so the
+system mic indicator stays on while muted. Locked cases: Webcam in a
+camera-only recording; Mic when the recording started without one. Locked
+source buttons now wear a padlock badge and keep their colours. Rig 34.1–34.3;
+owner check PASSED 2026-10-05. Original note follows.
+
 
 Every source control is locked for the whole recording, so the only way to
 stop the webcam or mic mid-recording is to stop. Feasible while paused:

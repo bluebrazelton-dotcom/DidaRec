@@ -10,6 +10,7 @@ A free, open-source screen recorder by DidaWorks. Runs entirely in your browser 
 - Webcam picture-in-picture overlay — draggable, resizable, with rectangle/square/circle shapes
 - Pause and resume recording
 - **Change screen while paused** — pause, pick a different screen or window to share, resume. The swap never gets recorded; the saved file plays as one continuous take
+- **Switch the webcam off or mute the mic while paused** — pause, click Webcam or Mic, resume. While recording, the source buttons show a small padlock; pausing unlocks Webcam and Mic
 - **Stop sharing pauses, it doesn't end** — if you end the share from the browser's own "Stop sharing" bar, the recording pauses. Choose Change screen and resume to carry on in the same file, or Stop & save
 - A screen or window with a different shape is fitted into the picture with black bars, never stretched
 - Recording quality presets and microphone noise suppression
