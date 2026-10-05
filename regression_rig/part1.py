@@ -253,9 +253,14 @@ def s5_change(r):
     r.page.click("#errorBanner .error-banner-close")
     r.record(4)
     a = r.ui()
+    POS = "() => ['btnPause', 'btnStop', 'btnStopReview'].map(id => { const q = document.getElementById(id).getBoundingClientRect(); return [Math.round(q.left), Math.round(q.top)]; })"
+    PB = "() => { const e = document.getElementById('btnPause'); return [e.textContent.trim(), e.classList.contains('resume'), getComputedStyle(e).backgroundColor, getComputedStyle(document.getElementById('btnRecord')).backgroundColor]; }"
+    pos_rec = r.ev(POS)
     r.page.click("#btnPause"); r.wait(400)
     b = r.ui()
-    order = r.ev("[...document.querySelectorAll('.action-btns button')].filter(e => getComputedStyle(e).display !== 'none').map(e => e.textContent.trim())")
+    r.page.mouse.move(5, 5); r.wait(250)   # off the button, so its hover colour isn't what gets read
+    pos_paused = r.ev(POS); pb = r.ev(PB)
+    order =r.ev("[...document.querySelectorAll('.action-btns button')].filter(e => getComputedStyle(e).display !== 'none').map(e => e.textContent.trim())")
     # 5.4 cancel
     r.cfg(screenMode="cancel"); r.page.click("#btnChangeScreen"); r.wait(700)
     c = r.ui(); sid = r.ev("state.screenStream.__drId"); live = r.ev("state.screenStream.getVideoTracks()[0].readyState")
@@ -271,8 +276,12 @@ def s5_change(r):
     r.page.wait_for_function("state.screenStream.__drId === 2"); r.wait(3000)
     r.page.click("#btnPause"); r.wait(300)
     e = r.ui()
-    r.check("5.1", (not a["btnChange"]) and b["btnChange"] and order == ["Caption editor", "Resume", "Change screen", "Stop & save", "Stop & review"] and not e["btnChange"],
+    r.check("5.1", (not a["btnChange"]) and b["btnChange"] and order == ["Caption editor", "Resume recording", "Change screen", "Stop & save", "Stop & review"] and not e["btnChange"],
             "recording: visible=%s; paused: visible=%s, button order=%s; after Resume: visible=%s" % (a["btnChange"], b["btnChange"], order, e["btnChange"]))
+    pos_resumed = r.ev(POS)
+    r.check("5.1b", pos_rec == pos_paused == pos_resumed and pb[0] == "Resume recording" and pb[1] and pb[2] == pb[3],
+            "extra (v1.29, owner pass Y1): Pause / Stop & save / Stop & review positions [left, top] recording=%s, paused=%s, resumed=%s (must be identical - no jump on Pause); paused button reads '%s', colour %s vs Record's %s"
+            % (pos_rec, pos_paused, pos_resumed, pb[0], pb[2], pb[3]))
     r.wait(4000)
     # 5.7 the OLD screen's track ending must not stop the recording
     r.ev("__dr.streams[0].getVideoTracks()[0].dispatchEvent(new Event('ended'))"); r.wait(1200)
@@ -283,51 +292,69 @@ def s5_change(r):
     r.page.wait_for_function("state.screenStream.__drId === 3"); r.wait(500)
     r.page.click("#btnPause"); r.wait(4000)
     g = r.ui()
-    # genuine "Stop sharing" on the CURRENT screen: the stop arrives with no click on the page
+    # v1.29: a genuine "Stop sharing" on the CURRENT screen PAUSES the recording instead of ending it.
+    h = {}; h_ref = {}; h_res = {}; lost = None
     if r.kind == "ff":
-        # This Firefox build does not deliver a scripted 'ended' event to track listeners, so the stop can't be staged.
+        # This Firefox build does not deliver a scripted 'ended' event to track listeners, so it can't be staged.
         r.stop_save("5_change.webm")
-        h = dict(r.ui()); h["rec"] = False
         ff_note = True
         r.results.pop("5.7b", None)
     else:
         ff_note = False
-        # Fire the event from a page timer 7s out and do not touch the page meanwhile: the
-        # automation's own calls count as a user gesture, and a real 'Stop sharing' click does not.
-        n0 = r.ev("__dr.saveDone")
-        r.ev("setTimeout(() => { window.__actAtEnd = navigator.userActivation.isActive; state.screenStream.getVideoTracks()[0].dispatchEvent(new Event('ended')); }, 7000)")
-        r.wait(14000)
-        act = r.ev("window.__actAtEnd")
-        saved = r.ev("__dr.saveDone") > n0
-        h = r.ui()
-        msg = h["err"]; rec_banner = None
-        if saved:
-            r.ev("t => __dr.exportLast(t)", "5_change.webm")
-            r.check("5.7b", True, "extra: capture ended by the browser with no click on the page (page had an active user gesture at that moment: %s). Automatic save completed normally" % act)
-        elif h.get("saveNeedsClick"):
-            # REVIEW #29 (v1.27): the app offers a "Save recording" button; its click is a real gesture.
-            p = r.stop_save("5_change.webm", button="#saveNeedsClick button.btn-save")
-            h2 = r.ui()
-            r.check("5.7b", bool(p) and not msg and not h2["err"] and not h2.get("saveNeedsClick"),
-                    "extra: capture ended by the browser with no click on the page (page had an active user gesture at that moment: %s). The app showed the 'Recording stopped - ready to save' banner (error shown: '%s'); clicking Save recording produced the file (%s); afterwards banner showing: %s, error: '%s'"
-                    % (act, msg, bool(p), h2.get("saveNeedsClick"), h2["err"]))
-        else:
-            r.reload(); r.wait(800)
-            rec_banner = r.ui()["recovery"]
-            r.stop_save("5_change.webm", button="#recoveryBanner button.btn-save")
-            r.check("5.7b", False, "extra: capture ended by the browser with no click on the page (page had an active user gesture at that moment: %s). Automatic save did NOT complete - the app showed: '%s'. Nothing was lost: after a reload the recovery banner offered the recording (%s) and Recover & save produced the file. Cause: Chrome only opens a save dialog during a user gesture, and this stop has none. (The save dialog here is a stand-in that mirrors that Chrome rule.)" % (act, msg, rec_banner))
+        # Fired from a page timer, as a real 'Stop sharing' click is not a click on the page.
+        r.ev("setTimeout(() => { state.screenStream.getVideoTracks()[0].dispatchEvent(new Event('ended')); }, 1500)")
+        r.wait(3200)
+        h = r.ui(); lost = r.ev("state.screenLost")
+        r.page.click("#btnPause"); r.wait(300)           # Resume must be refused: there is no screen
+        h_ref = r.ui()
+        r.cfg(screenMode="ok", screenId=4, screenW=1280, screenH=720); r.page.click("#btnChangeScreen")
+        r.page.wait_for_function("state.screenStream.__drId === 4"); r.wait(400)
+        r.page.click("#btnPause"); r.wait(3500)
+        h_res = r.ui()
+        r.stop_save("5_change.webm")
     pr = r.probe("5_change.webm", step=0.5); sm = summarize(pr)
     ids = [s["id"] for s in pr["samples"] if s["valid"]]
     seq = [ids[0]] + [b_ for a_, b_ in zip(ids, ids[1:]) if b_ != a_]
-    r.check("5.3", seq == [1, 2, 3] and sm["valid"] == sm["n"], "saved file shows screen 1 then screen 2 (then 3) with no frames from the paused picker hunt: screen sequence %s, %d/%d frames valid, duration %.1fs" % (seq, sm["valid"], sm["n"], pr["duration"]))
+    want = [1, 2, 3] if ff_note else [1, 2, 3, 4]
+    r.check("5.3", seq == want and sm["valid"] == sm["n"], "saved file shows the screens in order with no frames from the paused picker hunts: screen sequence %s, %d/%d frames valid, duration %.1fs" % (seq, sm["valid"], sm["n"], pr["duration"]))
     if ff_note:
         r.rec("5.7", "HUMAN", "cannot be staged in this Firefox build (scripted 'ended' events are not delivered to the track's listeners, so neither half of the check means anything here). Needs the real 'Stop sharing' control.")
     else:
-        r.check("5.7", f["rec"] and not f["paused"] and g["rec"] and not h["rec"],
-                "old screen's track 'ended' after the swap -> recording kept going (recording=%s). 'ended' on the CURRENT screen -> recording stopped (recording=%s). Simulated track events; the real browser 'Stop sharing' bar was not clicked. See 5.7b for what happens to the save." % (f["rec"], h["rec"]))
+        ok57 = (f["rec"] and not f["paused"] and g["rec"]
+                and h["rec"] and h["paused"] and lost is True and "Screen sharing stopped" in (h["err"] or "") and "info" in h["errClass"]
+                and h_ref["paused"] and "Change screen first" in (h_ref["err"] or "")
+                and h_res["rec"] and not h_res["paused"] and seq[-1:] == [4])
+        r.check("5.7", ok57,
+                "old screen's track 'ended' after the swap -> recording kept going (recording=%s). 'ended' on the CURRENT screen (v1.29) -> recording PAUSED, not stopped (recording=%s, paused=%s), calm notice '%s'; Resume without a screen refused ('%s'); Change screen then Resume -> recording again (%s) and the saved file continues onto the new screen (sequence %s). Simulated track events; the real browser 'Stop sharing' bar was not clicked."
+                % (f["rec"], h["rec"], h["paused"], h["err"], h_ref["err"], h_res["rec"] and not h_res["paused"], seq))
     last = [s for s in pr["samples"] if s["valid"] and s["id"] == 3]
-    r.check("5.8", pr["w"] == 1280 and pr["h"] == 720 and len(last) >= 3,
-            "swap from 1280x720 to an 800x600 source: output stays %dx%d, %d frames from the new source decode correctly (stretched to the first screen's shape, not corrupted). Whether the stretch looks acceptable is the owner's eye." % (pr["w"], pr["h"], len(last)))
+    boxes = [s.get("box") for s in last]
+    fit = len(last) >= 3 and all(b and abs(b[0] - 160) <= 3 and abs(b[1] - 960) <= 5 for b in boxes)
+    r.check("5.8", pr["w"] == 1280 and pr["h"] == 720 and fit,
+            "swap from 1280x720 to an 800x600 source (v1.29: fitted, not stretched): output stays %dx%d; %d frames from the new source decode inside a centred picture, left edge / width in px = %s (expected about 160 / 960, black bars either side)" % (pr["w"], pr["h"], len(last), boxes[:3]))
+
+
+def s5_stop_nogesture(r):
+    """REVIEW #29: a stop nobody clicked (watchdog, salvage) must offer the Save recording banner.
+    Since v1.29 'Stop sharing' pauses instead, so this stages an app-initiated stop."""
+    if r.kind != "cr":
+        return
+    r.start()
+    r.select_screen(1)
+    r.record(4)
+    # From a page timer 7s out, page untouched meanwhile: the automation's own calls count as a user gesture.
+    r.ev("setTimeout(() => { window.__actAtEnd = navigator.userActivation.isActive; stopRecording(); }, 7000)")
+    r.wait(14000)
+    act = r.ev("window.__actAtEnd")
+    h = r.ui(); msg = h["err"]
+    if h.get("saveNeedsClick"):
+        p = r.stop_save("5_7b.webm", button="#saveNeedsClick button.btn-save")
+        h2 = r.ui()
+        r.check("5.7b", bool(p) and not msg and not h2["err"] and not h2.get("saveNeedsClick"),
+                "extra: recording stopped by the app with no click on the page (page had an active user gesture at that moment: %s). The app showed the 'Recording stopped - ready to save' banner (error shown: '%s'); clicking Save recording produced the file (%s); afterwards banner showing: %s, error: '%s'"
+                % (act, msg, bool(p), h2.get("saveNeedsClick"), h2["err"]))
+    else:
+        r.check("5.7b", False, "extra: recording stopped by the app with no click on the page (gesture active: %s): no Save recording banner; the app showed: '%s'" % (act, msg))
 
 
 def s5_noaudio(r):
@@ -591,7 +618,7 @@ def s18_misc(r):
             "cancelled re-selection: button reads '%s' (selected style=%s), Record disabled=%s, placeholder shown=%s, Screen toggle lit=%s; banner='%s'" % (u["btnSelect"]["text"], u["btnSelect"]["sel"], u["btnRecord"]["dis"], u["placeholder"], u["screenActive"], u["err"]))
 
 
-ALL = [s1_load, s1_camera, s1_camonly_record, s2_devices, s2_deny, s3_basic, s4_pause, s5_change, s5_noaudio, s6_quality, s7_pip, s8_background, s9_resilience, s17_hint, s18_misc]
+ALL = [s1_load, s1_camera, s1_camonly_record, s2_devices, s2_deny, s3_basic, s4_pause, s5_change, s5_stop_nogesture, s5_noaudio, s6_quality, s7_pip, s8_background, s9_resilience, s17_hint, s18_misc]
 
 if __name__ == "__main__":
     kind = sys.argv[1]

@@ -469,6 +469,50 @@ def s15_review_d(r):
     r.check("15.13", u["recovery"] and pr["duration"] > 6, "tab killed with the review pane open -> recovery banner on reopen ('%s'), recovered file %.1fs" % (u["recoveryInfo"], pr["duration"]))
 
 
+def s15_kept(r):
+    """v1.29 (owner pass 2026-10-05): after reviewing, kept-but-unsaved footage is offered for saving without a refresh."""
+    KEPT = "() => ({ up: document.getElementById('recoveryBanner').classList.contains('visible'), title: document.getElementById('recoveryTitle').textContent, info: document.getElementById('recoveryInfo').textContent, cont: getComputedStyle(document.getElementById('btnRecoveryContinue')).display !== 'none', save: document.getElementById('btnRecoverySave').textContent.trim() })"
+    r.start("rev15k")
+    # a) Back to recorder -> banner -> Save it now
+    mic_on(r); r.select_screen(1); r.record(8); review_open(r)
+    r.page.click("#reviewPane .btn-back-recorder"); r.wait(900)
+    k = r.ev(KEPT); u0 = r.ui()
+    r.stop_save("15_kept_a.webm", button=RECOVER)
+    u1 = r.ui(); pr = r.probe("15_kept_a.webm", step=0.5); sm = summarize(pr)
+    r.reload(); r.wait(700)
+    clean_a = not r.ui()["recovery"]
+    ok_a = (k["up"] and k["title"].startswith("Recording kept") and not k["cont"] and k["save"] == "Save it now" and "chunks" in k["info"]
+            and u0["prior"] == 1 and sm["valid"] == sm["n"] and pr["duration"] > 6 and u1["prior"] == 0 and not u1["recovery"] and clean_a)
+    r.check("15.17", ok_a, "extra (v1.29): Back to recorder -> banner '%s' ('%s'), Continue button shown=%s, save button '%s'; Save it now -> %.1fs playable file, kept segments now %d, banner gone=%s; reload shows no banner=%s"
+            % (k["title"], k["info"], k["cont"], k["save"], pr["duration"], u1["prior"], not u1["recovery"], clean_a))
+    # b) re-record cut -> banner reports the kept part -> Save it now saves only that
+    mic_on_if_needed(r); r.select_screen(1); r.record(15); review_open(r)
+    review_seek(r, 12.4)
+    r.page.click("#btnReRecordHere"); cut_done(r); r.wait(900)
+    k2 = r.ev(KEPT); u2 = r.ui()
+    r.stop_save("15_kept_b.webm", button=RECOVER)
+    u3 = r.ui(); pr2 = r.probe("15_kept_b.webm", step=0.5); sm2 = summarize(pr2)
+    r.reload(); r.wait(700)
+    clean_b = not r.ui()["recovery"]
+    m = re.search(r"Found (\d+) chunks", k2["info"] or "")
+    chunks = int(m.group(1)) if m else -1
+    ok_b = (k2["up"] and k2["title"].startswith("Recording kept") and u2["btnUndo"] and sm2["valid"] == sm2["n"] and abs(pr2["duration"] - 12.4) <= 1.0
+            and u3["prior"] == 0 and not u3["btnUndo"] and not u3["recovery"] and clean_b)
+    if r.kind == "cr":   # ~1 chunk per second in Chrome; Firefox's chunks are coarser
+        ok_b = ok_b and 10 <= chunks <= 14
+    r.check("15.18", ok_b, "extra (v1.29): cut at 12.4s of a ~15s recording -> banner '%s' reports the kept part ('%s'); Save it now -> %.1fs file (the kept part only), Undo offer gone=%s, kept segments %d; reload shows no banner=%s"
+            % (k2["title"], k2["info"], pr2["duration"], not u3["btnUndo"], u3["prior"], clean_b))
+    # c) Discard from the kept banner
+    mic_on_if_needed(r); r.select_screen(1); r.record(6); review_open(r)
+    r.page.click("#reviewPane .btn-back-recorder"); r.wait(900)
+    r.page.click("#recoveryBanner button.btn-stop"); r.wait(900)
+    u4 = r.ui()
+    r.reload(); r.wait(700)
+    clean_c = not r.ui()["recovery"]
+    r.check("15.19", u4["prior"] == 0 and not u4["recovery"] and u4["status"] == "Ready" and clean_c,
+            "extra (v1.29): Back to recorder -> Discard on the kept banner -> status '%s', kept segments %d, banner gone=%s; reload shows no banner=%s" % (u4["status"], u4["prior"], not u4["recovery"], clean_c))
+
+
 def s15_precision_end(r):
     r.start("rev15f")
     mic_on(r); r.select_screen(1); r.record(70)
@@ -500,7 +544,7 @@ def s15_cut_micoff(r):
         r.rec("15.3b", "FAIL", "extra: mic OFF (no audio), 14s recording, cut requested at 0:08 -> no cut; app answered '%s'" % (c["prompt"] or c["status"]))
 
 
-ALL = [s15_cut_micoff, s10_crash, s11_continue, s12_cancel, s13_seek, s15_review_a, s15_review_b, s15_review_c, s15_review_d, s15_precision_end]
+ALL = [s15_cut_micoff, s10_crash, s11_continue, s12_cancel, s13_seek, s15_review_a, s15_review_b, s15_review_c, s15_review_d, s15_kept, s15_precision_end]
 
 if __name__ == "__main__":
     kind = sys.argv[1]

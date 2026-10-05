@@ -164,9 +164,10 @@
   };
 
   function lum(d) { return 0.299 * d[0] + 0.587 * d[1] + 0.114 * d[2]; }
-  function decode(g, W, H) {
-    const bw = W / COLS, y = H / 30;
-    const at = (i) => lum(g.getImageData(Math.floor((i + 0.5) * bw), Math.floor(y), 1, 1).data);
+  function decode(g, W, H, x0, w) {
+    x0 = x0 || 0; w = w || W;
+    const bw = w / COLS, y = H / 30;
+    const at = (i) => lum(g.getImageData(Math.floor(x0 + (i + 0.5) * bw), Math.floor(y), 1, 1).data);
     const white = at(22), black = at(23);
     const valid = white > 150 && black < 100;
     const mid = (white + black) / 2;
@@ -242,7 +243,17 @@
       });
       await new Promise((r) => setTimeout(r, 40));
       g.drawImage(v, 0, 0);
-      const s = decode(g, c.width, c.height);
+      let s = decode(g, c.width, c.height);
+      if (!s.valid) {
+        // v1.29: a differently shaped source is fitted inside the frame with black side bars.
+        // Find the picture's left/right edges and read the barcode inside them.
+        let L = c.width, R = -1;
+        for (const fy of [0.2, 0.4, 0.6, 0.8]) {
+          const row = g.getImageData(0, Math.floor(c.height * fy), c.width, 1).data;
+          for (let x = 0; x < c.width; x++) { if (row[x * 4] + row[x * 4 + 1] + row[x * 4 + 2] > 60) { if (x < L) L = x; if (x > R) R = x; } }
+        }
+        if (R > L && (L > 4 || R < c.width - 5)) { const s2 = decode(g, c.width, c.height, L, R - L + 1); if (s2.valid) { s = s2; s.box = [L, R - L + 1]; } }
+      }
       s.t = t; s.at = v.currentTime; s.seekMs = Math.round(performance.now() - t0); s.seeked = seeked;
       s.pts = points(g, c.width, c.height, opts.points);
       out.samples.push(s);
