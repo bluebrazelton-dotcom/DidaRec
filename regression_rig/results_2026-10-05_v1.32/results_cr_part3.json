@@ -1,0 +1,87 @@
+{
+ "16.16": {
+  "status": "PASS",
+  "evidence": "no video open: Add caption -> 'Open your video first — captions are saved with it.' (0 cues); Import captions -> 'Open your video first — captions are saved with it.' (0 cues)",
+  "at": "2026-10-05 12:42:35"
+ },
+ "16.18": {
+  "status": "PASS",
+  "evidence": "hint line visible: 'Captions save as their own small file (.vtt or .srt) next to your video — the video itself is unchanged. Keep the two files in the same folder: course sites and video players find the captions automatically.'",
+  "at": "2026-10-05 12:42:35"
+ },
+ "16.1": {
+  "status": "PASS",
+  "evidence": "idle -> Caption editor: recorder controls hidden=True, editor shown=True; opened lecture.webm -> 'Opened lecture.webm.', native controls=True, duration 11.2s",
+  "at": "2026-10-05 12:42:36"
+ },
+ "16.3": {
+  "status": "PASS",
+  "evidence": "Add caption at 2.0s -> 1 row, placeholder '['New caption']', selected; typed text + tab away -> the video's caption track is showing and at 2.5s the active caption is ['Hello world'] (rendering on the picture itself not eyeballed)",
+  "at": "2026-10-05 12:42:38"
+ },
+ "16.6": {
+  "status": "PASS",
+  "evidence": "3 cues; clicked the 2nd row's background -> video at 5.001s (cue starts 5.000), paused=True",
+  "at": "2026-10-05 12:42:40"
+ },
+ "16.7": {
+  "status": "PASS",
+  "evidence": "'banana' -> 'That doesn't look like a time — use HH:MM:SS.mmm (or MM:SS.mmm).', input back to 00:00:07.500; valid earlier time -> row order now ['00:00:01.000', '00:00:02.000', '00:00:05.000']; end before start -> 'The end time needs to come after the start time — it was left unchanged.', cue unchanged",
+  "at": "2026-10-05 12:42:42"
+ },
+ "16.8": {
+  "status": "PASS",
+  "evidence": "played 0.5s -> 7.6s: highlighted row went [-1, 0, 1, -1, 2, -1] (-1 = between cues); highlighted row inside the list's visible area at every sample=True. Smoothness not judged.",
+  "at": "2026-10-05 12:42:49"
+ },
+ "16.4": {
+  "status": "PASS",
+  "evidence": "added a cue during playback (row 2) and typed 24 chars without leaving the box while playback ran to 6.7s: highlight moved on to row 3, the box kept focus=True and the uncommitted text 'typing while it plays on'; committed normally on tab-away",
+  "at": "2026-10-05 12:42:55"
+ },
+ "16.15": {
+  "status": "PASS",
+  "evidence": "video playing=True when Back to recorder was clicked -> paused=True immediately",
+  "at": "2026-10-05 12:42:56"
+ },
+ "16.14": {
+  "status": "PASS",
+  "evidence": "Back to recorder mid-edit: controls back, selected screen still live (button 'Change Screen', Record enabled), pending recovery banner still showing=True",
+  "at": "2026-10-05 12:42:56"
+ },
+ "16.9": {
+  "status": "PASS",
+  "evidence": "edits autosaved; reload + reopen same video -> 'Saved caption edits found' banner=True; Continue -> 4 cues back, identical=True. Reload, Start fresh -> 0 cues; reload again -> banner=False (draft deleted)",
+  "at": "2026-10-05 12:43:02"
+ },
+ "16.10": {
+  "status": "PASS",
+  "evidence": "empty list: 'Imported 3 captions.'. Non-empty list: in-pane 'Replace current captions?' banner=True, browser popups=0; confirm -> 'Imported 3 captions.'. File with one bad cue -> 'Imported 2 captions. 1 couldn't be read and was left out.'. .srt -> 'Imported 2 captions.'",
+  "at": "2026-10-05 12:43:05"
+ },
+ "16.5": {
+  "status": "PASS",
+  "evidence": "same caption file picked twice in a row -> second pick was processed (replace banner appeared); same .webm opened twice in a row -> reloaded ('Opened lecture.webm.', new player source). Note: sequence used was import/import rather than import/Start fresh/import.",
+  "at": "2026-10-05 12:43:06"
+ },
+ "16.11": {
+  "status": "PASS",
+  "evidence": "lecture.webm -> suggested 'lecture.vtt' and 'lecture.srt'; both files well-formed with all 3 edited cues (VTT header, SRT numbering and comma milliseconds). Feedback: editor shows 'Captions saved next to your video's name.'",
+  "at": "2026-10-05 12:43:07"
+ },
+ "16.12": {
+  "status": "PASS",
+  "evidence": "save dialog cancelled -> no error banner; editor shows 'Save cancelled — your caption edits are still here.'; draft still restorable after reload=True",
+  "at": "2026-10-05 12:43:10"
+ },
+ "16.17": {
+  "status": "PASS",
+  "evidence": "video A showing 3 cue rows; opened video B (which has its own draft) -> B's banner shown=True with 0 rows behind it",
+  "at": "2026-10-05 12:43:14"
+ },
+ "16.2": {
+  "status": "PASS",
+  "evidence": "PROXY: a synthetic drop event carrying a .webm onto the editor pane -> 'Opened dropped-lecture.webm.', video loaded (11.2s). A real drag from the OS file manager was not performed.",
+  "at": "2026-10-05 12:43:15"
+ }
+}

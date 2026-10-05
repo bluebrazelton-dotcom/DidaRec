@@ -611,7 +611,7 @@ def s9_resilience(r):
 
     p = r.save_via("9_3_salvage.webm", trig)
     pr3 = r.probe("9_3_salvage.webm", step=1)
-    r.check("9.3", "saving what was captured" in (msgs[0] or "") and pr3["duration"] > 4,
+    r.check("9.3", "Saving what was recorded" in (msgs[0] or "") and pr3["duration"] > 4,
             "recorder killed behind the app's back mid-recording; Stop & save -> '%s' and a playable %.1fs file was saved (never a dead click)" % (msgs[0], pr3["duration"]))
     r.rec("9.2", "SKIP", "optional; depends on Firefox's broken recorder state, which can't be produced on demand (unit harness covers the abort logic)")
 

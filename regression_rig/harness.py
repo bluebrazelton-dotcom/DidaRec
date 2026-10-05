@@ -193,7 +193,7 @@ class Rig:
           const txt = (id) => { const e = document.getElementById(id); return e ? e.textContent.trim() : null; };
           const eb = document.getElementById('errorBanner');
           return {
-            status: txt('statusText'), timer: txt('timer'), chunks: txt('chunkCount'),
+            status: txt('statusText'), timer: txt('timer'), chunks: (c => (+c > 0 ? c + ' saved' : ''))((document.getElementById('chunkCount').dataset || {}).count || '0'),
             err: vis('errorBanner') ? txt('errorBannerMsg') : '', errClass: eb.className,
             recovery: vis('recoveryBanner'), recoveryInfo: txt('recoveryInfo'),
             dlConfirm: vis('downloadConfirm'), stitchFallback: vis('stitchFallback'), saveNeedsClick: vis('saveNeedsClick'),

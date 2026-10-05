@@ -112,18 +112,18 @@ def s10_crash(r):
     r.record(16)
     r.kill_tab(); r.wait(800)
     u = r.ui()
-    r.check("10.1", u["recovery"] and "chunks" in u["recoveryInfo"], "recorded ~16s screen+mic, tab killed with no unload handling, app reopened at the same origin -> recovery banner: '%s'" % u["recoveryInfo"])
+    r.check("10.1", u["recovery"] and "of video" in u["recoveryInfo"], "recorded ~16s screen+mic, tab killed with no unload handling, app reopened at the same origin -> recovery banner: '%s'" % u["recoveryInfo"])
     # 12.5 first: cancel during the crash-recovery save, then retry
     if r.kind == "cr":
         r.cfg(saveMode="cancel"); r.page.click(RECOVER); r.wait(1200)
         c = r.ui(); r.cfg(saveMode="ok")
-        cancel_ok = c["recovery"] and "stays in the list" in (c["err"] or "")
+        cancel_ok = c["recovery"] and "still here" in (c["err"] or "")
         cancel_txt = "save dialog cancelled -> banner still up, '%s'" % c["err"]
         r.stop_save("10_recovered.webm", button=RECOVER)
     else:
         r.stop_save("10_recovered_try1.webm", button=RECOVER, resolve="keep")
         c = r.ui()
-        cancel_ok = c["recovery"] and "kept safe" in (c["err"] or "")
+        cancel_ok = c["recovery"] and "kept here" in (c["err"] or "")
         cancel_txt = "download declined via 'It didn't arrive' -> banner still up, '%s'" % c["err"]
         r.stop_save("10_recovered.webm", button=RECOVER)
     pr, au, sm = quality(r, "10_recovered.webm", 0.5)
@@ -154,7 +154,7 @@ def s11_continue(r):
     r.stop_save("11_two_segments.webm")
     pr, au, sm = quality(r, "11_two_segments.webm")
     sq = seq_of(pr); fz = longest_freeze(pr, 0.25); gaps = audio_gap(au)
-    r.check("11.1", "1 prior segment" in st and pr["duration"] > 19, "crash -> Continue recording ('%s') -> second take -> Stop & save produced one %.1fs file" % (st, pr["duration"]))
+    r.check("11.1", "earlier video is kept" in st and pr["duration"] > 19, "crash -> Continue recording ('%s') -> second take -> Stop & save produced one %.1fs file" % (st, pr["duration"]))
     blank, blank_run = seam_blanks(pr)
     r.check("11.2", sq == [1, 2] and blank <= 1 and blank_run <= 1 and fz <= 0.75 and not gaps and abs(au["duration"] - pr["duration"]) < 1.0,
             "one continuous file: screen sequence %s, %d/%d frames valid at 0.25s steps (%d blank sample(s), never two in a row - the checklist allows a single-frame glitch at the seam), longest repeated frame %.2fs, no silent second in the audio (%.1fs audio vs %.1fs video). Seam judged by measurement, not by eye/ear." % (sq, sm["valid"], sm["n"], blank, fz, au["duration"], pr["duration"]))
@@ -172,7 +172,7 @@ def s11_continue(r):
     r.stop_save("11_three_segments.webm")
     pr3, au3, sm3 = quality(r, "11_three_segments.webm")
     sq3 = seq_of(pr3); fz3 = longest_freeze(pr3, 0.25)
-    r.check("11.3", "across 2 segments" in info and "2 prior segments" in st2, "second crash: banner '%s'; Continue -> '%s'" % (info, st2))
+    r.check("11.3", "in 2 parts" in info and "earlier video is kept" in st2, "second crash: banner '%s'; Continue -> '%s'" % (info, st2))
     blank3, blank3_run = seam_blanks(pr3)
     r.check("11.4", sq3 == [1, 2, 3] and blank3 <= 2 and blank3_run <= 1 and fz3 <= 0.75 and not audio_gap(au3) and pr3["duration"] > 21,
             "three segments in order %s in one %.1fs file; %d/%d frames valid (%d blank sample(s), never two in a row), longest repeated frame %.2fs, no silent second" % (sq3, pr3["duration"], sm3["valid"], sm3["n"], blank3, fz3))
@@ -193,7 +193,7 @@ def s11_continue(r):
     info4 = r.ui()["recoveryInfo"]; up = r.ui()["recovery"]
     r.stop_save("12_4_stitched_recovered.webm", button=RECOVER)
     pr4 = r.probe("12_4_stitched_recovered.webm", step=0.5)
-    r.check("12.4", up and "across 2 segments" in info4 and seq_of(pr4) == [1, 2] and pr4["duration"] > 12,
+    r.check("12.4", up and "in 2 parts" in info4 and seq_of(pr4) == [1, 2] and pr4["duration"] > 12,
             "stitched 2-segment recording, save cancelled/declined ('%s') -> reload banner '%s' -> Recover & save gave a %.1fs file with both segments %s" % (msg, info4, pr4["duration"], seq_of(pr4)))
     sc = getattr(r, "_seek_crash", None)
     r.check("13.3", seek_st and (sc is None or sc[0]),
@@ -211,7 +211,7 @@ def s12_cancel(r):
     else:
         r.stop_save("12_declined.webm", resolve="keep")
         u = r.ui(); said = u["err"]
-    r.check("12.1", bool(said) and ("still here" in said or "kept safe" in said), "save %s -> '%s'" % ("dialog cancelled" if r.kind == "cr" else "download not confirmed ('It didn't arrive')", said))
+    r.check("12.1", bool(said) and ("still here" in said or "kept here" in said), "save %s -> '%s'" % ("dialog cancelled" if r.kind == "cr" else "download not confirmed ('It didn't arrive')", said))
     r.reload(); r.wait(800)
     u2 = r.ui()
     r.stop_save("12_recovered.webm", button=RECOVER)
@@ -351,7 +351,7 @@ def s15_review_b(r):
     b = r.ui()
     pr, au, sm = cut_and_take(r, "15_6_undo.webm", 2)
     s1 = span(pr, 1); s2 = span(pr, 2)
-    r.check("15.6", a["btnUndo"] and not b["btnUndo"] and "1 prior segment" in b["status"] and seq_of(pr) == [1, 2] and s2[0] > 18.5,
+    r.check("15.6", a["btnUndo"] and not b["btnUndo"] and "earlier video is kept" in b["status"] and seq_of(pr) == [1, 2] and s2[0] > 18.5,
             "cut at 0:12 ('%s') then Undo re-record -> '%s'; saved file has the FULL original (%.1fs of it) followed by the new take - no cut applied" % (a["status"][:10], b["status"], s2[0]))
     # 15.12 back to recorder, then 15.5 redo last take on a 2-segment recording
     r.select_screen(1); r.record(10)
@@ -366,7 +366,7 @@ def s15_review_b(r):
     c = r.ui()
     pr, au, sm = cut_and_take(r, "15_5_redo.webm", 3)
     sq = seq_of(pr); s3 = span(pr, 3); fz = longest_freeze(pr, 0.25)
-    r.check("15.12", "prior segment(s) preserved" in back["status"] and not back["review"] and sq[0] == 1, "Back to recorder -> '%s'; the later save includes the previously reviewed content (file starts with it)" % back["status"])
+    r.check("15.12", "earlier video is kept" in back["status"] and not back["review"] and sq[0] == 1, "Back to recorder -> '%s'; the later save includes the previously reviewed content (file starts with it)" % back["status"])
     r.check("15.5", redo_vis and rv.get("redo_single") is False and c["prior"] == 1 and sq == [1, 3] and fz <= 0.75 and abs(pvd - 18) < 4,
             "2 segments: Redo last take offered=%s (hidden with 1 segment=%s); click -> '%s', newest take dropped whole; saved file = first take then the redo %s (take 2 absent), new take starts at %.2fs, longest repeated frame %.2fs" % (redo_vis, rv.get("redo_single") is False, c["status"][:12], sq, s3[0], fz))
 
@@ -469,6 +469,27 @@ def s15_review_d(r):
     r.check("15.13", u["recovery"] and pr["duration"] > 6, "tab killed with the review pane open -> recovery banner on reopen ('%s'), recovered file %.1fs" % (u["recoveryInfo"], pr["duration"]))
 
 
+def s12_kept_after_cancel(r):
+    """v1.32: a cancelled save leaves a kept recording with 'Save it now' - no reload needed. Chrome's dialog only."""
+    if r.kind != "cr":
+        return
+    r.start("cancel12k")
+    mic_on(r); r.select_screen(1); r.record(8)
+    r.cfg(saveMode="cancel"); r.page.click("#btnStop"); r.wait(2500)
+    u = r.ui(); r.cfg(saveMode="ok")
+    k = r.ev("() => ({ title: document.getElementById('recoveryTitle').textContent, save: document.getElementById('btnRecoverySave').textContent.trim(), info: document.getElementById('recoveryInfo').textContent })")
+    p = r.stop_save("12_kept_after_cancel.webm", button=RECOVER)
+    u2 = r.ui(); pr = r.probe("12_kept_after_cancel.webm", step=0.5); sm = summarize(pr)
+    r.reload(); r.wait(700)
+    clean = not r.ui()["recovery"]
+    words = " ".join([u["err"] or "", u["status"] or "", k["info"] or ""]).lower()
+    r.check("12.1b", u["recovery"] and k["title"].startswith("Recording kept") and k["save"] == "Save it now" and u["prior"] == 1
+            and "save it now" in (u["err"] or "").lower() and not any(w in words for w in ("reload", "refresh", "chunk", "segment"))
+            and bool(p) and sm["valid"] == sm["n"] and pr["duration"] > 6 and u2["prior"] == 0 and not u2["recovery"] and not u2["err"] and clean,
+            "extra (v1.32): save dialog cancelled -> message '%s'; banner '%s' / '%s' shown at once (no reload), button '%s', status '%s'; Save it now -> %.1fs playable file; banner gone=%s; reload shows no banner=%s"
+            % (u["err"], k["title"], k["info"], k["save"], u["status"], pr["duration"], not u2["recovery"], clean))
+
+
 def s15_kept(r):
     """v1.29 (owner pass 2026-10-05): after reviewing, kept-but-unsaved footage is offered for saving without a refresh."""
     KEPT = "() => ({ up: document.getElementById('recoveryBanner').classList.contains('visible'), title: document.getElementById('recoveryTitle').textContent, info: document.getElementById('recoveryInfo').textContent, cont: getComputedStyle(document.getElementById('btnRecoveryContinue')).display !== 'none', save: document.getElementById('btnRecoverySave').textContent.trim() })"
@@ -481,7 +502,7 @@ def s15_kept(r):
     u1 = r.ui(); pr = r.probe("15_kept_a.webm", step=0.5); sm = summarize(pr)
     r.reload(); r.wait(700)
     clean_a = not r.ui()["recovery"]
-    ok_a = (k["up"] and k["title"].startswith("Recording kept") and not k["cont"] and k["save"] == "Save it now" and "chunks" in k["info"]
+    ok_a = (k["up"] and k["title"].startswith("Recording kept") and not k["cont"] and k["save"] == "Save it now" and "of video" in k["info"]
             and u0["prior"] == 1 and sm["valid"] == sm["n"] and pr["duration"] > 6 and u1["prior"] == 0 and not u1["recovery"] and clean_a)
     r.check("15.17", ok_a, "extra (v1.29): Back to recorder -> banner '%s' ('%s'), Continue button shown=%s, save button '%s'; Save it now -> %.1fs playable file, kept segments now %d, banner gone=%s; reload shows no banner=%s"
             % (k["title"], k["info"], k["cont"], k["save"], pr["duration"], u1["prior"], not u1["recovery"], clean_a))
@@ -494,7 +515,7 @@ def s15_kept(r):
     u3 = r.ui(); pr2 = r.probe("15_kept_b.webm", step=0.5); sm2 = summarize(pr2)
     r.reload(); r.wait(700)
     clean_b = not r.ui()["recovery"]
-    m = re.search(r"Found (\d+) chunks", k2["info"] or "")
+    m = re.search(r"About (\d+) seconds", k2["info"] or "")
     chunks = int(m.group(1)) if m else -1
     ok_b = (k2["up"] and k2["title"].startswith("Recording kept") and u2["btnUndo"] and sm2["valid"] == sm2["n"] and abs(pr2["duration"] - 12.4) <= 1.0
             and u3["prior"] == 0 and not u3["btnUndo"] and not u3["recovery"] and clean_b)
@@ -544,7 +565,7 @@ def s15_cut_micoff(r):
         r.rec("15.3b", "FAIL", "extra: mic OFF (no audio), 14s recording, cut requested at 0:08 -> no cut; app answered '%s'" % (c["prompt"] or c["status"]))
 
 
-ALL = [s15_cut_micoff, s10_crash, s11_continue, s12_cancel, s13_seek, s15_review_a, s15_review_b, s15_review_c, s15_review_d, s15_kept, s15_precision_end]
+ALL = [s15_cut_micoff, s10_crash, s11_continue, s12_cancel, s13_seek, s15_review_a, s15_review_b, s15_review_c, s15_review_d, s12_kept_after_cancel, s15_kept, s15_precision_end]
 
 if __name__ == "__main__":
     kind = sys.argv[1]
