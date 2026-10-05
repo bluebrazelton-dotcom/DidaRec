@@ -300,7 +300,15 @@ authoring polish remains queued but is no longer next; #21 is.
 
 ## User documentation (queued 2026-07-29)
 
-### 19. End-user instructions + README refresh — README half DONE 2026-08-06; usage guide still open
+### 19. End-user instructions + README refresh — ✓ DONE (README 2026-08-06; faculty guide v1.31, 2026-10-05)
+
+**Guide shipped v1.31:** `guide.html` beside the app, linked from a "How to
+use" link in the recorder's header and from the README; six real screenshots
+in `guide-img/` (retake with `regression_rig/guide_shots.py`). Placement
+decision: separate page. Follow-ups queued by the owner: reword the app's own
+messages in plain language (they still say "chunks" and "segments"), then a
+scripted, silent, captioned demo video made with the rig.
+
 Owner-requested (2026-07-29): once the remaining pieces land (or are
 explicitly descoped — the caption editor's fate is under evaluation), write
 the user-facing documentation. Two deliverables:

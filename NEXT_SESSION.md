@@ -1,9 +1,25 @@
 # DidaRec — Next Session, Start Here
 
-**Newest (2026-10-05): v1.30 — #34 done.** While paused, Webcam switches
+**Newest (2026-10-05): v1.31 — faculty guide shipped (#19 DONE).**
+`guide.html` + `guide-img/` beside the app, "How to use" link in the
+header (new tab), README link. Owner's principle for everything
+user-facing: plain language, "if tech isn't easy to use, it isn't
+adopted". **Queue, in this order:**
+1. **Reword the app's own messages in plain language** (no "chunks",
+   "segments", "prior segment(s) preserved", "Found N chunks…"). Show the
+   before/after list for a yes; harness and rig pin many literal strings,
+   so update those with it; retake the guide screenshots after.
+2. **Scripted demo video** (owner said yes 2026-10-05): the rig drives the
+   real app in its demo look (`cfg.demo`) while Playwright records the page;
+   60–90 s, silent with captions, a drawn pointer and click ripple, short
+   on-screen notes where Chrome's own share picker and save dialog would
+   appear; linked from the top of the guide. Build AFTER the rewording.
+3. Optional: Firefox + part-4 rig re-run (not run since v1.28).
+
+**Before that, the same day: v1.30 — #34 done.** While paused, Webcam switches
 off/on and Mic mutes/unmutes (`togglePausedSource`); locked source buttons
 wear a padlock badge and keep their colours; the footer shows the build
-("v1.30" — bump `#appVersion` with every version). Harness **192 / 1370**
+(bump `#appVersion` with every version). Harness **192 / 1370**
 (prefixes end at FZ). Rig Chrome parts 1–3 clean; Firefox and part 4 NOT
 re-run since v1.28. Owner check PASSED on the local file. **Next: #19's
 faculty guide** (optional first: a Firefox + part-4 rig re-run).
@@ -251,8 +267,8 @@ updated to recommend Chrome/Edge.
   5. DONE v1.30: #34 — mic mute / webcam off while paused (feature, about
      the size of #23). Still optional: a Firefox + part-4 rig re-run on
      v1.30.
-  6. **NEXT:** #19's faculty guide.
-- Everything through v1.30 is committed and pushed (owner's go-ahead
+  6. DONE v1.31: #19 faculty guide. Next items are listed at the top of this file.
+- Everything through v1.31 is committed and pushed (owner's go-ahead
   2026-10-05). Rig results: `regression_rig/results_2026-10-05_v1.29/` and `…_v1.30/`
   (Chrome parts 1–3). The results-page artifact still describes v1.28.
 - Roadmap remainder (REVIEW feature map): chapter hotkeys + sidecar

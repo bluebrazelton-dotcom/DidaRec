@@ -2423,6 +2423,37 @@ locked while recording; webcam off and mic mute while paused; both back
 on; the saved file showed the middle stretch without overlay or voice.
 Padlock look approved.
 
+### v1.31 — Faculty guide (#19) and a "How to use" link (2026-10-05)
+
+**The guide.** `guide.html`, a separate plain-language page hosted beside
+the app (the app itself stays one file). Written for someone who has
+never recorded a screen: one action per step, button names as they
+appear, no technical terms, Chrome/Edge in the main steps and Firefox in
+one short answer. Sections: before you start, first recording, pause
+and what can change while paused, finishing, fixing a mistake, if
+something goes wrong, captions, quick answers. Semantic headings, a skip
+link, alt text on every picture, light/dark, print styles. Owner
+approved the outline, voice and full draft 2026-10-05.
+
+**Screenshots.** Six pictures in `guide-img/`, taken from the real app
+by `regression_rig/guide_shots.py`. The rig's stand-in screen and camera
+gained a "demo" look (`cfg.demo`: a lecture slide and a drawn
+presenter) used only for these pictures; the checks still use the
+measuring pattern. Retake with `python guide_shots.py cr` after any
+layout change.
+
+**App change.** A "How to use" link in the header, opening `guide.html`
+in a new tab (so a click mid-recording can't navigate away). Footer
+label bumped to v1.31. README links the guide.
+
+**Verification.** Harness unchanged at 192 / 1370. Chrome smoke after
+the header change: load and basic record/save, 10 of 10 checks pass.
+Full rig not re-run for this one-link change.
+
+Two lines in the guide rest on things not verified here: that most
+course sites accept `.webm`, and that the GitHub issues page is the
+right place to send faculty for help.
+
 ---
 
 ## Known limitations
