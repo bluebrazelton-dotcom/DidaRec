@@ -429,6 +429,48 @@ def s34_paused_sources(r):
             % (nomic[0], nomic[1], end[0], end[1], end[2], end[3], end[4]))
 
 
+def s42_fullscreen(r):
+    """REVIEW #42 (v1.34): webcam Full screen shape, switchable while paused; bars not stretch; 720p capture."""
+    r.start()
+    # (a) real fake camera (not the canvas stand-in): the capture is 720p-ish, not 320x240
+    r.page.click("#toggleCamera"); r.page.wait_for_function("!!state.cameraStream"); r.wait(500)
+    st = r.ev("state.cameraStream.getVideoTracks()[0].getSettings()")
+    r.page.click("#toggleCamera"); r.wait(400)
+    # (b) stand-in camera (640x480, red | green, magenta disc) over the test-pattern screen
+    r.cfg(camMode="canvas")
+    r.select_screen(1)
+    r.page.click("#toggleCamera"); r.page.wait_for_function("!!state.cameraStream"); r.wait(800)
+    q = pip(r)
+    L = [q["x"] + q["w"] * 0.2, q["y"] + q["h"] * 0.5]
+    SEL = "() => document.getElementById('pipShapeSelect').disabled"
+    r.record(4)
+    locked = r.ev(SEL)
+    r.page.click("#btnPause"); r.wait(300)
+    t1 = secs(r.ui()["timer"])
+    unlocked = r.ev(SEL)
+    r.page.select_option("#pipShapeSelect", "full"); r.wait(400)
+    shape_mid = r.ev("pipState.shape")
+    r.page.click("#btnPause"); r.wait(4000)
+    locked_again = r.ev(SEL)
+    r.page.click("#btnPause"); r.wait(300)
+    t2 = secs(r.ui()["timer"])
+    r.page.select_option("#pipShapeSelect", "rectangle"); r.wait(400)
+    r.page.click("#btnPause"); r.wait(4000)
+    r.stop_save("42_fullscreen.webm")
+    saved_shape = r.ev("JSON.parse(localStorage.getItem('pipLayout') || '{}').shape")
+    pr = r.probe("42_fullscreen.webm", times=[t1 / 2.0, (t1 + t2) / 2.0, t2 + 2.0], points=[L, [0.5, 0.5], [0.05, 0.5], [0.95, 0.5]])
+    p1, p2, p3 = [s["pts"] for s in pr["samples"]]
+    MAG = (255, 0, 255)
+    pip_before = near(p1[0], RED) and not near(p1[1], MAG)
+    full_mid = near(p2[1], MAG) and sum(p2[2]) < 30 and sum(p2[3]) < 30 and (near(p2[0], RED) or near(p2[0], GREEN) or sum(p2[0]) < 30)
+    pip_after = near(p3[0], RED) and not near(p3[1], MAG)
+    ok = (st.get("width", 0) >= 640 and locked is True and unlocked is False and shape_mid == "full" and locked_again is True
+          and saved_shape == "rectangle" and pip_before and full_mid and pip_after and pr["w"] == 1280 and pr["h"] == 720)
+    r.check("42.1", ok,
+            "extra (v1.34, REVIEW #42): camera captured at %sx%s (was 320x240); shape list locked while recording=%s, while paused=%s, after Resume=%s; Full screen chosen while paused=%s. Saved file %dx%d: before = corner picture (pixel %s), middle = webcam fills the frame with black bars (centre %s, left bar %s, right bar %s), after = corner picture again (pixel %s); shape saved for next time='%s'"
+            % (st.get("width"), st.get("height"), locked, unlocked, locked_again, shape_mid == "full", pr["w"], pr["h"], p1[0], p2[1], p2[2], p2[3], p3[0], saved_shape))
+
+
 def s5_noaudio(r):
     if r.kind != "cr":
         return
@@ -690,7 +732,7 @@ def s18_misc(r):
             "cancelled re-selection: button reads '%s' (selected style=%s), Record disabled=%s, placeholder shown=%s, Screen toggle lit=%s; banner='%s'" % (u["btnSelect"]["text"], u["btnSelect"]["sel"], u["btnRecord"]["dis"], u["placeholder"], u["screenActive"], u["err"]))
 
 
-ALL = [s1_load, s1_camera, s1_camonly_record, s2_devices, s2_deny, s3_basic, s4_pause, s5_change, s5_stop_nogesture, s34_paused_sources, s5_noaudio, s6_quality, s7_pip, s8_background, s9_resilience, s17_hint, s18_misc]
+ALL = [s1_load, s1_camera, s1_camonly_record, s2_devices, s2_deny, s3_basic, s4_pause, s5_change, s5_stop_nogesture, s34_paused_sources, s42_fullscreen, s5_noaudio, s6_quality, s7_pip, s8_background, s9_resilience, s17_hint, s18_misc]
 
 if __name__ == "__main__":
     kind = sys.argv[1]

@@ -6854,6 +6854,108 @@ Real cue text
     assert(/^About 8 seconds of video \(0\.0 MB\), started /.test(t) && !/chunk|segment/i.test(t), 'GC: info line in plain words (got ' + t + ')');
   });
 
+  // ---------- REVIEW #42 (v1.34): webcam full screen ----------
+  await scenario('GD the webcam fills the frame at its own proportions with bars (never stretched): camera-only, and the Full screen shape over a live screen; a corner shape draws the overlay again', async () => {
+    const calls = [];
+    const origDraw = ctxStub.drawImage;
+    ctxStub.drawImage = (...a) => { calls.push(a); };
+    const cv = api.cameraVideo, sv = api.screenVideo;
+    const saved = { cw: cv.videoWidth, ch: cv.videoHeight, sw: sv.videoWidth, sh: sv.videoHeight, shape: api.pipState.shape };
+    const camDraws = () => calls.filter(a => a[0] === cv).map(a => a.slice(1, 5));
+    const canvasMock = documentMock.getElementById('previewCanvas');
+
+    // camera-only, 4:3 camera into a 16:9 frame
+    state.sources = { screen: false, camera: true, mic: false };
+    state.cameraStream = makeStream([{ kind: 'video', getSettings: () => ({ width: 640, height: 480 }), addEventListener() {}, stop() {} }]);
+    cv.videoWidth = 640; cv.videoHeight = 480;
+    api.startCompositing();
+    assert(canvasMock.width === 1280 && canvasMock.height === 720, 'GD precondition: camera-only frame is 1280x720');
+    let d = camDraws().pop();
+    assert(d && d.join() === '160,0,960,720', 'GD: 640x480 camera drawn 960x720 centred with 160px bars (got ' + JSON.stringify(d) + ')');
+    calls.length = 0; cv.videoWidth = 1280; cv.videoHeight = 720;
+    state.drawFrame();
+    d = camDraws().pop();
+    assert(d && d.join() === '0,0,1280,720', 'GD: a 16:9 camera fills the frame with no bars (got ' + JSON.stringify(d) + ')');
+    api.stopCompositing();
+
+    // screen shared + Full screen shape: the screen is still drawn underneath, the camera on top fills the frame
+    state.sources = { screen: true, camera: true, mic: false };
+    state.screenStream = makeStream([{ kind: 'video', getSettings: () => ({ width: 1280, height: 720 }), addEventListener() {}, removeEventListener() {}, stop() {} }]);
+    sv.videoWidth = 1280; sv.videoHeight = 720; cv.videoWidth = 640; cv.videoHeight = 480;
+    api.pipState.shape = 'full';
+    calls.length = 0;
+    api.startCompositing();
+    assert(!calls.some(a => a[0] === sv), 'GD: the shared screen is not drawn while the webcam fills the frame (it stays live; the bars are black)');
+    d = camDraws().pop();
+    assert(d && d.join() === '160,0,960,720', 'GD: Full screen shape — camera fitted over the screen with bars (got ' + JSON.stringify(d) + ')');
+    // back to a corner shape: the overlay is drawn small again
+    api.pipState.shape = 'rectangle';
+    calls.length = 0;
+    state.drawFrame();
+    d = camDraws().pop();
+    assert(d && d[2] < 700 && d[3] < 400, 'GD: Rectangle — the camera is the corner picture again (got ' + JSON.stringify(d) + ')');
+    api.stopCompositing();
+
+    ctxStub.drawImage = origDraw;
+    cv.videoWidth = saved.cw; cv.videoHeight = saved.ch; sv.videoWidth = saved.sw; sv.videoHeight = saved.sh; api.pipState.shape = saved.shape;
+    state.screenStream = null; state.cameraStream = null;
+  });
+
+  await scenario('GE the shape list is locked while recording, unlocks while paused (so Full screen can be chosen mid-recording), locks again on Resume; the choice is saved like the other shapes', async () => {
+    const sel = el29('pipShapeSelect');
+    const saved = api.pipState.shape;
+    await startScreenRecWith({ mic: false, cam: true });
+    assert(sel.disabled === true, 'GE: locked while recording');
+    sandbox.pauseResume();
+    assert(sel.disabled === false, 'GE: unlocked while paused');
+    sel.value = 'full'; sandbox.onPipShapeChanged();
+    assert(api.pipState.shape === 'full', 'GE: Full screen chosen while paused');
+    assert(/"shape":"full"/.test(sandbox.localStorage.getItem('pipLayout') || ''), 'GE: saved for next time (got ' + sandbox.localStorage.getItem('pipLayout') + ')');
+    sandbox.pauseResume();
+    assert(sel.disabled === true, 'GE: locked again after Resume');
+    await sandbox.stopRecording();
+    await drain();
+    assert(sel.disabled === false, 'GE: usable again when idle');
+    sel.value = saved; sandbox.onPipShapeChanged();
+  });
+
+  await scenario('GF the camera is requested at 720p (ideal), so it is sharp enough to fill the frame', async () => {
+    let seen = null;
+    sandbox.navigator.mediaDevices.getUserMedia = async (c) => { seen = c; return makeStream([{ kind: 'video', getSettings: () => ({ width: 1280, height: 720 }), addEventListener() {}, stop() {} }]); };
+    await sandbox.captureCamera();
+    assert(seen && seen.video && seen.video.width && seen.video.width.ideal === 1280 && seen.video.height.ideal === 720, 'GF: 1280x720 ideal requested (got ' + JSON.stringify(seen && seen.video) + ')');
+  });
+
+  await scenario('GG Resume on a recorder that died silently during the pause is never a dead click: pauseResume routes to the stopped-by-itself salvage (message, save stopMode, finalize); a live paused recorder still resumes normally', async () => {
+    const origFinalize = sandbox.finalizeRecording;
+    let finalizeCalls = 0;
+    sandbox.finalizeRecording = async (...args) => { finalizeCalls++; return origFinalize(...args); };
+    try {
+      // A live paused recorder resumes normally (the happy path stays intact).
+      await startScreenRecWith({ mic: false, cam: false });
+      sandbox.pauseResume();
+      assert(state.paused === true, 'GG precondition: paused');
+      sandbox.pauseResume();
+      assert(state.paused === false && state.recording === true, 'GG: a live recorder resumes normally');
+
+      // Silent death during a pause: the recorder goes inactive with no events
+      // (the real-browser InvalidStateError dead click, repro 2026-10-17).
+      sandbox.pauseResume();
+      assert(state.paused === true, 'GG precondition: paused again');
+      state.mediaRecorder.state = 'inactive';
+      recordedErrors.length = 0;
+      windowMock.showSaveFilePicker = pickerSequence(['ok']);
+      sandbox.pauseResume();
+      await drain();
+      assert(recordedErrors.some(m => /stopped by itself/i.test(m)), 'GG: the Resume click is answered with the stopped-by-itself salvage message, never silence (got ' + JSON.stringify(recordedErrors) + ')');
+      assert(state.stopMode === 'save', 'GG: the salvage forces the save stopMode, never review');
+      assert(finalizeCalls === 1, 'GG: finalizeRecording ran exactly once for the salvage');
+      assert(state.recording === false, 'GG: the dead recording is wound down, not left half-paused');
+    } finally {
+      sandbox.finalizeRecording = origFinalize;
+    }
+  });
+
   console.log('\n================  ' + passed + ' passed, ' + failed + ' failed  ================');
   process.exit(failed ? 1 : 0);
 })();
