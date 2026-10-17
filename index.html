@@ -808,8 +808,13 @@
           <option value="rectangle">Rectangle</option>
           <option value="square">Square</option>
           <option value="circle">Circle</option>
-          <option value="full">Full screen</option>
         </select>
+        <button class="toggle-btn" id="toggleFullscreen" onclick="toggleFullscreen()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M8 3H5a2 2 0 00-2 2v3M16 3h3a2 2 0 012 2v3M8 21H5a2 2 0 01-2-2v-3M16 21h3a2 2 0 002-2v-3"/>
+          </svg>
+          Full screen
+        </button>
         <label class="mirror-toggle">
           <input type="checkbox" id="mirrorToggle" onchange="onMirrorChanged()"> Mirror webcam
         </label>
@@ -950,7 +955,7 @@
 
 <footer>
   <div>Click "Select Screen" to choose which screen, window, or tab to record. Your browser will show a popup — this is a required security step the app cannot bypass.</div>
-  <div style="margin-top: 0.5rem;">DidaRec <span id="appVersion">v1.34</span> by DidaWorks &middot; Open source &middot; MIT License &middot; No account, no server, no watermark, no time limits</div>
+  <div style="margin-top: 0.5rem;">DidaRec <span id="appVersion">v1.35</span> by DidaWorks &middot; Open source &middot; MIT License &middot; No account, no server, no watermark, no time limits</div>
 </footer>
 
 <script>
@@ -1612,8 +1617,22 @@ function updateToggleUI() {
   lockUI('toggleMic', "This recording started without the mic, so it can't be added now.");
   if (state.recording && !pausedEdit) document.getElementById('toggleScreen').title = 'Locked while recording — pause and use Change screen';
   document.getElementById('cameraSelect').disabled = disabled || !state.sources.camera;
-  // v1.34: the shape list (incl. Full screen) can change while PAUSED, like Webcam and Mic.
+  // v1.34: the shape list can change while PAUSED, like Webcam and Mic.
   document.getElementById('pipShapeSelect').disabled = (disabled && !pausedEdit) || !state.sources.camera;
+  // v1.35 (REVIEW #46): Full screen is its own one-click button beside the
+  // shape list. Same locks (recording, unlocked while paused, no webcam), plus
+  // off in webcam-only mode — the webcam already fills the picture there.
+  // Lit = actually in effect (webcam on AND a screen to cover), like Screen.
+  const fsBtn = document.getElementById('toggleFullscreen');
+  const camOnly = state.sources.camera && !state.sources.screen;
+  const fsRecLocked = disabled && !pausedEdit;
+  fsBtn.disabled = fsRecLocked || !state.sources.camera || camOnly;
+  fsBtn.classList.toggle('active', pipState.fullscreen && state.sources.camera && !camOnly);
+  fsBtn.classList.toggle('locked', fsRecLocked && !camOnly);
+  fsBtn.title = camOnly ? 'The webcam already fills the whole picture. Select a screen to choose between a corner and full screen.'
+    : fsRecLocked ? LOCK_NOTE
+    : !state.sources.camera ? 'Turn the webcam on to use this'
+    : '';
   document.getElementById('mirrorToggle').disabled = disabled || !state.sources.camera;
   document.getElementById('micSelect').disabled = disabled || !state.sources.mic;
   document.getElementById('qualitySelect').disabled = disabled;
@@ -1859,6 +1878,17 @@ function onPipShapeChanged() {
   savePipLayout();
 }
 
+// v1.35 (REVIEW #46): one-click Full screen. Only the flag changes — the corner
+// position, shape and size stay in pipState, so switching it off puts the
+// webcam straight back where it was.
+function toggleFullscreen() {
+  const btn = document.getElementById('toggleFullscreen');
+  if (btn.disabled) return;
+  pipState.fullscreen = !pipState.fullscreen;
+  savePipLayout();
+  updateToggleUI();
+}
+
 function onMirrorChanged() {
   pipState.mirror = document.getElementById('mirrorToggle').checked;
   savePipLayout();
@@ -2007,7 +2037,8 @@ const pipState = {
   xFrac: 0.78,    // ~(1 - 0.2 - margin)
   yFrac: 0.72,
   widthFrac: 0.2, // fraction of canvas width
-  shape: 'rectangle', // 'rectangle', 'square', 'circle', or 'full' (webcam fills the frame — REVIEW #42)
+  shape: 'rectangle', // 'rectangle', 'square' or 'circle' — always the CORNER picture
+  fullscreen: false,  // webcam fills the frame instead of the corner (REVIEW #42/#46)
   mirror: false,  // flip horizontally (applies to preview AND recording — same canvas)
   dragging: false,
   resizing: false,
@@ -2015,7 +2046,9 @@ const pipState = {
   dragOffsetY: 0,
 };
 
-// Load saved PiP layout from localStorage
+// Load saved PiP layout from localStorage. A function so the migration below
+// is testable; it runs once, right here, at script load.
+function loadPipLayout() {
 try {
   const saved = localStorage.getItem('pipLayout');
   if (saved) {
@@ -2023,10 +2056,16 @@ try {
     if (typeof parsed.xFrac === 'number') pipState.xFrac = parsed.xFrac;
     if (typeof parsed.yFrac === 'number') pipState.yFrac = parsed.yFrac;
     if (typeof parsed.widthFrac === 'number') pipState.widthFrac = Math.max(0.08, Math.min(0.5, parsed.widthFrac));
-    if (['rectangle', 'square', 'circle', 'full'].includes(parsed.shape)) pipState.shape = parsed.shape;
+    if (['rectangle', 'square', 'circle'].includes(parsed.shape)) pipState.shape = parsed.shape;
+    if (typeof parsed.fullscreen === 'boolean') pipState.fullscreen = parsed.fullscreen;
+    // v1.34 stored Full screen AS a shape. Now it is its own switch: such a
+    // layout loads as Full screen on, with the corner picture a rectangle.
+    if (parsed.shape === 'full') { pipState.fullscreen = true; pipState.shape = 'rectangle'; }
     if (typeof parsed.mirror === 'boolean') pipState.mirror = parsed.mirror;
   }
 } catch (e) { /* ignore */ }
+}
+loadPipLayout();
 
 function savePipLayout() {
   try {
@@ -2035,6 +2074,7 @@ function savePipLayout() {
       yFrac: pipState.yFrac,
       widthFrac: pipState.widthFrac,
       shape: pipState.shape,
+      fullscreen: pipState.fullscreen,
       mirror: pipState.mirror,
     }));
   } catch (e) { /* ignore */ }
@@ -2086,7 +2126,7 @@ function isInPip(mx, my) {
 }
 
 canvas.addEventListener('mousedown', (e) => {
-  if (!state.cameraStream || !state.sources.screen || pipState.shape === 'full') return;
+  if (!state.cameraStream || !state.sources.screen || pipState.fullscreen) return;
   const { x, y } = canvasCoords(e);
 
   if (isInResizeHandle(x, y)) {
@@ -2104,7 +2144,7 @@ canvas.addEventListener('mousedown', (e) => {
 });
 
 canvas.addEventListener('mousemove', (e) => {
-  if (!state.cameraStream || !state.sources.screen || pipState.shape === 'full') {
+  if (!state.cameraStream || !state.sources.screen || pipState.fullscreen) {
     canvas.style.cursor = '';
     return;
   }
@@ -2208,9 +2248,9 @@ function startCompositing() {
     // proportions, centred, over the black fill above — never stretched.
     // Same shape (within the 1080p cap's rounding): full canvas, as before.
     // With the webcam filling the frame (REVIEW #42 "Full screen"), the screen
-    // is not drawn at all — it stays live and comes back when the shape does;
+    // is not drawn at all — it stays live and comes back when Full screen is switched off;
     // drawing it under the camera would show slide edges in the bars.
-    const cameraFills = state.cameraStream && cameraVideo.readyState >= 2 && (!state.sources.screen || pipState.shape === 'full');
+    const cameraFills = state.cameraStream && cameraVideo.readyState >= 2 && (!state.sources.screen || pipState.fullscreen);
     if (state.screenStream && screenVideo.readyState >= 2 && !cameraFills) {
       const vw = screenVideo.videoWidth, vh = screenVideo.videoHeight;
       const s = (vw && vh) ? Math.min(canvas.width / vw, canvas.height / vh) : 0;
@@ -2224,12 +2264,12 @@ function startCompositing() {
 
     // Draw webcam — full-canvas if camera-only, PiP overlay if screen is on
     if (state.cameraStream && cameraVideo.readyState >= 2) {
-      if (!state.sources.screen || pipState.shape === 'full') {
-        // Webcam fills the frame: camera-only, or the "Full screen" shape
-        // (REVIEW #42, v1.34). Fitted at its own proportions over the black
-        // fill — bars, never a stretch (owner choice: bars, not crop). A
-        // shared screen stays live underneath; switching the shape back
-        // brings it into view again.
+      if (!state.sources.screen || pipState.fullscreen) {
+        // Webcam fills the frame: camera-only, or the "Full screen" button
+        // (REVIEW #42 v1.34, #46 v1.35). Fitted at its own proportions over
+        // the black fill — bars, never a stretch (owner choice: bars, not
+        // crop). A shared screen stays live underneath; switching Full
+        // screen off brings it into view again.
         drawCameraFull();
       } else {
         // PiP overlay — position and size from pipState (draggable/resizable)
