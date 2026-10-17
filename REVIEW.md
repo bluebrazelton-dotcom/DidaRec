@@ -1002,6 +1002,28 @@ already recovered via the kept-recording banner. What killed the recorder
 is unconfirmed (likely system sleep during the pause); the salvage covers
 any cause.
 
+### 46. One-click Full screen toggle — owner-raised at the v1.34 check — ✓ DONE v1.35 (2026-10-17)
+
+Owner, 2026-10-17, right after passing the v1.34 check: flipping Full
+screen on and off is a two-step trip through the shape list, and it
+deserves a faster flip — the corner layout's remembered return already
+works well. Decision (owner, same day): a dedicated lit toggle BUTTON
+labelled "Full screen", placed with the webcam controls; "Full screen"
+leaves the shape list, which returns to its three corner shapes. The
+v1.34 usage revealed the real mental model: full screen is a MODE
+flipped in and out of (corner layout remembered), not a fourth shape —
+the UI should say so. Rules: same locking as the shape list (locked
+while recording, unlocked while paused, needs a webcam); disabled in
+webcam-only mode, where the camera already fills the picture. State: a
+separate on/off flag beside the shape in pipLayout; a stored shape of
+'full' from v1.34 migrates to flag-on + Rectangle. Possible later
+garnish, deliberately not in scope: double-click the corner picture to
+flip.
+
+Owner check PASSED 2026-10-17 (Chrome, local file) — shipped v1.35 the
+same day. Harness GH/GI/GJ new, GE retargeted; rig 42.1 retargeted and
+green on the final file.
+
 ### 39. "Stop sharing" now pauses instead of ending the recording (Y2) — ✓ CHANGED v1.29
 
 Owner decision 2026-10-05, replacing the v1.24 rule that a genuine Stop

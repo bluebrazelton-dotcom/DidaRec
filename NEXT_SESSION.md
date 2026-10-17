@@ -1,14 +1,22 @@
 # DidaRec — Next Session, Start Here
 
-**Newest (2026-10-17): v1.34 SHIPPED — #42 Webcam full screen + the #45
-Resume dead-click fix.** Harness **199 / 1425** (GD/GE/GF/GG new). Rig
+**Newest (2026-10-17): v1.35 SHIPPED — #46 Full screen is a one-click
+button.** Owner-raised at the v1.34 check, designed, built, checked and
+shipped the same day. The button sits under the shape list (which is
+back to Rectangle/Square/Circle); off returns the corner picture
+exactly as it was; lit = in effect; padlock while recording; disabled
+in webcam-only; v1.34's shape-'full' layouts migrate (loadPipLayout).
+Harness **203 / 1457** (GH/GI/GJ new, GE retargeted). Rig part 1 green
+on the final file (42.1 retargeted). Owner check PASSED 2026-10-17.
+**Queue now:** (1) Scripted demo video (can show Full screen).
+(2) Optional Firefox + part-4 rig re-run (not run since v1.28).
+Future, to explore: #43, #44 (design conversations first).
+
+**Before that, same day: v1.34 SHIPPED — #42 Webcam full screen + the
+#45 Resume dead-click fix.** Harness 199 / 1425 (GD/GE/GF/GG new). Rig
 Chrome parts 1–3 clean (42.1 new, end-to-end); part 1 re-run clean
 after #45. Owner check PASSED 2026-10-17 (Chrome, local file), then
 committed and pushed.
-**Queue now:** (1) Owner-raised during the check: a faster one-click
-Full screen on/off toggle — design decision first (see REVIEW).
-(2) Scripted demo video. (3) Optional Firefox + part-4 rig re-run.
-Future, to explore: #43, #44.
 
 **Before that (2026-10-05): v1.33 — the Screen button means one thing (#41
 DONE).** Harness **197 / 1405** (EI2 new). Owner check passed on the local

@@ -2603,6 +2603,49 @@ last position, shape and size was called out as working well. Follow-on
 idea raised during the check: a faster one-click way to flip Full
 screen on and off (see REVIEW).
 
+### v1.35 — Full screen is a one-click button (#46) (2026-10-17)
+
+Owner-raised minutes after passing the v1.34 check: flipping Full
+screen on and off deserved a faster flip than a trip through the shape
+list. The v1.34 usage showed the real mental model — a MODE flipped in
+and out of, with the corner layout remembered — so the UI now says so:
+a lit toggle button labelled "Full screen" under the shape list
+(four-corners icon, existing toggle-btn/active/locked classes, no new
+CSS), and the shape list back to its three corner shapes.
+
+Behavior: one click on, one click off — off returns the webcam to its
+last corner position, shape and size (only the flag changes; the
+corner layout never moves). Locks match the shape list: padlocked
+while recording, unlocked while paused, disabled with no webcam;
+additionally disabled in webcam-only mode with a plain note ("The
+webcam already fills the whole picture…") and no padlock. Lit exactly
+when in effect (flag on + webcam + screen), like the Screen button;
+the stored choice survives unlit. State: pipState.fullscreen persisted
+beside shape in pipLayout; a v1.34 layout saved with shape 'full'
+migrates to flag-on + Rectangle. The load code moved into
+loadPipLayout() so the migration is testable.
+
+Verification: harness **203 scenarios / 1457 assertions** (GE
+retargeted to the button; GH migration/markup, GI webcam-only disable
+with vocabulary-checked wording, GJ lit-state sync new; GG untouched).
+Rig part 1, Chrome, re-run on the final file: green including the
+retargeted end-to-end 42.1 (three-entry shape list, lock cycle, lit
+states, layout round-trip, corner → full → corner pixels); one
+transient s6_quality ERROR under load passed on the solo re-run (the
+rig README's known pattern). Visual fit checked in a served browser:
+same width as the stacked selects, all three states behave. Guide:
+Full screen rewritten as a button (two places), both padlock sentences
+now include it, footer v1.35; screenshots not retaken.
+
+**Owner check PASSED 2026-10-17**, real Chrome, local file: pause →
+Full screen → resume → pause → off → resume → save with the corner
+picture returning exactly where it was; padlock while recording;
+webcam-only grey-out with the right note; button look and placement;
+guide lines. Working pattern held: Sonnet drafted in scratch and
+pre-verified on copies with the real harness; orchestrator review
+amended one stale comment and rendered the button before any repo
+write.
+
 ---
 
 ## Known limitations
