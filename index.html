@@ -808,6 +808,7 @@
           <option value="rectangle">Rectangle</option>
           <option value="square">Square</option>
           <option value="circle">Circle</option>
+          <option value="full">Full screen</option>
         </select>
         <label class="mirror-toggle">
           <input type="checkbox" id="mirrorToggle" onchange="onMirrorChanged()"> Mirror webcam
@@ -949,7 +950,7 @@
 
 <footer>
   <div>Click "Select Screen" to choose which screen, window, or tab to record. Your browser will show a popup — this is a required security step the app cannot bypass.</div>
-  <div style="margin-top: 0.5rem;">DidaRec <span id="appVersion">v1.33</span> by DidaWorks &middot; Open source &middot; MIT License &middot; No account, no server, no watermark, no time limits</div>
+  <div style="margin-top: 0.5rem;">DidaRec <span id="appVersion">v1.34</span> by DidaWorks &middot; Open source &middot; MIT License &middot; No account, no server, no watermark, no time limits</div>
 </footer>
 
 <script>
@@ -1611,7 +1612,8 @@ function updateToggleUI() {
   lockUI('toggleMic', "This recording started without the mic, so it can't be added now.");
   if (state.recording && !pausedEdit) document.getElementById('toggleScreen').title = 'Locked while recording — pause and use Change screen';
   document.getElementById('cameraSelect').disabled = disabled || !state.sources.camera;
-  document.getElementById('pipShapeSelect').disabled = disabled || !state.sources.camera;
+  // v1.34: the shape list (incl. Full screen) can change while PAUSED, like Webcam and Mic.
+  document.getElementById('pipShapeSelect').disabled = (disabled && !pausedEdit) || !state.sources.camera;
   document.getElementById('mirrorToggle').disabled = disabled || !state.sources.camera;
   document.getElementById('micSelect').disabled = disabled || !state.sources.mic;
   document.getElementById('qualitySelect').disabled = disabled;
@@ -1893,8 +1895,11 @@ async function captureScreen() {
 async function captureCamera() {
   const constraints = {
     video: {
-      width: { ideal: 320 },
-      height: { ideal: 240 },
+      // v1.34: 720p ideal — sharp enough to fill the frame (Full screen,
+      // webcam-only); the corner picture simply scales down. "ideal" lets a
+      // webcam that can't do it give what it has.
+      width: { ideal: 1280 },
+      height: { ideal: 720 },
       frameRate: { ideal: 30 },
     },
     audio: false,
@@ -2002,7 +2007,7 @@ const pipState = {
   xFrac: 0.78,    // ~(1 - 0.2 - margin)
   yFrac: 0.72,
   widthFrac: 0.2, // fraction of canvas width
-  shape: 'rectangle', // 'rectangle', 'square', or 'circle'
+  shape: 'rectangle', // 'rectangle', 'square', 'circle', or 'full' (webcam fills the frame — REVIEW #42)
   mirror: false,  // flip horizontally (applies to preview AND recording — same canvas)
   dragging: false,
   resizing: false,
@@ -2018,7 +2023,7 @@ try {
     if (typeof parsed.xFrac === 'number') pipState.xFrac = parsed.xFrac;
     if (typeof parsed.yFrac === 'number') pipState.yFrac = parsed.yFrac;
     if (typeof parsed.widthFrac === 'number') pipState.widthFrac = Math.max(0.08, Math.min(0.5, parsed.widthFrac));
-    if (['rectangle', 'square', 'circle'].includes(parsed.shape)) pipState.shape = parsed.shape;
+    if (['rectangle', 'square', 'circle', 'full'].includes(parsed.shape)) pipState.shape = parsed.shape;
     if (typeof parsed.mirror === 'boolean') pipState.mirror = parsed.mirror;
   }
 } catch (e) { /* ignore */ }
@@ -2081,7 +2086,7 @@ function isInPip(mx, my) {
 }
 
 canvas.addEventListener('mousedown', (e) => {
-  if (!state.cameraStream || !state.sources.screen) return;
+  if (!state.cameraStream || !state.sources.screen || pipState.shape === 'full') return;
   const { x, y } = canvasCoords(e);
 
   if (isInResizeHandle(x, y)) {
@@ -2099,7 +2104,7 @@ canvas.addEventListener('mousedown', (e) => {
 });
 
 canvas.addEventListener('mousemove', (e) => {
-  if (!state.cameraStream || !state.sources.screen) {
+  if (!state.cameraStream || !state.sources.screen || pipState.shape === 'full') {
     canvas.style.cursor = '';
     return;
   }
@@ -2175,6 +2180,23 @@ function startCompositing() {
     canvas.height = 720;
   }
 
+  // The camera fitted inside the whole frame, centred, mirrored if asked.
+  function drawCameraFull() {
+    const vw = cameraVideo.videoWidth, vh = cameraVideo.videoHeight;
+    const sc = (vw && vh) ? Math.min(canvas.width / vw, canvas.height / vh) : 0;
+    const dw = sc ? Math.round(vw * sc) : canvas.width, dh = sc ? Math.round(vh * sc) : canvas.height;
+    const dx = Math.round((canvas.width - dw) / 2), dy = Math.round((canvas.height - dh) / 2);
+    if (pipState.mirror) {
+      ctx.save();
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(cameraVideo, dx, dy, dw, dh); // mirrored about the frame's centre, so dx stays dx
+      ctx.restore();
+    } else {
+      ctx.drawImage(cameraVideo, dx, dy, dw, dh);
+    }
+  }
+
   function drawOneFrame() {
     // Clear
     ctx.fillStyle = '#000';
@@ -2185,7 +2207,11 @@ function startCompositing() {
     // a shared window resized mid-recording) is fitted inside it at its own
     // proportions, centred, over the black fill above — never stretched.
     // Same shape (within the 1080p cap's rounding): full canvas, as before.
-    if (state.screenStream && screenVideo.readyState >= 2) {
+    // With the webcam filling the frame (REVIEW #42 "Full screen"), the screen
+    // is not drawn at all — it stays live and comes back when the shape does;
+    // drawing it under the camera would show slide edges in the bars.
+    const cameraFills = state.cameraStream && cameraVideo.readyState >= 2 && (!state.sources.screen || pipState.shape === 'full');
+    if (state.screenStream && screenVideo.readyState >= 2 && !cameraFills) {
       const vw = screenVideo.videoWidth, vh = screenVideo.videoHeight;
       const s = (vw && vh) ? Math.min(canvas.width / vw, canvas.height / vh) : 0;
       const dw = Math.round(vw * s), dh = Math.round(vh * s);
@@ -2198,17 +2224,13 @@ function startCompositing() {
 
     // Draw webcam — full-canvas if camera-only, PiP overlay if screen is on
     if (state.cameraStream && cameraVideo.readyState >= 2) {
-      if (!state.sources.screen) {
-        // Camera-only mode: draw full canvas, no clip
-        if (pipState.mirror) {
-          ctx.save();
-          ctx.translate(canvas.width, 0);
-          ctx.scale(-1, 1);
-          ctx.drawImage(cameraVideo, 0, 0, canvas.width, canvas.height);
-          ctx.restore();
-        } else {
-          ctx.drawImage(cameraVideo, 0, 0, canvas.width, canvas.height);
-        }
+      if (!state.sources.screen || pipState.shape === 'full') {
+        // Webcam fills the frame: camera-only, or the "Full screen" shape
+        // (REVIEW #42, v1.34). Fitted at its own proportions over the black
+        // fill — bars, never a stretch (owner choice: bars, not crop). A
+        // shared screen stays live underneath; switching the shape back
+        // brings it into view again.
+        drawCameraFull();
       } else {
         // PiP overlay — position and size from pipState (draggable/resizable)
         const pip = getPipRect();
@@ -4812,6 +4834,14 @@ function pauseResume() {
     if (state.screenLost) {
       // Paused by the browser's "Stop sharing": there is no screen to record.
       showError('Choose Change screen first — screen sharing has stopped.');
+      return;
+    }
+    if (state.mediaRecorder.state === 'inactive') {
+      // The recorder died silently during the pause (the same silent-death
+      // mode Stop's dead-recorder branch catches). resume() would throw and
+      // the click would do nothing. Route to Stop's salvage instead: the
+      // "stopped by itself" message + save what was recorded so far.
+      stopRecording();
       return;
     }
     state.mediaRecorder.resume();
