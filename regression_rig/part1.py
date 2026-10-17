@@ -430,7 +430,7 @@ def s34_paused_sources(r):
 
 
 def s42_fullscreen(r):
-    """REVIEW #42 (v1.34): webcam Full screen shape, switchable while paused; bars not stretch; 720p capture."""
+    """REVIEW #42 (v1.34) / #46 (v1.35): webcam Full screen BUTTON (not a shape-list entry), switchable while paused; bars not stretch; 720p capture."""
     r.start()
     # (a) real fake camera (not the canvas stand-in): the capture is 720p-ish, not 320x240
     r.page.click("#toggleCamera"); r.page.wait_for_function("!!state.cameraStream"); r.wait(500)
@@ -442,33 +442,45 @@ def s42_fullscreen(r):
     r.page.click("#toggleCamera"); r.page.wait_for_function("!!state.cameraStream"); r.wait(800)
     q = pip(r)
     L = [q["x"] + q["w"] * 0.2, q["y"] + q["h"] * 0.5]
-    SEL = "() => document.getElementById('pipShapeSelect').disabled"
+    SEL = "() => document.getElementById('toggleFullscreen').disabled"
+    LIT = "() => document.getElementById('toggleFullscreen').classList.contains('active')"
+    # the shape list keeps only the three corner shapes (Full screen is the button now)
+    shape_opts = r.ev("Array.from(document.getElementById('pipShapeSelect').options).map(o => o.value).join(',')")
     r.record(4)
     locked = r.ev(SEL)
     r.page.click("#btnPause"); r.wait(300)
     t1 = secs(r.ui()["timer"])
     unlocked = r.ev(SEL)
-    r.page.select_option("#pipShapeSelect", "full"); r.wait(400)
+    r.page.click("#toggleFullscreen"); r.wait(400)
+    fs_mid = r.ev("pipState.fullscreen")
     shape_mid = r.ev("pipState.shape")
+    lit_mid = r.ev(LIT)
+    saved_mid = r.ev("JSON.parse(localStorage.getItem('pipLayout') || '{}')")
     r.page.click("#btnPause"); r.wait(4000)
     locked_again = r.ev(SEL)
     r.page.click("#btnPause"); r.wait(300)
     t2 = secs(r.ui()["timer"])
-    r.page.select_option("#pipShapeSelect", "rectangle"); r.wait(400)
+    r.page.click("#toggleFullscreen"); r.wait(400)
+    fs_after = r.ev("pipState.fullscreen")
+    lit_after = r.ev(LIT)
     r.page.click("#btnPause"); r.wait(4000)
     r.stop_save("42_fullscreen.webm")
-    saved_shape = r.ev("JSON.parse(localStorage.getItem('pipLayout') || '{}').shape")
+    saved = r.ev("JSON.parse(localStorage.getItem('pipLayout') || '{}')")
     pr = r.probe("42_fullscreen.webm", times=[t1 / 2.0, (t1 + t2) / 2.0, t2 + 2.0], points=[L, [0.5, 0.5], [0.05, 0.5], [0.95, 0.5]])
     p1, p2, p3 = [s["pts"] for s in pr["samples"]]
     MAG = (255, 0, 255)
     pip_before = near(p1[0], RED) and not near(p1[1], MAG)
     full_mid = near(p2[1], MAG) and sum(p2[2]) < 30 and sum(p2[3]) < 30 and (near(p2[0], RED) or near(p2[0], GREEN) or sum(p2[0]) < 30)
     pip_after = near(p3[0], RED) and not near(p3[1], MAG)
-    ok = (st.get("width", 0) >= 640 and locked is True and unlocked is False and shape_mid == "full" and locked_again is True
-          and saved_shape == "rectangle" and pip_before and full_mid and pip_after and pr["w"] == 1280 and pr["h"] == 720)
+    ok = (st.get("width", 0) >= 640 and shape_opts == "rectangle,square,circle"
+          and locked is True and unlocked is False and fs_mid is True and shape_mid == "rectangle" and lit_mid is True
+          and saved_mid.get("fullscreen") is True and saved_mid.get("shape") == "rectangle"
+          and locked_again is True and fs_after is False and lit_after is False
+          and saved.get("fullscreen") is False and saved.get("shape") == "rectangle"
+          and pip_before and full_mid and pip_after and pr["w"] == 1280 and pr["h"] == 720)
     r.check("42.1", ok,
-            "extra (v1.34, REVIEW #42): camera captured at %sx%s (was 320x240); shape list locked while recording=%s, while paused=%s, after Resume=%s; Full screen chosen while paused=%s. Saved file %dx%d: before = corner picture (pixel %s), middle = webcam fills the frame with black bars (centre %s, left bar %s, right bar %s), after = corner picture again (pixel %s); shape saved for next time='%s'"
-            % (st.get("width"), st.get("height"), locked, unlocked, locked_again, shape_mid == "full", pr["w"], pr["h"], p1[0], p2[1], p2[2], p2[3], p3[0], saved_shape))
+            "extra (v1.35, REVIEW #46): camera captured at %sx%s (was 320x240); shape list holds '%s'; Full screen button locked while recording=%s, while paused=%s, after Resume=%s; clicked on while paused -> on=%s and lit=%s, corner shape still '%s', saved layout %s; clicked off after Resume-pause -> on=%s, lit=%s. Saved file %dx%d: before = corner picture (pixel %s), middle = webcam fills the frame with black bars (centre %s, left bar %s, right bar %s), after = corner picture again (pixel %s); layout saved for next time %s"
+            % (st.get("width"), st.get("height"), shape_opts, locked, unlocked, locked_again, fs_mid, lit_mid, shape_mid, saved_mid, fs_after, lit_after, pr["w"], pr["h"], p1[0], p2[1], p2[2], p2[3], p3[0], saved))
 
 
 def s5_noaudio(r):

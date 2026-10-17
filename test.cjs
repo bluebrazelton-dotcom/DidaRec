@@ -6855,12 +6855,12 @@ Real cue text
   });
 
   // ---------- REVIEW #42 (v1.34): webcam full screen ----------
-  await scenario('GD the webcam fills the frame at its own proportions with bars (never stretched): camera-only, and the Full screen shape over a live screen; a corner shape draws the overlay again', async () => {
+  await scenario('GD the webcam fills the frame at its own proportions with bars (never stretched): camera-only, and the Full screen button over a live screen; a corner shape draws the overlay again', async () => {
     const calls = [];
     const origDraw = ctxStub.drawImage;
     ctxStub.drawImage = (...a) => { calls.push(a); };
     const cv = api.cameraVideo, sv = api.screenVideo;
-    const saved = { cw: cv.videoWidth, ch: cv.videoHeight, sw: sv.videoWidth, sh: sv.videoHeight, shape: api.pipState.shape };
+    const saved = { cw: cv.videoWidth, ch: cv.videoHeight, sw: sv.videoWidth, sh: sv.videoHeight, shape: api.pipState.shape, fullscreen: api.pipState.fullscreen };
     const camDraws = () => calls.filter(a => a[0] === cv).map(a => a.slice(1, 5));
     const canvasMock = documentMock.getElementById('previewCanvas');
 
@@ -6882,13 +6882,14 @@ Real cue text
     state.sources = { screen: true, camera: true, mic: false };
     state.screenStream = makeStream([{ kind: 'video', getSettings: () => ({ width: 1280, height: 720 }), addEventListener() {}, removeEventListener() {}, stop() {} }]);
     sv.videoWidth = 1280; sv.videoHeight = 720; cv.videoWidth = 640; cv.videoHeight = 480;
-    api.pipState.shape = 'full';
+    api.pipState.fullscreen = true;
     calls.length = 0;
     api.startCompositing();
     assert(!calls.some(a => a[0] === sv), 'GD: the shared screen is not drawn while the webcam fills the frame (it stays live; the bars are black)');
     d = camDraws().pop();
-    assert(d && d.join() === '160,0,960,720', 'GD: Full screen shape — camera fitted over the screen with bars (got ' + JSON.stringify(d) + ')');
-    // back to a corner shape: the overlay is drawn small again
+    assert(d && d.join() === '160,0,960,720', 'GD: Full screen on — camera fitted over the screen with bars (got ' + JSON.stringify(d) + ')');
+    // Full screen off: the overlay is drawn small again, in the shape that was chosen
+    api.pipState.fullscreen = false;
     api.pipState.shape = 'rectangle';
     calls.length = 0;
     state.drawFrame();
@@ -6897,26 +6898,40 @@ Real cue text
     api.stopCompositing();
 
     ctxStub.drawImage = origDraw;
-    cv.videoWidth = saved.cw; cv.videoHeight = saved.ch; sv.videoWidth = saved.sw; sv.videoHeight = saved.sh; api.pipState.shape = saved.shape;
+    cv.videoWidth = saved.cw; cv.videoHeight = saved.ch; sv.videoWidth = saved.sw; sv.videoHeight = saved.sh; api.pipState.shape = saved.shape; api.pipState.fullscreen = saved.fullscreen;
     state.screenStream = null; state.cameraStream = null;
   });
 
-  await scenario('GE the shape list is locked while recording, unlocks while paused (so Full screen can be chosen mid-recording), locks again on Resume; the choice is saved like the other shapes', async () => {
-    const sel = el29('pipShapeSelect');
-    const saved = api.pipState.shape;
+  await scenario('GE the Full screen button is locked while recording, unlocks while paused (so it can be switched mid-recording), locks again on Resume; the choice is saved with the layout and never changes the corner shape', async () => {
+    const btn = el29('toggleFullscreen');
+    const saved = { shape: api.pipState.shape, fs: api.pipState.fullscreen };
+    api.pipState.fullscreen = false; api.pipState.shape = 'circle';
     await startScreenRecWith({ mic: false, cam: true });
-    assert(sel.disabled === true, 'GE: locked while recording');
+    assert(btn.disabled === true && btn.classList.contains('locked'), 'GE: locked (padlock) while recording');
+    assert(/pause to change/.test(btn.title), 'GE: hover note says pause to change (got ' + btn.title + ')');
+    sandbox.toggleFullscreen();
+    assert(api.pipState.fullscreen === false, 'GE: a click while locked does nothing');
     sandbox.pauseResume();
-    assert(sel.disabled === false, 'GE: unlocked while paused');
-    sel.value = 'full'; sandbox.onPipShapeChanged();
-    assert(api.pipState.shape === 'full', 'GE: Full screen chosen while paused');
-    assert(/"shape":"full"/.test(sandbox.localStorage.getItem('pipLayout') || ''), 'GE: saved for next time (got ' + sandbox.localStorage.getItem('pipLayout') + ')');
+    assert(btn.disabled === false && !btn.classList.contains('locked') && btn.title === '', 'GE: unlocked while paused');
+    sandbox.toggleFullscreen();
+    assert(api.pipState.fullscreen === true, 'GE: Full screen switched on while paused');
+    assert(api.pipState.shape === 'circle', 'GE: the corner shape is untouched by Full screen');
+    const stored = JSON.parse(sandbox.localStorage.getItem('pipLayout') || '{}');
+    assert(stored.fullscreen === true && stored.shape === 'circle', 'GE: saved for next time (got ' + sandbox.localStorage.getItem('pipLayout') + ')');
+    sandbox.toggleFullscreen();
+    assert(api.pipState.fullscreen === false && JSON.parse(sandbox.localStorage.getItem('pipLayout')).fullscreen === false, 'GE: switching it off again is saved too, back to the corner picture');
+    sandbox.toggleFullscreen();
     sandbox.pauseResume();
-    assert(sel.disabled === true, 'GE: locked again after Resume');
+    assert(btn.disabled === true && btn.classList.contains('locked'), 'GE: locked again after Resume');
     await sandbox.stopRecording();
     await drain();
-    assert(sel.disabled === false, 'GE: usable again when idle');
-    sel.value = saved; sandbox.onPipShapeChanged();
+    // after Stop the screen share ends, so with the webcam still on the app is back in
+    // webcam-only (the button is off for THAT reason, not the recording lock)
+    assert(!btn.classList.contains('locked') && !/pause to change/.test(btn.title), 'GE: the recording lock is gone when idle (got title ' + btn.title + ')');
+    state.screenStream = makeStream([{ kind: 'video', stop() {} }]); state.sources = { screen: true, camera: true, mic: false }; sandbox.updateToggleUI();
+    assert(btn.disabled === false, 'GE: usable again when idle with a screen and webcam');
+    api.pipState.shape = saved.shape; api.pipState.fullscreen = saved.fs;
+    state.sources = { screen: true, camera: false, mic: false }; sandbox.updateToggleUI();
   });
 
   await scenario('GF the camera is requested at 720p (ideal), so it is sharp enough to fill the frame', async () => {
@@ -6954,6 +6969,110 @@ Real cue text
     } finally {
       sandbox.finalizeRecording = origFinalize;
     }
+  });
+
+  // ---------- REVIEW #46 (v1.35): Full screen is a button, not a shape-list entry ----------
+  await scenario('GH the shape list is back to Rectangle/Square/Circle (no Full screen entry); a v1.34 layout saved with shape "full" loads as Full screen on + Rectangle; a new layout round-trips; garbage is ignored', async () => {
+    const shapeSel = html.match(/<select[^>]*id="pipShapeSelect"[\s\S]*?<\/select>/)[0];
+    assert(!/value="full"/.test(shapeSel) && /value="rectangle"/.test(shapeSel) && /value="square"/.test(shapeSel) && /value="circle"/.test(shapeSel), 'GH: the shape list holds only the three corner shapes');
+    assert(/<button[^>]*id="toggleFullscreen"[^>]*onclick="toggleFullscreen\(\)"[\s\S]*?<\/button>/.exec(html)[0].includes('Full screen'), 'GH: a Full screen button exists');
+    const saved = { shape: api.pipState.shape, fs: api.pipState.fullscreen, x: api.pipState.xFrac, w: api.pipState.widthFrac, m: api.pipState.mirror };
+    // v1.34 stored Full screen as a shape
+    sandbox.localStorage.setItem('pipLayout', JSON.stringify({ xFrac: 0.3, yFrac: 0.4, widthFrac: 0.25, shape: 'full', mirror: true }));
+    api.pipState.shape = 'circle'; api.pipState.fullscreen = false;
+    sandbox.loadPipLayout();
+    assert(api.pipState.fullscreen === true && api.pipState.shape === 'rectangle', 'GH: stored shape "full" loads as fullscreen on + Rectangle (got ' + api.pipState.shape + ', ' + api.pipState.fullscreen + ')');
+    assert(api.pipState.xFrac === 0.3 && api.pipState.widthFrac === 0.25 && api.pipState.mirror === true, 'GH: the rest of the old layout survives the migration');
+    // the next save writes the new format
+    sandbox.savePipLayout();
+    const re = JSON.parse(sandbox.localStorage.getItem('pipLayout'));
+    assert(re.shape === 'rectangle' && re.fullscreen === true, 'GH: re-saved in the new format (got ' + sandbox.localStorage.getItem('pipLayout') + ')');
+    // new format round-trips; Full screen off keeps the corner shape
+    sandbox.localStorage.setItem('pipLayout', JSON.stringify({ shape: 'square', fullscreen: false }));
+    api.pipState.fullscreen = true;
+    sandbox.loadPipLayout();
+    assert(api.pipState.fullscreen === false && api.pipState.shape === 'square', 'GH: new format loads as saved');
+    sandbox.localStorage.setItem('pipLayout', JSON.stringify({ shape: 'circle', fullscreen: true }));
+    sandbox.loadPipLayout();
+    assert(api.pipState.fullscreen === true && api.pipState.shape === 'circle', 'GH: Full screen on with a Circle corner shape loads as saved');
+    // junk values are ignored
+    sandbox.localStorage.setItem('pipLayout', JSON.stringify({ shape: 'hexagon', fullscreen: 'yes' }));
+    sandbox.loadPipLayout();
+    assert(api.pipState.fullscreen === true && api.pipState.shape === 'circle', 'GH: an unknown shape / non-boolean flag leaves the current values alone');
+    api.pipState.shape = saved.shape; api.pipState.fullscreen = saved.fs; api.pipState.xFrac = saved.x; api.pipState.widthFrac = saved.w; api.pipState.mirror = saved.m;
+  });
+
+  await scenario('GI the Full screen button is disabled with no webcam, and in webcam-only mode (the webcam already fills the picture) with a plain-language note; a screen brings it back', async () => {
+    const btn = el29('toggleFullscreen');
+    const saved = { fs: api.pipState.fullscreen };
+    api.pipState.fullscreen = true;
+    // no webcam
+    state.recording = false; state.paused = false;
+    state.screenStream = makeStream([{ kind: 'video', stop() {} }]);
+    state.sources = { screen: true, camera: false, mic: false };
+    sandbox.updateToggleUI();
+    assert(btn.disabled === true && !btn.classList.contains('locked') && !btn.classList.contains('active'), 'GI: no webcam — disabled, no padlock, not lit');
+    assert(btn.title && !/chunk|segment|stitch|session|reload|refresh/i.test(btn.title), 'GI: no-webcam note is plain (got ' + btn.title + ')');
+    sandbox.toggleFullscreen();
+    assert(api.pipState.fullscreen === true, 'GI: a click while disabled changes nothing');
+    // webcam + screen
+    state.sources = { screen: true, camera: true, mic: false };
+    sandbox.updateToggleUI();
+    assert(btn.disabled === false && btn.title === '', 'GI: webcam + screen — enabled');
+    // webcam-only: webcam on, no screen selected (screen mode is derived)
+    state.screenStream = null;
+    sandbox.syncScreenMode();
+    assert(state.sources.screen === false && state.sources.camera === true, 'GI precondition: webcam-only is derived');
+    sandbox.updateToggleUI();
+    assert(btn.disabled === true, 'GI: webcam-only — disabled');
+    assert(!btn.classList.contains('locked'), 'GI: webcam-only is not a recording lock — no padlock');
+    assert(/webcam already fills/i.test(btn.title) && !/chunk|segment|stitch|session|reload|refresh|error/i.test(btn.title), 'GI: webcam-only note explains why in plain words (got ' + btn.title + ')');
+    assert(!btn.classList.contains('active'), 'GI: not lit in webcam-only — it has no effect there');
+    sandbox.toggleFullscreen();
+    assert(api.pipState.fullscreen === true, 'GI: a click in webcam-only changes nothing');
+    // a screen is selected again: back on, and still remembering the choice
+    state.screenStream = makeStream([{ kind: 'video', stop() {} }]);
+    sandbox.syncScreenMode();
+    sandbox.updateToggleUI();
+    assert(btn.disabled === false && btn.classList.contains('active') && btn.title === '', 'GI: with a screen again the button is enabled and lit as before');
+    // a paused webcam-only recording: never editable
+    state.screenStream = null; sandbox.syncScreenMode();
+    state.recording = true; state.paused = true;
+    sandbox.updateToggleUI();
+    assert(btn.disabled === true && !btn.classList.contains('locked') && /webcam already fills/i.test(btn.title), 'GI: a paused webcam-only recording keeps it disabled, with the same note and no padlock');
+    state.recording = false; state.paused = false;
+    state.screenStream = null; state.sources = { screen: true, camera: false, mic: false };
+    api.pipState.fullscreen = saved.fs;
+    sandbox.updateToggleUI();
+  });
+
+  await scenario('GJ the Full screen button is lit exactly when Full screen is in effect: clicking toggles pipState.fullscreen and the light together; loading a saved layout lights it; clicking never changes the corner shape or size', async () => {
+    const btn = el29('toggleFullscreen');
+    const saved = { fs: api.pipState.fullscreen, shape: api.pipState.shape, w: api.pipState.widthFrac };
+    state.recording = false; state.paused = false;
+    state.screenStream = makeStream([{ kind: 'video', stop() {} }]);
+    state.sources = { screen: true, camera: true, mic: false };
+    api.pipState.fullscreen = false; api.pipState.shape = 'circle'; api.pipState.widthFrac = 0.33;
+    sandbox.updateToggleUI();
+    assert(!btn.classList.contains('active'), 'GJ: unlit when off');
+    sandbox.toggleFullscreen();
+    assert(api.pipState.fullscreen === true && btn.classList.contains('active'), 'GJ: click -> on and lit');
+    assert(api.pipState.shape === 'circle' && api.pipState.widthFrac === 0.33, 'GJ: corner shape and size remembered while on');
+    sandbox.toggleFullscreen();
+    assert(api.pipState.fullscreen === false && !btn.classList.contains('active'), 'GJ: click again -> off and unlit');
+    assert(api.pipState.shape === 'circle' && api.pipState.widthFrac === 0.33, 'GJ: back to the last corner shape and size');
+    // loading a saved Full screen layout lights the button
+    sandbox.localStorage.setItem('pipLayout', JSON.stringify({ shape: 'rectangle', fullscreen: true }));
+    sandbox.loadPipLayout();
+    sandbox.updateToggleUI();
+    assert(btn.classList.contains('active'), 'GJ: a loaded Full screen layout lights the button');
+    // webcam off: not in effect, so unlit even though the choice is kept
+    state.sources.camera = false;
+    sandbox.updateToggleUI();
+    assert(!btn.classList.contains('active') && api.pipState.fullscreen === true, 'GJ: webcam off — unlit, but the choice is kept');
+    state.screenStream = null; state.sources = { screen: true, camera: false, mic: false };
+    api.pipState.fullscreen = saved.fs; api.pipState.shape = saved.shape; api.pipState.widthFrac = saved.w;
+    sandbox.updateToggleUI();
   });
 
   console.log('\n================  ' + passed + ' passed, ' + failed + ' failed  ================');
