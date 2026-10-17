@@ -2550,6 +2550,59 @@ opens the picker and the webcam returns to the corner; webcam-only
 recording and playback work. Noted for v1.34: the webcam is stretched
 when it fills the frame.
 
+### v1.34 — Webcam full screen (#42); Resume salvages a dead recorder (#45) (2026-10-17)
+
+**Full screen (#42).** A fourth entry in the webcam shape list: the
+webcam fills the frame, fitted at its own proportions over black bars —
+never stretched (owner choice: bars, not crop). Switchable before
+recording and while PAUSED — the shape list now unlocks while paused,
+the same rule as Webcam and Mic (v1.30) — and locks again on Resume.
+While the webcam fills the frame the shared screen is not drawn at all:
+it stays live underneath and returns the moment the shape is switched
+back (drawing it under the camera would show slide edges in the bars).
+The camera is captured at 1280×720 ideal from the start (was 320×240),
+so it is sharp enough to fill the frame and no mid-pause re-open is
+needed; webcam-only mode, which used to stretch the camera across the
+frame, is fixed by the same fitted draw. Drag/resize is a no-op in
+Full screen (there is no corner picture to move). The choice persists
+in pipLayout like the other shapes.
+
+**Resume on a dead recorder (#45, owner report 2026-10-17).** The owner
+paused in Chrome and Resume did nothing at all. Reproduced with the rig
+in real Chrome: a recorder that dies silently during a pause goes
+inactive with no events, and the resume branch called
+mediaRecorder.resume() unguarded — the InvalidStateError aborted the
+handler before any UI update, a perfectly dead click. Latent since
+pause shipped. Fix: the resume branch detects the inactive recorder and
+routes to stopRecording()'s existing dead-recorder salvage ("The
+recording stopped by itself. Saving what was recorded so far."); the
+Resume click supplies the user gesture Chrome's save dialog needs
+(#29). The owner's recording had already survived via the kept
+recording banner — the fix turns the dead click into the honest
+salvage. What killed the recorder is unconfirmed (likely system sleep
+during the pause); the salvage covers any cause.
+
+**Verification.** Harness: **199 scenarios / 1425 assertions** (GD/GE/GF
+new for #42, GG new for #45). Rig, Chrome: parts 1–3 on the working
+copy 2026-10-05 — 67/40/17, no failures, including the new end-to-end
+42.1 (720p capture settings; shape list locked → unlocked at Pause →
+locked at Resume; saved-file pixels show corner picture → full-frame
+webcam with black bars → corner picture; shape persisted). Part 1
+re-run 2026-10-17 after the #45 fix: 64 PASS, 2 HUMAN (8.1/8.2
+background tab, as always), 1 SKIP (9.2), no failures. The Resume
+dead-click repro re-run on the fixed file shows the salvage message
+and zero page errors. Guide: two Full screen lines + footer version;
+screenshots not retaken (the new text contradicts nothing shown).
+Firefox and part 4 not run.
+
+**Owner check PASSED 2026-10-17**, real Chrome, local file: the pause →
+Full screen → resume → back flow with the saved file's corner → full →
+corner sequence; webcam-only sharpness; Mirror in Full screen; the
+guide's two new lines — all passed. The corner layout's return to its
+last position, shape and size was called out as working well. Follow-on
+idea raised during the check: a faster one-click way to flip Full
+screen on and off (see REVIEW).
+
 ---
 
 ## Known limitations

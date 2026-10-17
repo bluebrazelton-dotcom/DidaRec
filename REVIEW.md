@@ -940,7 +940,7 @@ simply "webcam on, no screen selected", with Record available and Select
 Screen always visible. Replaces the four-meanings logic; setup controls only,
 not recording or saving. Guide's webcam-only answer changes with it.
 
-### 42. Webcam full screen — feature — OPEN, queued as v1.34 (after #41)
+### 42. Webcam full screen — feature — ✓ DONE v1.34 (2026-10-17)
 
 Owner, 2026-10-05: let the webcam fill the frame, switchable before recording
 and while PAUSED (owner decision: pause-only, same rule as Change screen /
@@ -951,6 +951,13 @@ is captured at about 320×240 today (fine for the corner, soft at full frame),
 so full screen must re-open it at a higher resolution; and the camera must be
 fitted or cropped, not stretched — webcam-only mode stretches it to the frame
 today, so this fixes that too.
+
+Shipped v1.34 as planned, with one simplification: instead of re-opening
+the camera at a higher resolution when Full screen is chosen, the camera
+is simply captured at 1280×720 ideal from the start — no mid-pause
+re-open, and webcam-only sharpness improves everywhere. Fitted with
+bars, never cropped or stretched (owner choice). Harness GD/GE/GF; rig
+42.1 end-to-end. Owner check pending at the v1.34 gate.
 
 ### 43. Review page: see every part and work on one at a time — FUTURE, to explore (owner, 2026-10-05)
 
@@ -974,6 +981,26 @@ to a project after its video is saved (today the stored parts are deleted);
 browser storage can be cleared or run out, so a project kept only there can
 be lost — consider an export/import project file as the durable form; and
 how this sits with #43's per-part editing.
+
+### 45. Resume did nothing when the recorder had died during a pause — ✓ FIXED in the working copy (2026-10-17, rides with v1.34)
+
+Owner report 2026-10-17 (Chrome, local v1.34 build): paused deliberately,
+clicked Resume, nothing happened at all. Root cause, reproduced with the
+rig in real Chrome: a recorder that dies silently during a pause goes
+inactive with no events (the same silent-death mode Stop's dead-recorder
+branch and start-verify already catch), and pauseResume's resume branch
+called mediaRecorder.resume() unguarded — the InvalidStateError aborted
+the handler before any UI update, so the click looked dead. Latent since
+pause shipped; unrelated to v1.34's changes. Fix: the resume branch now
+detects the inactive recorder and routes to stopRecording()'s existing
+salvage ("The recording stopped by itself. Saving what was recorded so
+far."); the Resume click supplies the user gesture Chrome's save dialog
+needs (#29). Harness GG pins it (a dead resume salvages; a live paused
+recorder still resumes normally); the rig repro re-run on the fixed copy
+shows the salvage with zero page errors. The owner's recording had
+already recovered via the kept-recording banner. What killed the recorder
+is unconfirmed (likely system sleep during the pause); the salvage covers
+any cause.
 
 ### 39. "Stop sharing" now pauses instead of ending the recording (Y2) — ✓ CHANGED v1.29
 

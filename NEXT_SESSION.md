@@ -1,6 +1,16 @@
 # DidaRec — Next Session, Start Here
 
-**Newest (2026-10-05): v1.33 — the Screen button means one thing (#41
+**Newest (2026-10-17): v1.34 SHIPPED — #42 Webcam full screen + the #45
+Resume dead-click fix.** Harness **199 / 1425** (GD/GE/GF/GG new). Rig
+Chrome parts 1–3 clean (42.1 new, end-to-end); part 1 re-run clean
+after #45. Owner check PASSED 2026-10-17 (Chrome, local file), then
+committed and pushed.
+**Queue now:** (1) Owner-raised during the check: a faster one-click
+Full screen on/off toggle — design decision first (see REVIEW).
+(2) Scripted demo video. (3) Optional Firefox + part-4 rig re-run.
+Future, to explore: #43, #44.
+
+**Before that (2026-10-05): v1.33 — the Screen button means one thing (#41
 DONE).** Harness **197 / 1405** (EI2 new). Owner check passed on the local
 file.
 - ● **Screen mode is DERIVED, not toggled** (v1.33): `syncScreenMode()`
@@ -12,9 +22,8 @@ file.
   Screen click" (EI) and the at-least-one guard (AG/AI) are history.
 - ● The webcam is captured at ~320×240 and drawn STRETCHED when it fills the
   frame — v1.34 (#42) fixes both.
-**Queue now:** (1) **#42 Webcam full screen, v1.34** (see below).
-(2) Scripted demo video. (3) Optional Firefox + part-4 rig re-run.
-Future, to explore: #43, #44 (see below).
+(Its queue is superseded by the v1.34 block above; #42 and the #45 fix
+are both in the working copy.)
 
 **Before that, the same day: v1.32 — plain-language messages (#40 DONE).**
 Harness **195 / 1392** (prefixes end at GC). Owner check passed on the
