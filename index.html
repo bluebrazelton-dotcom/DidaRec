@@ -1079,7 +1079,7 @@
 
 <footer>
   <div>Click "Select Screen" to choose which screen, window, or tab to record. Your browser will show a popup — this is a required security step the app cannot bypass.</div>
-  <div style="margin-top: 0.5rem;">DidaRec <span id="appVersion">v1.37</span> by DidaWorks &middot; Open source &middot; MIT License &middot; No account, no server, no watermark, no time limits</div>
+  <div style="margin-top: 0.5rem;">DidaRec <span id="appVersion">v1.38</span> by DidaWorks &middot; Open source &middot; MIT License &middot; No account, no server, no watermark, no time limits</div>
 </footer>
 
 <script>
@@ -1101,6 +1101,10 @@ const state = {
                              // is currently wired to — see wireScreenEndedListener
   screenEndedHandler: null, // the handler itself, so it can be removed by reference
   screenLost: false,        // true while paused because the browser's "Stop sharing" ended the capture
+  partPaused: false,        // v1.38 (#49): paused between parts — the last part's recorder has ended
+  partMimeType: null,       // the recording's mimeType, reused by every part
+  partChunkBase: 0,         // chunks stored by the parts before the current one (for the counter)
+  partStartPromise: null,   // a Resume's startRecorderPart() in flight
   micMuted: false,          // REVIEW #34: mic muted mid-recording (while paused); sources.mic stays true
   cameraStream: null,
   audioContext: null,
@@ -4346,7 +4350,9 @@ function wireScreenEndedListener(stream) {
       // recording instead of ending it — Change screen then Resume carries
       // on in the same file. A dead recorder can't be paused; that case
       // still goes to stopRecording's salvage.
-      if (state.mediaRecorder && state.mediaRecorder.state !== 'inactive') {
+      // v1.38 (#49): paused between parts there is no live recorder, but the
+      // recording is alive — the pause just continues with no screen.
+      if (state.partPaused || (state.mediaRecorder && state.mediaRecorder.state !== 'inactive')) {
         state.screenLost = true;
         if (!state.paused) pauseResume();
         showInfoBanner('Screen sharing stopped, so the recording is paused. Choose Change screen to keep going, or Stop & save.');
@@ -4639,7 +4645,7 @@ async function verifyRecorderStarted() {
   // false yet (finalizeRecording's cleanupStreams runs in its finally,
   // asynchronously) — without this check, a verify firing in that window
   // could race a save already in flight.
-  if (!state.recording || finalizeStarted) return;
+  if (!state.recording || finalizeStarted || state.partPaused) return; // a paused part ended on purpose (#49)
   const rec = state.mediaRecorder;
 
   if (state.chunkIndex > 0) {
@@ -4835,110 +4841,17 @@ async function startRecording() {
         ? 'video/webm;codecs=vp8' + audioCodecSuffix
         : 'video/webm';
 
-    // Create session in IndexedDB
-    state.sessionId = await createSession(mimeType);
-    state.chunkIndex = 0;
-
-    // Create MediaRecorder with 1-second chunks
-    // Video bitrate from the Quality selector (default Balanced ~1.2 Mbps).
-    const videoBitrate = parseInt(document.getElementById('qualitySelect').value, 10) || 1_200_000;
-    const recorder = new MediaRecorder(combinedStream, {
-      mimeType,
-      videoBitsPerSecond: videoBitrate,
-      audioBitsPerSecond: 128_000,
-    });
-
-    // Track the last chunk write so we can await it before finalizing
-    let lastChunkWrite = Promise.resolve();
-    let writeFailed = false;
-
-    // A chunk that can't be written (most likely the IndexedDB quota is full on a long
-    // recording) must stop recording — further chunks would drop silently and corrupt the
-    // WebM. Surface a plain-language error, stop, and let onstop -> finalize save what we have
-    // (the file goes to disk via the File System Access API, which the full quota doesn't block).
-    const handleWriteFailure = (err) => {
-      if (writeFailed) return;      // react only once
-      writeFailed = true;
-      console.error('Failed to store chunk:', err);
-      const quotaFull = err && (err.name === 'QuotaExceededError' ||
-        err.name === 'NS_ERROR_DOM_QUOTA_REACHED' || (err.inner && err.inner.name === 'QuotaExceededError'));
-      showError(quotaFull
-        ? 'Storage full — stopping now and saving everything recorded so far.'
-        : 'Could not write the recording to storage — stopping now and saving everything recorded so far.');
-      try { if (recorder.state !== 'inactive') recorder.stop(); }   // -> onstop -> finalizeRecording()
-      catch (stopErr) { console.error('Could not stop recorder after write failure:', stopErr); }
-    };
-
-    recorder.ondataavailable = (e) => {
-      if (writeFailed) return;      // drop nothing new after a failure (avoids gaps)
-      if (e.data && e.data.size > 0) {
-        const idx = state.chunkIndex++;
-        lastChunkWrite = lastChunkWrite.then(async () => {
-          if (writeFailed) return;  // an earlier chunk already failed — stop writing
-          try {
-            await addChunk(state.sessionId, idx, e.data);
-            // C — a write just landed: stamp it and clear any stall warning
-            // for the episode that just ended. Added statement only; the
-            // promise chain above is untouched.
-            lastChunkWriteOkAt = Date.now();
-            writeStallWarned = false;
-            updateChunkCount(idx + 1);
-          } catch (err) {
-            handleWriteFailure(err);
-          }
-        });
-      }
-    };
-
-    recorder.onstop = async () => {
-      // Wait for the final chunk to be written before saving
-      await lastChunkWrite;
-      // F — mutually exclusive with the stop watchdog's own finalize: first
-      // to claim wins (see claimFinalize doc comment above). The watchdog is
-      // only cleared AFTER we've won the claim — NOT before the await above.
-      // If lastChunkWrite hangs (storage dead), the watchdog must stay armed
-      // so it can still salvage; clearing it before the await would silently
-      // disarm the one thing that catches a hung final write.
-      // Consequence: if the final write takes longer than STOP_WATCHDOG_MS,
-      // the watchdog finalizes without that last chunk — acceptable, since
-      // minor tail loss beats total loss, and the watchdog's own message
-      // already says "what was captured so far".
-      if (!claimFinalize()) return;
-      clearStopWatchdog();
-      await finalizeRecording();
-    };
-
-    recorder.onerror = (e) => {
-      console.error('MediaRecorder error:', e);
-      showError('Recording error: ' + (e.error?.message || 'Unknown error'));
-      // G — mirror handleWriteFailure's pattern: try to stop the recorder so
-      // onstop -> finalize salvages whatever chunks already landed. Arm the
-      // stop watchdog FIRST in case this stop() call is itself swallowed
-      // (throws, or never actually triggers onstop) — see F.
-      armStopWatchdog();
-      try { if (recorder.state !== 'inactive') recorder.stop(); }
-      catch (stopErr) { console.error('Could not stop recorder after onerror:', stopErr); }
-    };
-
-    // Start recording with 1-second timeslice
-    recorder.start(1000);
-    state.mediaRecorder = recorder;
+    // v1.38 (#49): a part = a session, a recorder with its handlers, and the
+    // start-verify / write-stall watchdogs. The first part starts here; Resume
+    // starts each later one on the same streams (startRecorderPart).
+    state.partMimeType = mimeType;
+    state.partChunkBase = 0;
+    await startRecorderPart();
     state.recording = true;
     state.paused = false;
+    state.partPaused = false;
     state.startTime = Date.now();
     state.pausedDuration = 0;
-
-    // H/C/F — fresh watchdog state for this recording (STATE HYGIENE: every
-    // one of these is also cleared in resetUI and reset here, never carried
-    // over from a previous recording).
-    finalizeStarted = false;
-    lastChunkWriteOkAt = Date.now();
-    writeStallWarned = false;
-    startVerifyAttempts = 0;
-    clearStartVerify();
-    startVerifyTimer = setTimeout(verifyRecorderStarted, START_VERIFY_MS);
-    clearWriteStallInterval();
-    writeStallIntervalId = setInterval(checkWriteStall, WRITE_STALL_CHECK_MS);
 
     // Update UI
     document.getElementById('placeholder').classList.add('hidden');
@@ -4991,8 +4904,131 @@ async function startRecording() {
   }
 }
 
+// One part: a session, a MediaRecorder on the recording's composite stream,
+// its chunk-write and stop handlers, and the start-verify / write-stall
+// watchdogs. Called by startRecording for the first part and by Resume
+// (resumeNewPart) for each later one. Everything the handlers close over
+// is per part on purpose: a part end must not be confused with a stop.
+async function startRecorderPart() {
+  const combinedStream = state.compositeStream;
+  const mimeType = state.partMimeType;
+  // Create session in IndexedDB
+  state.sessionId = await createSession(mimeType);
+  state.chunkIndex = 0;
+  // This part's own identity for its handlers (v1.38): a chunk that arrives
+  // after Resume has moved on must still go to the session it belongs to.
+  const partSessionId = state.sessionId;
+  let partIndex = 0;
+
+  // Create MediaRecorder with 1-second chunks
+  // Video bitrate from the Quality selector (default Balanced ~1.2 Mbps).
+  const videoBitrate = parseInt(document.getElementById('qualitySelect').value, 10) || 1_200_000;
+  const recorder = new MediaRecorder(combinedStream, {
+    mimeType,
+    videoBitsPerSecond: videoBitrate,
+    audioBitsPerSecond: 128_000,
+  });
+
+  // Track the last chunk write so we can await it before finalizing
+  let lastChunkWrite = Promise.resolve();
+  let writeFailed = false;
+
+  // A chunk that can't be written (most likely the IndexedDB quota is full on a long
+  // recording) must stop recording — further chunks would drop silently and corrupt the
+  // WebM. Surface a plain-language error, stop, and let onstop -> finalize save what we have
+  // (the file goes to disk via the File System Access API, which the full quota doesn't block).
+  const handleWriteFailure = (err) => {
+    if (writeFailed) return;      // react only once
+    writeFailed = true;
+    console.error('Failed to store chunk:', err);
+    const quotaFull = err && (err.name === 'QuotaExceededError' ||
+      err.name === 'NS_ERROR_DOM_QUOTA_REACHED' || (err.inner && err.inner.name === 'QuotaExceededError'));
+    showError(quotaFull
+      ? 'Storage full — stopping now and saving everything recorded so far.'
+      : 'Could not write the recording to storage — stopping now and saving everything recorded so far.');
+    try { if (recorder.state !== 'inactive') recorder.stop(); }   // -> onstop -> finalizeRecording()
+    catch (stopErr) { console.error('Could not stop recorder after write failure:', stopErr); }
+  };
+
+  recorder.ondataavailable = (e) => {
+    if (writeFailed) return;      // drop nothing new after a failure (avoids gaps)
+    if (e.data && e.data.size > 0) {
+      const idx = partIndex++;
+      if (state.mediaRecorder === recorder) state.chunkIndex = partIndex; // the watchdogs read the CURRENT part's count
+      lastChunkWrite = lastChunkWrite.then(async () => {
+        if (writeFailed) return;  // an earlier chunk already failed — stop writing
+        try {
+          await addChunk(partSessionId, idx, e.data);
+          // C — a write just landed: stamp it and clear any stall warning
+          // for the episode that just ended. Added statement only; the
+          // promise chain above is untouched.
+          lastChunkWriteOkAt = Date.now();
+          writeStallWarned = false;
+          updateChunkCount(state.partChunkBase + idx + 1); // cumulative across parts (#49)
+        } catch (err) {
+          handleWriteFailure(err);
+        }
+      });
+    }
+  };
+
+  recorder.onstop = async () => {
+    // Wait for the final chunk to be written before saving
+    await lastChunkWrite;
+    if (recorder.__partEnd) { onPartEnded(recorder); return; }   // a pause, not a stop (v1.38, #49)
+    // F — mutually exclusive with the stop watchdog's own finalize: first
+    // to claim wins (see claimFinalize doc comment above). The watchdog is
+    // only cleared AFTER we've won the claim — NOT before the await above.
+    // If lastChunkWrite hangs (storage dead), the watchdog must stay armed
+    // so it can still salvage; clearing it before the await would silently
+    // disarm the one thing that catches a hung final write.
+    // Consequence: if the final write takes longer than STOP_WATCHDOG_MS,
+    // the watchdog finalizes without that last chunk — acceptable, since
+    // minor tail loss beats total loss, and the watchdog's own message
+    // already says "what was captured so far".
+    if (!claimFinalize()) return;
+    clearStopWatchdog();
+    await finalizeRecording();
+  };
+
+  recorder.onerror = (e) => {
+    console.error('MediaRecorder error:', e);
+    showError('Recording error: ' + (e.error?.message || 'Unknown error'));
+    // G — mirror handleWriteFailure's pattern: try to stop the recorder so
+    // onstop -> finalize salvages whatever chunks already landed. Arm the
+    // stop watchdog FIRST in case this stop() call is itself swallowed
+    // (throws, or never actually triggers onstop) — see F.
+    armStopWatchdog();
+    try { if (recorder.state !== 'inactive') recorder.stop(); }
+    catch (stopErr) { console.error('Could not stop recorder after onerror:', stopErr); }
+  };
+
+  // Start recording with 1-second timeslice
+  recorder.start(1000);
+  state.mediaRecorder = recorder;
+
+  // H/C/F — fresh watchdog state for this recording (STATE HYGIENE: every
+  // one of these is also cleared in resetUI and reset here, never carried
+  // over from a previous recording).
+  finalizeStarted = false;
+  lastChunkWriteOkAt = Date.now();
+  writeStallWarned = false;
+  startVerifyAttempts = 0;
+  clearStartVerify();
+  startVerifyTimer = setTimeout(verifyRecorderStarted, START_VERIFY_MS);
+  clearWriteStallInterval();
+  writeStallIntervalId = setInterval(checkWriteStall, WRITE_STALL_CHECK_MS);
+}
+
+// v1.38 (REVIEW #49): every pause starts a new part. A part runs from Record
+// or Resume to Pause or Stop. Pause ENDS the current recorder (its session
+// becomes the last part — no save, nothing released); Resume starts a fresh
+// recorder on the same screen, camera and audio mix. That is the
+// crash-recovery "continue" machinery used on purpose, so the joins are the
+// seams the stitcher already handles, and the review page shows each stretch
+// as its own part. Owner decision 2026-10-23: automatic, not a button.
 function pauseResume() {
-  if (!state.mediaRecorder) return;
+  if (!state.recording) return;
 
   if (state.paused) {
     if (state.screenLost) {
@@ -5000,35 +5036,97 @@ function pauseResume() {
       showError('Choose Change screen first — screen sharing has stopped.');
       return;
     }
-    if (state.mediaRecorder.state === 'inactive') {
-      // The recorder died silently during the pause (the same silent-death
-      // mode Stop's dead-recorder branch catches). resume() would throw and
-      // the click would do nothing. Route to Stop's salvage instead: the
-      // "stopped by itself" message + save what was recorded so far.
-      stopRecording();
-      return;
-    }
-    state.mediaRecorder.resume();
-    state.paused = false;
-    state.pausedDuration += Date.now() - state.pauseStart;
-    // C — no dataavailable events land while paused, so the stall clock
-    // would otherwise start counting from before the pause. Reset it here
-    // so resuming never immediately reads as a stall.
-    lastChunkWriteOkAt = Date.now();
-    writeStallWarned = false;
-    document.getElementById('btnPause').textContent = 'Pause';
-    document.getElementById('btnPause').classList.remove('resume');
-    updateStatus('recording', 'Recording');
+    resumeNewPart();
   } else {
-    state.mediaRecorder.pause();
-    state.paused = true;
-    state.pauseStart = Date.now();
-    document.getElementById('btnPause').textContent = 'Resume recording';
-    document.getElementById('btnPause').classList.add('resume');
-    updateStatus('paused', 'Paused');
+    pauseEndingPart();
   }
   updateChangeScreenVisibility(); // REVIEW #23: shows/hides "Change screen" with the pause state
   updateToggleUI();               // REVIEW #34: unlocks/locks Webcam and Mic with the pause state
+}
+
+// Pause: the current part ends here. The recorder is stopped with __partEnd
+// set so its onstop files the part instead of finalizing. The session stays
+// state.sessionId, so Stop & save / Stop & review from this pause still see
+// it as the current part; Resume moves it into priorSegments.
+function pauseEndingPart() {
+  const rec = state.mediaRecorder;
+  state.paused = true;
+  state.partPaused = true;
+  state.pauseStart = Date.now();
+  document.getElementById('btnPause').textContent = 'Resume recording';
+  document.getElementById('btnPause').classList.add('resume');
+  updateStatus('paused', 'Paused');
+  clearStartVerify(); // a deliberate end is not a silent start failure
+  if (rec && rec.state !== 'inactive') {
+    rec.__partEnd = true;
+    armPartEndWatchdog(rec);
+    try { rec.stop(); }   // -> onstop -> onPartEnded
+    catch (err) { console.error('Could not end the part:', err); onPartEnded(rec); }
+  } else {
+    onPartEnded(rec);
+  }
+}
+
+// The part's recorder has delivered its last chunk (or the watchdog gave up
+// waiting for it). Nothing to store: the session is complete as it stands.
+function onPartEnded(rec) {
+  if (rec) { if (rec.__partEnded) return; rec.__partEnded = true; }
+  clearPartEndWatchdog();
+  if (!rec || state.mediaRecorder === rec) state.mediaRecorder = null;
+}
+
+var partEndTimer = null;
+function armPartEndWatchdog(rec) {
+  clearPartEndWatchdog();
+  partEndTimer = setTimeout(() => { partEndTimer = null; onPartEnded(rec); }, STOP_WATCHDOG_MS);
+}
+function clearPartEndWatchdog() {
+  if (partEndTimer) { clearTimeout(partEndTimer); partEndTimer = null; }
+}
+
+// Resume: the ended part joins the chain and a fresh recorder starts on the
+// same streams. The flags flip first (the UI is live at once); the start
+// itself is awaited by anything that must not run under it (stopRecording).
+function resumeNewPart() {
+  state.paused = false;
+  state.partPaused = false;
+  state.pausedDuration += Date.now() - state.pauseStart;
+  document.getElementById('btnPause').textContent = 'Pause';
+  document.getElementById('btnPause').classList.remove('resume');
+  updateStatus('recording', 'Recording');
+  const endedId = state.sessionId;
+  const endedChunks = state.chunkIndex;
+  if (endedId != null) {
+    state.partChunkBase += endedChunks;
+    state.priorSegments.push({ sessionId: endedId, mimeType: state.partMimeType });
+  }
+  const p = (async () => {
+    try {
+      await startRecorderPart();
+    } catch (err) {
+      console.error('Could not start the next part:', err);
+      // Back to the pause we came from, with the ended part as the current one.
+      const last = state.priorSegments[state.priorSegments.length - 1];
+      if (endedId != null && last && last.sessionId === endedId) {
+        state.priorSegments.pop();
+        state.partChunkBase -= endedChunks;
+        state.sessionId = endedId;
+        state.chunkIndex = endedChunks;
+      }
+      state.paused = true;
+      state.partPaused = true;
+      state.pauseStart = Date.now();
+      document.getElementById('btnPause').textContent = 'Resume recording';
+      document.getElementById('btnPause').classList.add('resume');
+      updateStatus('paused', 'Paused');
+      showError("Couldn't continue recording. Nothing was lost — try Resume again, or click Stop & save to keep what you have.");
+      updateChangeScreenVisibility();
+      updateToggleUI();
+    } finally {
+      if (state.partStartPromise === p) state.partStartPromise = null;
+    }
+  })();
+  state.partStartPromise = p;
 }
 
 async function stopRecording() {
@@ -5042,6 +5140,24 @@ async function stopRecording() {
   // own finalizeStarted check closes most of this already, but there's no
   // reason to leave a pointless timer pending either way).
   clearStartVerify();
+
+  // v1.38 (#49): a Resume may still be starting the next part — let it land
+  // (or fall back to the pause) before deciding what there is to stop.
+  if (state.partStartPromise) await state.partStartPromise;
+
+  if (state.partPaused) {
+    // Paused between parts: the last part already ended cleanly, so there is
+    // no live recorder to stop — go straight to the save or the review with
+    // the parts so far (the ended part is still the current session).
+    showError('');
+    document.getElementById('btnStop').disabled = true;
+    document.getElementById('btnStopReview').disabled = true;
+    if (state.stopMode === 'review') document.getElementById('btnStopReview').textContent = 'Preparing review...';
+    else document.getElementById('btnStop').textContent = 'Saving...';
+    stopTimer();
+    if (claimFinalize()) await finalizeRecording();
+    return;
+  }
 
   if (!state.mediaRecorder || state.mediaRecorder.state === 'inactive') {
     // E — dead-recorder salvage. state.recording is true but there is no
@@ -5883,6 +5999,9 @@ function cleanupStreams(opts) {
   state.mediaRecorder = null;
   state.recording = false;
   state.paused = false;
+  state.partPaused = false;
+  state.partStartPromise = null;
+  clearPartEndWatchdog();
   state.screenLost = false;
 }
 
@@ -5955,6 +6074,7 @@ function resetUI() {
   // place: startRecording(), at the start of the NEXT recording.
   clearStartVerify();
   clearStopWatchdog();
+  clearPartEndWatchdog();
   // (The canvas is cleared by refreshIdlePreview above when the placeholder
   // shows; a live preview must not be wiped.)
 }

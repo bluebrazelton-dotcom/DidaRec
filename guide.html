@@ -4,34 +4,50 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>How to use DidaRec</title>
+<link rel="icon" href="brand/favicon.ico" sizes="48x48">
+<link rel="icon" href="brand/favicon.svg" type="image/svg+xml">
 <style>
+  /* Brand (Blue Brazelton brand standards v0.8). Light: Parchment page, Ink
+     text, terracotta leads (links and emphasis in Terracotta-text), Slate for
+     the band and the tip boxes. Dark: Night slate / Night card / Night rule,
+     Parchment text, Sky links, Terracotta-on-dark for the note edge. */
   :root {
-    --bg: #fbfaf7; --ink: #1c2330; --muted: #566072; --line: #d9dde5;
-    --panel: #ffffff; --accent: #b3243f; --link: #1d4fbf; --tip: #eef5f1; --tip-line: #2e7d5b;
-    --warn: #fdf4e3; --warn-line: #9a6a00;
+    --bg: #EFE6D3; --ink: #2B2A27; --muted: #5F5A50; --line: #C6BFAE;
+    --panel: #F7F1E3; --accent: #85462E; --link: #85462E; --tip: #E3E3D9; --tip-line: #3A4F6E;
+    --warn: #EEDCCF; --warn-line: #C9714F; --band: #3A4F6E; --band-ink: #EFE6D3;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #14181f; --ink: #e8ecf2; --muted: #a3adbd; --line: #2c3542;
-      --panel: #1b212b; --accent: #ff8296; --link: #9db8ff; --tip: #18261f; --tip-line: #58b98a;
-      --warn: #2b2412; --warn-line: #e0b450;
+      --bg: #1F2B3D; --ink: #EFE6D3; --muted: #BDB6A8; --line: #4A5D7C;
+      --panel: #2A3A52; --accent: #E0997A; --link: #9CCDEE; --tip: #2A3A52; --tip-line: #9CCDEE;
+      --warn: #2A3A52; --warn-line: #E0997A; --band: #3A4F6E; --band-ink: #EFE6D3;
     }
   }
+  @font-face { font-family: 'Roboto'; font-weight: 400; font-style: normal; font-display: swap; src: url('fonts/Roboto-Regular.ttf') format('truetype'); }
+  @font-face { font-family: 'Roboto'; font-weight: 700; font-style: normal; font-display: swap; src: url('fonts/Roboto-Bold.ttf') format('truetype'); }
+  @font-face { font-family: 'Roboto Slab'; font-weight: 600; font-style: normal; font-display: swap; src: url('fonts/RobotoSlab-SemiBold.ttf') format('truetype'); }
   * { box-sizing: border-box; }
   body {
     margin: 0; background: var(--bg); color: var(--ink);
-    font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+    font-family: 'Roboto', 'Segoe UI', Arial, sans-serif;
     font-size: 1.0625rem; line-height: 1.65;
   }
   .skip { position: absolute; left: -999px; }
   .skip:focus { left: 1rem; top: 1rem; background: var(--panel); padding: .5rem .75rem; border: 2px solid var(--link); }
   main { max-width: 44rem; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+  h1, h2, h3 { font-family: 'Roboto Slab', Rockwell, Georgia, serif; font-weight: 600; }
+  .band { background: var(--band); color: var(--band-ink); }
+  .band-inner { max-width: 44rem; margin: 0 auto; padding: .7rem 1rem; display: flex; align-items: center; gap: .7rem; }
+  .band-inner img { height: 30px; width: auto; }
+  .band-inner .name { font-family: 'Roboto Slab', Rockwell, Georgia, serif; font-weight: 600; font-size: 1.15rem; }
+  .band-inner a { color: var(--band-ink); margin-left: auto; font-size: .95rem; }
   h1 { font-size: 2rem; line-height: 1.2; margin: 1rem 0 .25rem; }
   h2 { font-size: 1.4rem; line-height: 1.3; margin: 2.75rem 0 .5rem; padding-top: 1rem; border-top: 1px solid var(--line); }
   h3 { font-size: 1.1rem; margin: 1.75rem 0 .25rem; }
   p { margin: .6rem 0; }
   .lede { color: var(--muted); font-size: 1.15rem; }
-  a { color: var(--link); }
+  a { color: var(--link); text-decoration-thickness: from-font; }
+  strong { font-weight: 700; }
   a:focus-visible { outline: 3px solid var(--link); outline-offset: 2px; }
   ol, ul { padding-left: 1.4rem; margin: .6rem 0; }
   li { margin: .45rem 0; }
@@ -51,7 +67,7 @@
   footer { color: var(--muted); font-size: .95rem; border-top: 1px solid var(--line); margin-top: 3rem; padding-top: 1rem; }
   @media print {
     body { background: #fff; color: #000; font-size: 11pt; }
-    nav, .skip { display: none; }
+    nav, .skip, .band { display: none; }
     h2 { break-after: avoid; } figure, .tip, .note, li { break-inside: avoid; }
     a { color: #000; text-decoration: none; }
   }
@@ -59,8 +75,8 @@
 </head>
 <body>
 <a class="skip" href="#start">Skip to the instructions</a>
+<div class="band"><div class="band-inner"><img src="brand/bb_owl_parchment.svg" alt=""><span class="name">DidaRec</span><a href="./">Back to DidaRec</a></div></div>
 <main>
-  <p><a href="./">&larr; Back to DidaRec</a></p>
   <h1>How to use DidaRec</h1>
   <p class="lede">Record your screen, your voice and your webcam, right in your web browser. There is nothing to install and no account to create.</p>
 
@@ -110,7 +126,7 @@
   </ul>
 
   <h2 id="pause">Pause, and what you can change while paused</h2>
-  <p>Click <b class="btn">Pause</b> whenever you need a moment. Nothing is recorded while you are paused. Click <b class="btn">Resume recording</b> to carry on. It all ends up in one video.</p>
+  <p>Click <b class="btn">Pause</b> whenever you need a moment. Nothing is recorded while you are paused. Click <b class="btn">Resume recording</b> to carry on. It all ends up in one video, and each stretch between a pause and the next becomes a <strong>part</strong> you can look at on its own on the review page.</p>
   <figure>
     <img src="guide-img/03-paused.png" alt="DidaRec while paused. The red Resume recording button is next to Change screen, Stop and save, and Stop and review.">
     <figcaption>While paused: Resume recording, Change screen, Stop &amp; save, Stop &amp; review.</figcaption>
@@ -154,7 +170,7 @@
   <p>If you know the time, type it in the small box (for example <strong>4:30</strong>) and click <b class="btn">Re-record from this time</b>.</p>
   <p>Changed your mind? Click <b class="btn">Undo re-record</b> before you start recording again, and the part you removed comes back.</p>
   <h3>See and change the parts of your video</h3>
-  <p>If you stopped and recorded again to add to the same video, or carried on after an interruption, your video is made of <strong>parts</strong>. (Pausing and resuming, or changing screens, does not make a new part: a part runs from Record to Stop.) Under the player, <strong>Parts of this video</strong> lists them, one row each, with how long each part is. The most recent one is marked <strong>Newest</strong>. <strong>Whole video</strong> shows the total length. The list appears when your video has more than one part.</p>
+  <p>If you stopped and recorded again to add to the same video, or carried on after an interruption, your video is made of <strong>parts</strong>. A part runs from Record or Resume to Pause or Stop, so every pause starts a new part; changing screens or switching the webcam while paused does not add one. Under the player, <strong>Parts of this video</strong> lists them, one row each, with how long each part is. The most recent one is marked <strong>Newest</strong>. <strong>Whole video</strong> shows the total length. The list appears when your video has more than one part.</p>
   <ul>
     <li><strong>Watch one part by itself.</strong> Click <b class="btn">Play</b> on its row. The player shows only that part, and a bar above it says <strong>Playing Part 2 on its own</strong>. Click <b class="btn">Back to the whole video</b> to go back. While you are watching one part, the <b class="btn">Re-record from&hellip;</b> buttons are switched off, because their times belong to the whole video.</li>
     <li><strong>Delete a part you don't want.</strong> Click <b class="btn">Delete</b> on its row. A box asks you to confirm. Click <b class="btn">Delete Part 2</b> to go ahead, or <b class="btn">Keep it</b> to change your mind. The player and the total update at once, and the parts after it move up one number. The last part left can't be deleted. To throw everything away, use <b class="btn">Discard recording</b>.</li>
@@ -238,7 +254,7 @@
   </dl>
 
   <footer>
-    <p>This guide matches DidaRec v1.37. <a href="./">Back to DidaRec</a></p>
+    <p>This guide matches DidaRec v1.39. <a href="./">Back to DidaRec</a></p>
   </footer>
 </main>
 </body>

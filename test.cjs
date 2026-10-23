@@ -5874,14 +5874,14 @@ Real cue text
     assert(api.screenVideo.srcObject === newStream, 'ER: screenVideo.srcObject reassigned to the new stream');
     assert(state.paused === true, 'ER: recording is still paused after the swap');
     assert(state.recording === true, 'ER: state.recording untouched');
-    assert(rec._stopCalls === 0, 'ER: the MediaRecorder was never stopped during the swap');
+    assert(rec._stopCalls === 1 && state.mediaRecorder === null && state.partPaused === true, 'ER: v1.38 — the pause ended the part (one stop), nothing was started during the swap (got stops ' + rec._stopCalls + ')');
     assert(stopRecordingCalls === 0, 'ER: stopRecording() was never called during the swap');
     assert(state.drawFrame === drawFrameBefore, 'ER: compositing was never stopped/restarted — the SAME draw fn is still driving the clock');
 
     // Resume still works cleanly after the swap.
     sandbox.pauseResume();
     assert(state.paused === false, 'ER: resume works after a paused swap');
-    assert(rec.state === 'recording', 'ER: the SAME recorder resumed recording (got ' + rec.state + ')');
+    await drain(); assert(state.mediaRecorder && state.mediaRecorder !== rec && state.mediaRecorder.state === 'recording' && state.priorSegments.length === 1, 'ER: v1.38 — Resume started a NEW recorder on the swapped screen and the ended part joined the chain (got ' + (state.mediaRecorder && state.mediaRecorder.state) + ', parts ' + state.priorSegments.length + ')');
 
     S.stopRecording = origStopRecording;
     await sandbox.stopRecording();
@@ -7025,34 +7025,48 @@ Real cue text
     assert(seen && seen.video && seen.video.width && seen.video.width.ideal === 1280 && seen.video.height.ideal === 720, 'GF: 1280x720 ideal requested (got ' + JSON.stringify(seen && seen.video) + ')');
   });
 
-  await scenario('GG Resume on a recorder that died silently during the pause is never a dead click: pauseResume routes to the stopped-by-itself salvage (message, save stopMode, finalize); a live paused recorder still resumes normally', async () => {
-    const origFinalize = sandbox.finalizeRecording;
-    let finalizeCalls = 0;
-    sandbox.finalizeRecording = async (...args) => { finalizeCalls++; return origFinalize(...args); };
-    try {
-      // A live paused recorder resumes normally (the happy path stays intact).
-      await startScreenRecWith({ mic: false, cam: false });
-      sandbox.pauseResume();
-      assert(state.paused === true, 'GG precondition: paused');
-      sandbox.pauseResume();
-      assert(state.paused === false && state.recording === true, 'GG: a live recorder resumes normally');
+  await scenario('GG v1.38: a pause ENDS the part\'s recorder and Resume starts a fresh one; a Resume whose start fails is never a dead click (message, still paused, the ended part intact) and a later Resume works; Stop while paused between parts finishes normally, no salvage message', async () => {
+    await startScreenRecWith({ mic: false, cam: false });
+    const first = state.mediaRecorder;
+    const firstSid = state.sessionId;
+    first.ondataavailable({ data: new Blob(['x']) }); await drain();
+    sandbox.pauseResume();
+    await drain();
+    assert(state.paused === true && state.partPaused === true && first._stopCalls === 1 && state.mediaRecorder === null, 'GG: Pause ended the part (recorder stopped, none live)');
+    assert(state.sessionId === firstSid && state.priorSegments.length === 0, 'GG: the ended part is still the current session while paused');
 
-      // Silent death during a pause: the recorder goes inactive with no events
-      // (the real-browser InvalidStateError dead click, repro 2026-10-17).
-      sandbox.pauseResume();
-      assert(state.paused === true, 'GG precondition: paused again');
-      state.mediaRecorder.state = 'inactive';
-      recordedErrors.length = 0;
-      windowMock.showSaveFilePicker = pickerSequence(['ok']);
-      sandbox.pauseResume();
-      await drain();
-      assert(recordedErrors.some(m => /stopped by itself/i.test(m)), 'GG: the Resume click is answered with the stopped-by-itself salvage message, never silence (got ' + JSON.stringify(recordedErrors) + ')');
-      assert(state.stopMode === 'save', 'GG: the salvage forces the save stopMode, never review');
-      assert(finalizeCalls === 1, 'GG: finalizeRecording ran exactly once for the salvage');
-      assert(state.recording === false, 'GG: the dead recording is wound down, not left half-paused');
-    } finally {
-      sandbox.finalizeRecording = origFinalize;
-    }
+    // Resume whose start fails: back to the pause, nothing lost, told what to do.
+    const origCreate = sandbox.createSession;
+    sandbox.createSession = async () => { throw new Error('boom'); };
+    recordedErrors.length = 0;
+    sandbox.pauseResume();
+    await drain();
+    sandbox.createSession = origCreate;
+    assert(state.paused === true && state.partPaused === true && state.recording === true, 'GG: a failed Resume falls back to the pause');
+    assert(state.sessionId === firstSid && state.priorSegments.length === 0, 'GG: the ended part is back as the current session (not orphaned in the chain)');
+    assert(recordedErrors.some(m => /Couldn't continue recording/.test(m)), 'GG: and says so (got ' + JSON.stringify(recordedErrors) + ')');
+
+    // Resume again: a NEW recorder on a NEW session; the ended part joins the chain.
+    sandbox.pauseResume();
+    await drain();
+    assert(state.paused === false && state.mediaRecorder && state.mediaRecorder !== first && state.mediaRecorder.state === 'recording', 'GG: Resume started a fresh recorder');
+    assert(state.priorSegments.length === 1 && state.priorSegments[0].sessionId === firstSid && state.sessionId !== firstSid, 'GG: the ended part is Part 1, the new recording is Part 2');
+    // A late chunk from the ENDED recorder goes to ITS session, never the new one.
+    first.ondataavailable({ data: new Blob(['late']) }); await drain();
+    const chunks = await readStore('chunks');
+    assert(chunks.filter(c => c.sessionId === firstSid).length === 2 && chunks.filter(c => c.sessionId === state.sessionId).length === 0, 'GG: a late chunk from the ended part landed in Part 1, not Part 2 (got ' + JSON.stringify(chunks.map(c => c.sessionId === firstSid ? 1 : 2)) + ')');
+
+    // Stop & save while paused between parts: a normal finish, no salvage message.
+    state.mediaRecorder.ondataavailable({ data: new Blob(['y']) }); await drain();
+    sandbox.pauseResume(); await drain();
+    assert(state.partPaused === true, 'GG precondition: paused between parts again');
+    recordedErrors.length = 0;
+    windowMock.showSaveFilePicker = pickerSequence(['ok']);
+    await sandbox.stopRecording();
+    await drain();
+    assert(state.recording === false && !recordedErrors.some(m => /stopped by itself/.test(m)), 'GG: Stop while paused finishes normally (no salvage message; got ' + JSON.stringify(recordedErrors) + ')');
+    // 1-byte mock chunks are not WebM, so the joined save bails to the separate-files offer — either outcome is a normal finish.
+    assert(lastWritten.length === 1 || el29('stitchFallback').classList.contains('visible'), 'GG: the finish reached a save (file written or separate-files offer)');
   });
 
   // ---------- REVIEW #46 (v1.35): Full screen is a button, not a shape-list entry ----------
