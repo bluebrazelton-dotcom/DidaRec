@@ -690,6 +690,100 @@
 
   .review-pane.visible { display: flex; }
 
+  /* Review pane parts list (REVIEW #43 stage 1, v1.36) */
+  .review-part-mode {
+    display: none;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    padding: 0.6rem 0.9rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--green-dim);
+    background: rgba(78, 204, 163, 0.08);
+    font-size: 0.85rem;
+  }
+  .review-part-mode.visible { display: flex; }
+  .review-part-mode .review-part-mode-hint {
+    flex-basis: 100%;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+  }
+
+  .review-parts {
+    display: none;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .review-parts.visible { display: flex; }
+
+  .review-parts-header {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+  .review-parts-header h3 {
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+  .review-parts-total {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+    margin-right: auto;
+  }
+
+  .review-parts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  .review-part-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.45rem 0.6rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .review-part-row.playing {
+    border-color: var(--green);
+    background: rgba(78, 204, 163, 0.08);
+  }
+  .review-part-label {
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .review-part-badge {
+    font-size: 0.7rem;
+    color: var(--green);
+    border: 1px solid var(--green-dim);
+    border-radius: 999px;
+    padding: 0.05rem 0.5rem;
+  }
+  .review-part-actions {
+    display: flex;
+    gap: 0.4rem;
+    margin-left: auto;
+  }
+  .btn-part, .btn-restore-parts, .btn-back-to-whole {
+    background: var(--surface);
+    color: var(--green);
+    border: 1px solid var(--green-dim);
+    border-radius: 6px;
+    padding: 0.3rem 0.7rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+  .btn-part:hover, .btn-restore-parts:hover, .btn-back-to-whole:hover { background: var(--surface-hover); }
+  .btn-part:disabled, .btn-restore-parts:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-part.danger {
+    color: var(--accent-hover);
+    border-color: var(--border);
+  }
+  .btn-part.danger:hover { background: rgba(233, 69, 96, 0.1); }
+
   /* Footer */
   footer {
     width: 100%;
@@ -719,6 +813,8 @@
   <div class="recovery-banner" id="recoveryBanner">
     <h3 id="recoveryTitle">Interrupted recording found</h3>
     <p id="recoveryInfo">A previous recording was interrupted. You can recover it or discard it.</p>
+    <!-- Kept mode only (v1.36, owner check): the box itself says how to add more. -->
+    <p id="recoveryKeptHint" style="display:none;"><strong>To add more, select a screen and click Record. To finish, click Save it now.</strong></p>
     <div class="recovery-actions">
       <button class="primary btn-record" id="btnRecoveryContinue" onclick="continueRecording()">Continue recording</button>
       <button class="primary btn-save" id="btnRecoverySave" onclick="recoverRecording()">Recover &amp; save</button>
@@ -934,10 +1030,38 @@
       </div>
     </div>
 
+    <!-- Delete-one-part confirm (REVIEW #43 stage 1): in-pane, never a browser -->
+    <!-- popup. showReviewPartConfirm() sets the text for the chosen part. -->
+    <div class="recovery-banner" id="reviewPartConfirm">
+      <h3>Delete this part?</h3>
+      <p id="reviewPartConfirmMsg"></p>
+      <div class="recovery-actions">
+        <button class="primary btn-stop" id="btnReviewPartDelete" onclick="reviewPartRemoveConfirmed()">Delete part</button>
+        <button class="primary btn-record" onclick="hideReviewPartConfirm()">Keep it</button>
+      </div>
+    </div>
+
     <div class="caption-status" id="reviewStatus"></div>
+
+    <!-- Shown only while the player is playing ONE part on its own. -->
+    <div class="review-part-mode" id="reviewPartMode">
+      <span id="reviewPartModeMsg"></span>
+      <button class="btn-back-to-whole" onclick="reviewShowWhole()">Back to the whole video</button>
+      <span class="review-part-mode-hint">Saving always saves the whole video.</span>
+    </div>
 
     <div class="caption-video-wrap">
       <video id="reviewVideo" controls ontimeupdate="onReviewVideoTimeUpdate()"></video>
+    </div>
+
+    <!-- Parts list (REVIEW #43 stage 1, v1.36): one row per recorded part. -->
+    <div class="review-parts" id="reviewParts">
+      <div class="review-parts-header">
+        <h3>Parts of this video</h3>
+        <span class="review-parts-total" id="reviewPartsTotal"></span>
+        <button class="btn-restore-parts" id="btnRestoreParts" onclick="reviewRestoreParts()" style="display:none;">Restore all parts</button>
+      </div>
+      <div class="review-parts-list" id="reviewPartsList" role="list"></div>
     </div>
 
     <div class="caption-editor-toolbar">
@@ -955,7 +1079,7 @@
 
 <footer>
   <div>Click "Select Screen" to choose which screen, window, or tab to record. Your browser will show a popup — this is a required security step the app cannot bypass.</div>
-  <div style="margin-top: 0.5rem;">DidaRec <span id="appVersion">v1.35</span> by DidaWorks &middot; Open source &middot; MIT License &middot; No account, no server, no watermark, no time limits</div>
+  <div style="margin-top: 0.5rem;">DidaRec <span id="appVersion">v1.36</span> by DidaWorks &middot; Open source &middot; MIT License &middot; No account, no server, no watermark, no time limits</div>
 </footer>
 
 <script>
@@ -5515,6 +5639,7 @@ function setRecoveryBannerMode(kept) {
   document.getElementById('recoveryTitle').textContent = kept ? 'Recording kept — not saved yet' : 'Interrupted recording found';
   document.getElementById('btnRecoveryContinue').style.display = kept ? 'none' : '';
   document.getElementById('btnRecoverySave').textContent = kept ? 'Save it now' : 'Recover & save';
+  document.getElementById('recoveryKeptHint').style.display = kept ? '' : 'none';
 }
 
 // v1.32 wording shared by several sites.
@@ -6143,15 +6268,28 @@ const captionEditorState = {
 // result per entry in `segments`, index-aligned, produced by
 // assembleReviewPreview and consumed by computeCutPlan. A successful cut
 // closes the pane (session 2's scope never re-opens it for iterative
-// cutting), so both arrays are fixed for the lifetime of one open pane.
+// cutting). v1.36 (#43 stage 1): `segments` is no longer fixed for the whole
+// pane — deleting a part (or Restore all parts) swaps in a NEW array and
+// re-runs assembleReviewPreview so `scans` stays index-aligned;
+// `entrySegments` is the chain as the pane opened and never changes while it
+// is open, so "Discard recording" and Restore always know the full set.
 const reviewState = {
   active: false,        // is the review pane currently shown
-  segments: [],          // [{ sessionId, mimeType }], fixed at open time
+  segments: [],          // [{ sessionId, mimeType }] — the CURRENT chain (changes only via part delete / Restore all parts)
   scans: [],              // one default-mode scan result per `segments` entry, same order
   scansOk: false,         // every segment's scan finished cleanly — gates "Re-record from here"
   previewUrl: null,       // current #reviewVideo object URL — revoked on reassembly and on close
   totalBytes: 0,          // summed via sessionChunkStats at open time, for the size-guard message
   undo: null,             // last-cut undo record (see undoReRecord), or null; cleared at startRecording
+  // ---- REVIEW #43 stage 1 (v1.36): the parts list. All reset by resetReviewPartsState(). ----
+  entrySegments: [],      // the chain exactly as this pane opened (the Restore all parts target)
+  removedIds: [],         // sessionIds deleted from the chain while this pane has been open (soft-deleted: discarded=true)
+  playingPart: null,      // index into `segments` while the player shows ONE part on its own; null = the whole video
+  partUrl: null,          // object URL of the single-part preview (revoked on leaving part mode and on close)
+  partToken: 0,           // bumps on every part load / return to whole, so a slow load that was superseded is dropped
+  partsBusy: false,       // a delete / restore is rebuilding the preview — the parts controls ignore clicks
+  saving: false,          // Save as is is in flight — the parts controls ignore clicks (and Save as is waits while partsBusy)
+  pendingRemoveId: null,  // sessionId the in-pane delete confirm is asking about
 };
 
 // fileKey identity for a video, used both to look up and to store a draft.
@@ -6749,6 +6887,7 @@ function formatKeptMinSec(ms) {
 
 async function openReviewPane(segments) {
   reviewState.active = true;
+  resetReviewPartsState(); // a fresh parts list for every open (#43 stage 1)
   setRecorderControlsVisible(false);
   document.getElementById('reviewPane').classList.add('visible');
   reviewSetStatus('');
@@ -6776,6 +6915,7 @@ async function openReviewPane(segments) {
   }
 
   reviewState.segments = withData;
+  reviewState.entrySegments = withData.slice(); // #43: what Restore all parts returns to
   reviewState.totalBytes = totalBytes;
   // "Redo last take" only makes sense with a prior take to fall back to —
   // with exactly 1 segment, discarding the whole thing is Back to recorder
@@ -6812,6 +6952,8 @@ async function openReviewPane(segments) {
       ? "Re-record from here isn't available for this recording — you can still watch it, save it as is, or go back."
       : "Couldn't prepare the preview — you can still save the recording as is, or go back to the recorder.");
   }
+  renderReviewParts();
+  syncReviewCutControls();
   onReviewVideoTimeUpdate();
 }
 
@@ -6829,14 +6971,22 @@ function closeReviewPane() {
     URL.revokeObjectURL(reviewState.previewUrl);
     reviewState.previewUrl = null;
   }
+  resetReviewPartsState(); // #43: revokes the single-part URL and clears the parts list
 }
 
 function onReviewVideoTimeUpdate() {
   const video = document.getElementById('reviewVideo');
+  // One part playing alone: its playhead is NOT a time on the whole video, so
+  // the label must not offer one (the re-record controls are off then too).
+  if (reviewInPartMode()) {
+    document.getElementById('btnReRecordHere').textContent = 'Re-record from here';
+    return;
+  }
   document.getElementById('btnReRecordHere').textContent = 'Re-record from ' + formatMinSec((video.currentTime || 0) * 1000);
 }
 
 function showReviewDiscardConfirm(message) {
+  hideReviewPartConfirm(); // one in-pane question at a time (#43)
   document.getElementById('reviewDiscardConfirmMsg').textContent = message;
   document.getElementById('reviewDiscardConfirm').classList.add('visible');
 }
@@ -6846,13 +6996,14 @@ function hideReviewDiscardConfirm() {
 }
 
 function requestReviewDiscard() {
+  if (reviewPartsBusyNote()) return;
   showReviewDiscardConfirm("Discard this recording? This can't be undone once you confirm.");
 }
 
 // Delete every session this review pane knows about (kept and discarded
-// alike — reviewState.segments is fixed at open time, so this always covers
-// the whole recording regardless of any cut made during this review) and
-// reset to a clean idle state.
+// alike) and reset to a clean idle state. reviewState.segments is the CURRENT
+// chain; a part deleted in the parts list (#43) is already flagged
+// discarded=true, so deleteDiscardedSessions() below sweeps it with the rest.
 async function reviewDiscardConfirmed() {
   // try/catch: hideReviewDiscardConfirm() below runs first regardless, so a
   // failure partway through must still say something — otherwise the user is
@@ -6875,10 +7026,366 @@ async function reviewDiscardConfirmed() {
 // "Back to recorder": nothing was cut, so nothing is discarded — every
 // segment this pane opened with becomes the new priorSegments, unchanged.
 function reviewBackToRecorder() {
+  if (reviewPartsBusyNote()) return; // the chain it would hand on is mid-change
   state.priorSegments = reviewState.segments.slice();
   closeReviewPane();
   resetUI();
   offerKeptRecording().catch((err) => console.error('Kept-recording banner failed:', err));
+}
+
+// ============================================================
+// Review pane parts list (REVIEW #43 stage 1, v1.36)
+//
+// Each recorded part of the video is already its own stored session — the
+// reviewState.segments chain. The list reuses what the preview assembly
+// already computed: reviewState.scans holds one default-mode scan per part
+// (index-aligned with segments), so a part's length comes straight from its
+// own scan, with no new scanning. Four things live here: the list itself,
+// playing ONE part in the existing review player, deleting a part, and
+// Restore all parts.
+//
+// How a deleted part is kept: soft-deleted with the SAME discarded=true flag a
+// re-record cut uses (setSessionDiscarded). That keeps it out of the crash
+// recovery list, and every confirmed-save / explicit-discard site already
+// sweeps flagged sessions (deleteDiscardedSessions) — so the existing save and
+// discard flows need no change. The bytes are untouched until then, which is
+// what makes Restore all parts a plain un-flag.
+//
+// The Restore rule: Restore all parts returns the chain to what it was when
+// THIS pane opened (reviewState.entrySegments). A cut or Redo last take always
+// CLOSES the pane (applyReviewCutPlan), so a pane never holds a cut of its own;
+// the pane that opens after one takes a fresh entry snapshot of the chain as
+// it then stands. Cuts stay with the existing "Undo re-record".
+// ============================================================
+
+// Length of a chain of scans on the stitched timeline, in ms — or null when
+// it can't be known (no scans, or a part with no readable content). Reuses
+// computeCutPlan's own seam math (asking for a time past the very end returns
+// the real content end as keptMs) so there is no fifth copy of the seam
+// formula; + SEAM_GAP_MS is the same one-frame tail makeSeekable gives the
+// player's duration.
+function reviewDurationMs(scans) {
+  if (!scans || scans.length === 0) return null;
+  const plan = computeCutPlan(scans, Number.MAX_SAFE_INTEGER);
+  if (plan.kind !== 'noop') return null;
+  return plan.keptMs + SEAM_GAP_MS;
+}
+
+// What the parts list shows, as plain data (the render below only turns this
+// into HTML). Durations are shown only when every part's scan is trusted, and
+// use formatKeptMinSec (REVIEW #32's tenth-of-a-second allowance): a 30-second
+// part's content ends a frame short of 30.0 s, and flooring would read 0:29.
+function reviewPartsModel() {
+  const segs = reviewState.segments;
+  const scans = reviewState.scans;
+  const known = !!reviewState.scansOk && scans.length === segs.length;
+  const n = segs.length;
+  const rows = segs.map((seg, i) => {
+    const ms = known ? reviewDurationMs([scans[i]]) : null;
+    const name = 'Part ' + (i + 1);
+    return {
+      index: i,
+      sessionId: seg.sessionId,
+      name,
+      label: ms === null ? name : name + ' — ' + formatKeptMinSec(ms),
+      newest: n > 1 && i === n - 1,
+      playing: reviewState.playingPart === i,
+      canDelete: n > 1,
+    };
+  });
+  const totalMs = known ? reviewDurationMs(scans) : null;
+  return {
+    rows,
+    show: n >= 2 || reviewState.removedIds.length > 0,
+    totalLabel: totalMs === null ? '' : 'Whole video — ' + formatKeptMinSec(totalMs),
+    canRestore: reviewState.removedIds.length > 0,
+    playingName: reviewState.playingPart != null && rows[reviewState.playingPart] ? rows[reviewState.playingPart].name : null,
+    busy: !!(reviewState.partsBusy || reviewState.saving),
+  };
+}
+
+function renderReviewParts() {
+  const model = reviewPartsModel();
+  document.getElementById('reviewParts').classList.toggle('visible', model.show);
+  document.getElementById('reviewPartsTotal').textContent = model.totalLabel;
+  document.getElementById('btnRestoreParts').style.display = model.canRestore ? '' : 'none';
+  document.getElementById('btnRestoreParts').disabled = model.busy;
+  const dis = model.busy ? ' disabled' : '';
+  document.getElementById('reviewPartsList').innerHTML = model.rows.map((r) =>
+    `<div class="review-part-row${r.playing ? ' playing' : ''}" role="listitem">` +
+      `<span class="review-part-label">${r.label}</span>` +
+      (r.newest ? '<span class="review-part-badge">Newest</span>' : '') +
+      '<span class="review-part-actions">' +
+        `<button class="btn-part" onclick="reviewPlayPart(${r.index})" aria-label="Play ${r.name} on its own"${dis}>${r.playing ? 'Playing' : 'Play'}</button>` +
+        (r.canDelete ? `<button class="btn-part danger" onclick="requestReviewPartRemove(${r.index})" aria-label="Delete ${r.name}"${dis}>Delete</button>` : '') +
+      '</span>' +
+    '</div>').join('');
+  document.getElementById('reviewPartMode').classList.toggle('visible', model.playingName !== null);
+  document.getElementById('reviewPartModeMsg').textContent = model.playingName !== null ? `Playing ${model.playingName} on its own.` : '';
+}
+
+// Is the player showing ONE part? (loose != null: a reviewState poked by a
+// test without the field counts as the whole video.)
+function reviewInPartMode() {
+  return reviewState.playingPart != null;
+}
+
+// True (with a status note) while a delete/restore is still rebuilding the
+// parts list or Save as is is in flight — the moment when the chain must not
+// be changed by anything else: a cut, Redo last take, Back to recorder,
+// Discard recording. Each of those returns at once when this is true.
+function reviewPartsBusyNote() {
+  if (!reviewState.partsBusy && !reviewState.saving) return false;
+  reviewSetStatus(reviewState.saving
+    ? 'One moment — your video is being saved.'
+    : 'One moment — still updating the parts list. Then try again.');
+  return true;
+}
+
+// The re-record controls read the playhead as a time on the WHOLE video, so
+// they are off while one part plays on its own. "Redo last take" doesn't use
+// the playhead, but needs a prior part to fall back to (so it follows the
+// current chain length — a delete can take it down to one part).
+function syncReviewCutControls() {
+  // partsBusy / saving: a delete or restore is between its rebuild and its
+  // commit (scans and segments briefly disagree), or a save is in flight —
+  // no cut may be applied then (review of the v1.36 draft, finding 1).
+  const gated = !reviewState.scansOk || !!reviewState.partsBusy || !!reviewState.saving;
+  const off = gated || reviewInPartMode();
+  document.getElementById('btnReRecordHere').disabled = off;
+  document.getElementById('btnRerecordAtTime').disabled = off;
+  document.getElementById('reviewTimeInput').disabled = off;
+  document.getElementById('btnRedoLastTake').disabled = gated;
+  document.getElementById('btnRedoLastTake').style.display = reviewState.segments.length >= 2 ? '' : 'none';
+}
+
+// Back to a clean slate: on open (a fresh entry snapshot follows) and on close.
+function resetReviewPartsState() {
+  reviewState.entrySegments = [];
+  reviewState.removedIds = [];
+  reviewState.playingPart = null;
+  reviewState.pendingRemoveId = null;
+  reviewState.partsBusy = false;
+  // reviewState.saving is NOT cleared here: it belongs to reviewSaveAsIs's
+  // finally, and a pane closed under a save must keep saying so.
+  reviewState.partToken++;   // a part load still in flight is dropped when it lands
+  if (reviewState.partUrl) {
+    URL.revokeObjectURL(reviewState.partUrl);
+    reviewState.partUrl = null;
+  }
+  hideReviewPartConfirm();
+  document.getElementById('reviewParts').classList.remove('visible');
+  document.getElementById('reviewPartsList').innerHTML = '';
+  document.getElementById('reviewPartsTotal').textContent = '';
+  document.getElementById('btnRestoreParts').style.display = 'none';
+  document.getElementById('reviewPartMode').classList.remove('visible');
+}
+
+// Point the ONE review player at a source (null = nothing to show).
+function setReviewVideoSource(url) {
+  const video = document.getElementById('reviewVideo');
+  if (url) { video.src = url; return; }
+  if (typeof video.removeAttribute === 'function') {
+    video.removeAttribute('src');
+    if (typeof video.load === 'function') video.load();
+  } else {
+    video.src = '';
+  }
+}
+
+// ONE part's preview: the single-part branch of assembleReviewPreview, minus
+// its scan bookkeeping — playing a part must never touch reviewState.scans,
+// which belongs to the whole chain. Same walk, same Blob, same makeSeekable.
+async function assembleSinglePartPreview(seg) {
+  const parts = [];
+  await forEachSessionChunk(seg.sessionId, (data) => { parts.push(new Uint8Array(data)); });
+  return makeSeekable(new Blob(parts));
+}
+
+// Play one part alone in the existing review player. The whole-video preview
+// URL is kept (not rebuilt) so "Back to the whole video" is instant.
+async function reviewPlayPart(index) {
+  const seg = reviewState.segments[index];
+  if (!seg || reviewState.partsBusy || reviewState.saving) return;
+  const paneChain = reviewState.segments;
+  const token = ++reviewState.partToken;
+  try {
+    reviewSetStatus('Getting that part ready…');
+    const blob = await assembleSinglePartPreview(seg);
+    // Superseded by a newer click / a return to the whole video, or the pane
+    // closed or its parts changed while this loaded: drop it quietly.
+    if (token !== reviewState.partToken || !reviewState.active || reviewState.segments !== paneChain) return;
+    if (reviewState.partUrl) URL.revokeObjectURL(reviewState.partUrl);
+    reviewState.partUrl = URL.createObjectURL(blob);
+    reviewState.playingPart = index;
+    setReviewVideoSource(reviewState.partUrl);
+    const video = document.getElementById('reviewVideo');
+    if (typeof video.play === 'function') {
+      const p = video.play();
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    }
+    reviewSetStatus('');
+    hideReviewPartConfirm();
+    renderReviewParts();
+    syncReviewCutControls();
+    onReviewVideoTimeUpdate();
+  } catch (err) {
+    console.error('Playing one part failed:', err);
+    if (token === reviewState.partToken && reviewState.active) {
+      reviewSetStatus("Couldn't open that part. Your video is safe — try again, or go back to the whole video.");
+    }
+  }
+}
+
+// Leave single-part mode without touching the player (callers set its source).
+function leaveReviewPartMode() {
+  reviewState.partToken++;
+  reviewState.playingPart = null;
+  if (reviewState.partUrl) {
+    URL.revokeObjectURL(reviewState.partUrl);
+    reviewState.partUrl = null;
+  }
+}
+
+function reviewShowWhole() {
+  if (!reviewInPartMode()) return;
+  leaveReviewPartMode();
+  setReviewVideoSource(reviewState.previewUrl);
+  reviewSetStatus('');
+  renderReviewParts();
+  syncReviewCutControls();
+  onReviewVideoTimeUpdate();
+}
+
+function showReviewPartConfirm(message, buttonLabel) {
+  document.getElementById('reviewPartConfirmMsg').textContent = message;
+  document.getElementById('btnReviewPartDelete').textContent = buttonLabel;
+  document.getElementById('reviewPartConfirm').classList.add('visible');
+}
+
+function hideReviewPartConfirm() {
+  reviewState.pendingRemoveId = null;
+  document.getElementById('reviewPartConfirm').classList.remove('visible');
+}
+
+// Step one of a delete: ask, in the pane. The only remaining part is never
+// offered — discarding the whole video is the existing Discard recording.
+function requestReviewPartRemove(index) {
+  if (reviewState.partsBusy || reviewState.saving) return;
+  const model = reviewPartsModel();
+  const row = model.rows[index];
+  if (!row || model.rows.length < 2) return;
+  document.getElementById('reviewDiscardConfirm').classList.remove('visible'); // one in-pane question at a time
+  showReviewPartConfirm(
+    `Delete ${row.label} from this video? It won't be in the saved video. You can bring it back with Restore all parts until you leave this screen.`,
+    'Delete ' + row.name);
+  reviewState.pendingRemoveId = row.sessionId;
+}
+
+// The new chain is live: swap it in, rebuild what the pane shows from it.
+function commitReviewChain(chain, blob) {
+  reviewState.segments = chain;
+  leaveReviewPartMode();
+  if (reviewState.previewUrl) URL.revokeObjectURL(reviewState.previewUrl);
+  reviewState.previewUrl = URL.createObjectURL(blob);
+  setReviewVideoSource(reviewState.previewUrl);
+  hideReviewPartConfirm();
+  renderReviewParts();
+  syncReviewCutControls();
+  onReviewVideoTimeUpdate();
+}
+
+const REVIEW_SCAN_UNAVAILABLE = "Re-record from here isn't available for this recording — you can still watch it, save it as is, or go back.";
+
+// Step two: delete for real. Order matters — the preview is rebuilt from the
+// remaining parts FIRST (nothing stored has changed yet), then the part is
+// flagged discarded, and only then does the pane switch over. Any failure
+// leaves the video exactly as it was (the old scans are put back).
+async function reviewPartRemoveConfirmed() {
+  const id = reviewState.pendingRemoveId;
+  hideReviewPartConfirm();
+  if (id == null || reviewState.partsBusy || reviewState.saving) return;
+  const paneChain = reviewState.segments;
+  const idx = paneChain.findIndex((s) => s.sessionId === id);
+  if (idx < 0 || paneChain.length < 2) return;
+  const name = 'Part ' + (idx + 1);
+  const chain = paneChain.filter((s, i) => i !== idx);
+  const prev = { scans: reviewState.scans, scansOk: reviewState.scansOk };
+  const samePane = () => reviewState.active && reviewState.segments === paneChain;
+  let flagged = false;
+  reviewState.partsBusy = true;
+  renderReviewParts();
+  syncReviewCutControls();
+  reviewSetStatus('Updating the parts list…');
+  try {
+    const blob = await assembleReviewPreview(chain);   // sets scans / scansOk for the NEW chain
+    if (!samePane()) return;                            // pane closed while rebuilding: nothing was stored
+    await setSessionDiscarded(id, true);
+    flagged = true;
+    if (!samePane()) {                                  // pane closed while flagging: the chain it handed on still has this part
+      await setSessionDiscarded(id, false);
+      return;
+    }
+    reviewState.removedIds.push(id);
+    commitReviewChain(chain, blob);
+    reviewSetStatus(`${name} was deleted.` + (idx < paneChain.length - 1 ? ' The parts after it moved up one number.' : '') +
+      ' You can bring it back with Restore all parts.' + (reviewState.scansOk ? '' : ' ' + REVIEW_SCAN_UNAVAILABLE));
+  } catch (err) {
+    console.error('Delete part failed:', err);
+    if (samePane()) {
+      reviewState.scans = prev.scans;
+      reviewState.scansOk = prev.scansOk;
+      if (flagged) { try { await setSessionDiscarded(id, false); } catch (e) { console.error(e); } }
+      reviewSetStatus("Couldn't delete that part. Your video is unchanged — try again.");
+    }
+  } finally {
+    if (reviewState.active) {
+      reviewState.partsBusy = false;
+      renderReviewParts();
+      syncReviewCutControls();
+    }
+  }
+}
+
+// Restore all parts: the chain goes back to exactly what it was when this
+// pane opened (see the rule at the top of this block). Same order as delete:
+// rebuild the preview first, then un-flag, then switch over.
+async function reviewRestoreParts() {
+  if (reviewState.partsBusy || reviewState.saving || reviewState.removedIds.length === 0) return;
+  const paneChain = reviewState.segments;
+  const chain = reviewState.entrySegments.slice();
+  const ids = reviewState.removedIds.slice();
+  const prev = { scans: reviewState.scans, scansOk: reviewState.scansOk };
+  const samePane = () => reviewState.active && reviewState.segments === paneChain;
+  const unflagged = [];
+  const reflag = async () => { for (const x of unflagged) { try { await setSessionDiscarded(x, true); } catch (e) { console.error(e); } } };
+  reviewState.partsBusy = true;
+  renderReviewParts();
+  syncReviewCutControls();
+  reviewSetStatus('Bringing the parts back…');
+  try {
+    const blob = await assembleReviewPreview(chain);
+    if (!samePane()) return;
+    for (const x of ids) { await setSessionDiscarded(x, false); unflagged.push(x); }
+    if (!samePane()) { await reflag(); return; }
+    reviewState.removedIds = [];
+    commitReviewChain(chain, blob);
+    reviewSetStatus('All parts are back, as they were when you opened this screen.' + (reviewState.scansOk ? '' : ' ' + REVIEW_SCAN_UNAVAILABLE));
+  } catch (err) {
+    console.error('Restore all parts failed:', err);
+    if (samePane()) {
+      reviewState.scans = prev.scans;
+      reviewState.scansOk = prev.scansOk;
+      await reflag();
+      reviewSetStatus("Couldn't restore the parts. Your video is unchanged — try again.");
+    }
+  } finally {
+    if (reviewState.active) {
+      reviewState.partsBusy = false;
+      renderReviewParts();
+      syncReviewCutControls();
+    }
+  }
 }
 
 // "Re-record from here". T is the scrub position on the STITCHED/global
@@ -6889,9 +7396,14 @@ function reviewBackToRecorder() {
 // cluster (REVIEW #22 session 2, see refineCutToBlock) before being stored;
 // segIndex and the discard/undo bookkeeping are unaffected by that.
 async function reviewCutFromHere() {
+  if (reviewPartsBusyNote()) return;
   // scansOk gate + try/catch: a click here must NEVER die silently. Any
   // failure leaves the pane open and says so — the recording itself is
   // metadata-safe either way (truncation never rewrites stored chunks).
+  if (reviewInPartMode()) {
+    reviewSetStatus('Go back to the whole video first, then choose where to re-record from.');
+    return;
+  }
   if (!reviewState.scansOk) {
     reviewSetStatus("Re-record from here isn't available for this recording — you can still watch it, save it as is, or go back.");
     return;
@@ -7023,6 +7535,7 @@ async function applyReviewCutPlan(plan, T) {
 // so the defensive null-plan return below shouldn't be reachable from a
 // click, only from a direct call (e.g. a test).
 async function redoLastTake() {
+  if (reviewPartsBusyNote()) return;
   if (!reviewState.scansOk) {
     reviewSetStatus("Redo last take isn't available for this recording — you can still watch it, save it as is, or go back.");
     return;
@@ -7069,6 +7582,11 @@ function parseReviewTimestamp(str) {
 // rejected with a gentle inline message and nothing else changes: no plan
 // is computed, no marker is touched.
 async function reviewCutFromTypedTime() {
+  if (reviewPartsBusyNote()) return;
+  if (reviewInPartMode()) {
+    reviewSetStatus('Go back to the whole video first, then choose where to re-record from.');
+    return;
+  }
   if (!reviewState.scansOk) {
     reviewSetStatus("Re-record from here isn't available for this recording — you can still watch it, save it as is, or go back.");
     return;
@@ -7140,6 +7658,16 @@ async function undoReRecord() {
 // a successful cut always closes the pane before this can run, so there is
 // no cut to apply first.
 async function reviewSaveAsIs() {
+  // Mutual gate with the parts list (#43): a delete / restore still rebuilding
+  // the chain must finish first, and while this save runs the parts controls
+  // are off (reviewState.saving), so the chain cannot change under the save.
+  if (reviewState.partsBusy) {
+    reviewSetStatus('One moment — still updating the parts list. Then try Save as is again.');
+    return;
+  }
+  reviewState.saving = true;
+  hideReviewPartConfirm();   // an open delete question would be a dead click while saving
+  renderReviewParts();
   // try/catch: a click here must never die silently (same rule as
   // reviewCutFromHere). saveFile/saveSessionsStreamedStitch rethrow any
   // non-cancel failure (a real write/IO error) — nothing here is deleted
@@ -7181,6 +7709,9 @@ async function reviewSaveAsIs() {
   } catch (err) {
     console.error('Save as is failed:', err);
     reviewSetStatus('Save failed: ' + (err && err.message ? err.message : 'unknown error') + '. Your recording is still here — try Save as is again.');
+  } finally {
+    reviewState.saving = false;
+    if (reviewState.active) renderReviewParts();
   }
 }
 

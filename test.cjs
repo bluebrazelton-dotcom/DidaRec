@@ -369,12 +369,27 @@ async function resetState() {
   documentMock.getElementById('captionVideo').currentTime = 0;
   // REVIEW #21 session 2: reviewState is module-level (like captionEditorState)
   // and persists across scenarios unless reset here.
-  Object.assign(api.reviewState, { active: false, segments: [], scans: [], scansOk: false, previewUrl: null, totalBytes: 0, undo: null });
+  Object.assign(api.reviewState, { active: false, segments: [], scans: [], scansOk: false, previewUrl: null, totalBytes: 0, undo: null,
+    // REVIEW #43 stage 1 (v1.36): the parts list's fields
+    entrySegments: [], removedIds: [], playingPart: null, partUrl: null, partToken: 0, partsBusy: false, saving: false, pendingRemoveId: null });
   documentMock.getElementById('reviewPane').classList.remove('visible');
   documentMock.getElementById('reviewDiscardConfirm').classList.remove('visible');
   documentMock.getElementById('reviewStatus').textContent = '';
   delete documentMock.getElementById('reviewVideo').pause; // scenarios that install a pause() spy must not leak it
   documentMock.getElementById('reviewVideo').currentTime = 0;
+  // REVIEW #43 stage 1 (v1.36): parts-list DOM (same leak risk as the controls around it)
+  delete documentMock.getElementById('reviewVideo').src;
+  documentMock.getElementById('reviewPartConfirm').classList.remove('visible');
+  documentMock.getElementById('reviewPartMode').classList.remove('visible');
+  documentMock.getElementById('reviewPartModeMsg').textContent = '';
+  documentMock.getElementById('reviewParts').classList.remove('visible');
+  documentMock.getElementById('reviewPartsList').innerHTML = '';
+  documentMock.getElementById('reviewPartsTotal').textContent = '';
+  documentMock.getElementById('btnRestoreParts').style.display = 'none';
+  documentMock.getElementById('btnRestoreParts').disabled = false;
+  documentMock.getElementById('btnReRecordHere').disabled = false;
+  documentMock.getElementById('btnReRecordHere').textContent = 'Re-record from 0:00';
+  delete sandbox.confirm;
   // REVIEW #25: the redo/typed-time controls are plain DOM, same leak risk
   // as the elements just above (openReviewPane sets these; scenarios that
   // poke reviewState directly instead of calling it never touch them).
@@ -6557,6 +6572,7 @@ Real cue text
     assert(recBannerUp() && sandbox.recoveryKeptMode === true, 'FS: banner up in kept mode');
     assert(el29('recoveryTitle').textContent === 'Recording kept — not saved yet', 'FS: kept title (got ' + el29('recoveryTitle').textContent + ')');
     assert(el29('btnRecoveryContinue').style.display === 'none' && el29('btnRecoverySave').textContent === 'Save it now', 'FS: Continue hidden, Save it now offered');
+    assert(el29('recoveryKeptHint').style.display === '', 'FS: the box itself shows how to add more (owner check, v1.36; the wording is pinned by rig 15.17 — the harness DOM has no text)');
     assert(/About 3 seconds of video/.test(el29('recoveryInfo').textContent), 'FS: length shown (got ' + el29('recoveryInfo').textContent + ')');
     assert(state.priorSegments.length === 1, 'FS precondition: footage armed for Record');
 
@@ -6599,6 +6615,7 @@ Real cue text
     await sandbox.checkForRecovery();
     assert(recBannerUp() && sandbox.recoveryKeptMode === false, 'FT: page-load banner is in its normal mode');
     assert(el29('recoveryTitle').textContent === 'Interrupted recording found' && el29('btnRecoveryContinue').style.display === '' && el29('btnRecoverySave').textContent === 'Recover & save', 'FT: page-load wording and all three buttons');
+    assert(el29('recoveryKeptHint').style.display === 'none', 'FT: the add-more hint is only for kept mode');
     await sandbox.continueRecording();
     assert(recBannerUp() && sandbox.recoveryKeptMode === true && state.priorSegments.length === 1, 'FT: Continue recording arms the footage and leaves the banner up in kept mode');
     assert(el29('btnRecoveryContinue').style.display === 'none', 'FT: no second Continue click possible');
@@ -7073,6 +7090,721 @@ Real cue text
     state.screenStream = null; state.sources = { screen: true, camera: false, mic: false };
     api.pipState.fullscreen = saved.fs; api.pipState.shape = saved.shape; api.pipState.widthFrac = saved.w;
     sandbox.updateToggleUI();
+  });
+
+  // ============================================================
+  // REVIEW #43 stage 1 (v1.36): the review pane's PARTS LIST — one row per
+  // recorded part, play ONE part alone in the existing player, delete a part
+  // (in-pane confirm), Restore all parts. Parts are the review chain
+  // (reviewState.segments); a deleted part is soft-deleted with the same
+  // discarded=true flag a re-record cut uses, so every existing save/discard
+  // site already sweeps it. GK = the list, GL = single-part play, GM = delete,
+  // GN = last part / edge cases, GO = Restore all parts, GP = interplay with
+  // cuts, GQ = save/discard/back flows unchanged, GR/GS = resetState hygiene.
+  // ============================================================
+
+  // A Chrome-shaped WebM with n one-second clusters (the last also carries a
+  // block 900ms in, like syntheticWebm's) — content end = (n-1)*1000 + 900, so
+  // its player duration is (n-1)*1000 + 933 ms. n = 3 is syntheticWebm's shape.
+  function nClusterWebm(n) {
+    const header = Buffer.from([0x1A, 0x45, 0xDF, 0xA3, 0x80]);
+    const segHdr = Buffer.from([0x18, 0x53, 0x80, 0x67, 0x01, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]);
+    const infoEl = el([0x15, 0x49, 0xA9, 0x66], el([0x2A, 0xD7, 0xB1], uintBytes(1000000, 3)));
+    const tracks = el([0x16, 0x54, 0xAE, 0x6B],
+      el([0xAE], el([0xD7], [0x01]), el([0x83], [0x01])),
+      el([0xAE], el([0xD7], [0x02]), el([0x83], [0x02])));
+    const clusters = [];
+    for (let i = 0; i < n; i++) {
+      const blocks = [simpleBlock(1, 0, 0x80, 30), simpleBlock(2, 3, 0x80, 10)];
+      if (i === n - 1) blocks.push(simpleBlock(1, 900, 0x00, 25));
+      clusters.push(clusterUnknown(i * 1000, blocks));
+    }
+    return Buffer.concat([header, segHdr, infoEl, tracks, ...clusters]);
+  }
+  // The Duration the player itself would report for a finished preview blob's
+  // bytes (Info's Duration float) — independent of the app's own list math.
+  function infoDurationMs(buf) {
+    const ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.length);
+    const scan = S.webmScan(ab);
+    const view = new DataView(ab);
+    const dur = childElems(view, scan.infoDataStart, scan.infoDataEnd).find((k) => k.id === 0x4489);
+    return dur ? Math.round(view.getFloat64(dur.dataStart, false)) : null;
+  }
+  // Unique, inspectable object URLs for a scenario (the global mock hands out
+  // 'blob:mock' every time, which can't tell one preview from another).
+  function installUniqueUrls() {
+    const saved = { c: sandbox.URL.createObjectURL, r: sandbox.URL.revokeObjectURL };
+    const made = new Map(); const revoked = []; let n = 0;
+    sandbox.URL.createObjectURL = (b) => { const u = 'blob:gk-' + (++n); made.set(u, b); return u; };
+    sandbox.URL.revokeObjectURL = (u) => { revoked.push(u); };
+    return {
+      made, revoked,
+      restore() { sandbox.URL.createObjectURL = saved.c; sandbox.URL.revokeObjectURL = saved.r; },
+      bytes: async (u) => Buffer.from(await made.get(u).arrayBuffer()),
+    };
+  }
+  async function openParts(bufs) {
+    const ids = await seedSegments(bufs);
+    const segs = ids.map((id) => ({ sessionId: id, mimeType: 'video/webm' }));
+    await S.openReviewPane(segs);
+    return { ids, segs };
+  }
+  const gk = (id) => documentMock.getElementById(id);
+  const visibleText = (html) => String(html).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  const NOT_PLAIN = /chunk|segment|stitch|session|reload|refresh|error/i;
+  const sessionFlags = async () => { const rows = await readStore('sessions'); const m = {}; for (const r of rows) m[r.id] = r; return m; };
+
+  await scenario('GK the review pane lists every part as "Part N — m:ss" in order, marks the newest, shows the whole length; one part shows no list; an unreadable scan shows part names only', async () => {
+    const bufA = syntheticWebm(), bufB = nClusterWebm(5), bufC = nClusterWebm(12);
+    const u = installUniqueUrls();
+    try {
+      const { ids } = await openParts([bufA, bufB, bufC]);
+      const model = S.reviewPartsModel();
+      assert(model.rows.length === 3 && model.rows.every((r, i) => r.index === i && r.sessionId === ids[i]), 'GK: one row per part, in chain order');
+      assert(model.rows.map((r) => r.label).join('|') === 'Part 1 — 0:03|Part 2 — 0:05|Part 3 — 0:12',
+        'GK: labels are "Part N — m:ss" (got ' + model.rows.map((r) => r.label).join('|') + ')');
+      assert(model.rows.map((r) => r.newest).join() === 'false,false,true', 'GK: only the last part is marked newest');
+      assert(model.rows.every((r) => r.canDelete === true), 'GK: with 3 parts every part can be deleted');
+      assert(model.totalLabel === 'Whole video — 0:19', 'GK: the whole length is the parts added up (got ' + model.totalLabel + ')');
+      assert(model.show === true && model.canRestore === false, 'GK: list shown, nothing to restore yet');
+
+      // The numbers agree with what the real player will be told: each part's
+      // own makeSeekable Duration, and the stitched preview's Duration.
+      const partMs = [], oracleParts = [bufA, bufB, bufC];
+      for (const b of oracleParts) partMs.push(infoDurationMs(await expectedBytes(b)));
+      assert(partMs.join() === '2933,4933,11933', 'GK precondition: the fixtures\' real durations (got ' + partMs.join() + ')');
+      const wholeBytes = await u.bytes(gk('reviewVideo').src);
+      assert(infoDurationMs(wholeBytes) === partMs[0] + partMs[1] + partMs[2], 'GK: whole length == the stitched preview\'s own Duration == the sum of the parts (got ' + infoDurationMs(wholeBytes) + ')');
+
+      // Rendered list
+      const html = gk('reviewPartsList').innerHTML;
+      const text = visibleText(html);
+      assert(/Part 1 — 0:03/.test(text) && /Part 2 — 0:05/.test(text) && /Part 3 — 0:12/.test(text), 'GK: the rendered list shows each label (got "' + text + '")');
+      assert((html.match(/review-part-badge/g) || []).length === 1 && /Part 3 — 0:12<\/span><span class="review-part-badge">Newest<\/span>/.test(html),
+        'GK: exactly one "Newest" mark, on Part 3');
+      assert((html.match(/reviewPlayPart\((\d)\)/g) || []).join() === 'reviewPlayPart(0),reviewPlayPart(1),reviewPlayPart(2)', 'GK: each row has a Play control wired to its own part');
+      assert((html.match(/requestReviewPartRemove\((\d)\)/g) || []).length === 3, 'GK: each row has a Delete control');
+      assert(gk('reviewParts').classList.contains('visible'), 'GK: the parts panel is visible');
+      assert(gk('reviewPartsTotal').textContent === 'Whole video — 0:19', 'GK: the total line is shown');
+      assert(gk('btnRestoreParts').style.display === 'none', 'GK: Restore all parts is hidden until something is deleted');
+      assert(gk('reviewPartMode').classList.contains('visible') === false, 'GK: no single-part banner on the whole video');
+      assert(!NOT_PLAIN.test(text + ' ' + gk('reviewPartsTotal').textContent), 'GK: list text keeps to plain words');
+      const pageHtml = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
+      const staticMarkup = pageHtml.slice(pageHtml.indexOf('id="reviewPartConfirm"'), pageHtml.indexOf('id="reviewPartsList"')).replace(/<!--[\s\S]*?-->/g, '');
+      assert(visibleText(staticMarkup).length > 40 && !NOT_PLAIN.test(visibleText(staticMarkup)), 'GK: the fixed wording of the new pane parts (question, banner, headings, buttons) keeps to plain words too');
+      S.closeReviewPane();
+    } finally { u.restore(); }
+
+    // ---- one part: no list (it would only repeat the player) ----
+    {
+      await openParts([nClusterWebm(5)]);
+      const m = S.reviewPartsModel();
+      assert(m.rows.length === 1 && m.rows[0].newest === false && m.rows[0].canDelete === false, 'GK: a single part is not marked newest and can\'t be deleted');
+      assert(m.show === false && gk('reviewParts').classList.contains('visible') === false, 'GK: the list is hidden for a one-part video');
+      S.closeReviewPane();
+    }
+    // ---- an unreadable scan: names only, no made-up lengths ----
+    {
+      await openParts([syntheticWebm(), syntheticPoisonWebm()]);
+      assert(api.reviewState.scansOk === false, 'GK precondition: the poisoned part bails the scan');
+      const m = S.reviewPartsModel();
+      assert(m.rows.map((r) => r.label).join('|') === 'Part 1|Part 2' && m.totalLabel === '', 'GK: without a trustworthy scan the list shows part names only (got ' + m.rows.map((r) => r.label).join('|') + ')');
+      assert(m.rows[1].newest === true && gk('reviewParts').classList.contains('visible'), 'GK: still listed and marked, just without lengths');
+      S.closeReviewPane();
+    }
+  });
+
+  await scenario('GL one part plays alone in the SAME player: the whole preview is kept for an instant way back; the re-record controls step aside meanwhile', async () => {
+    const bufs = [syntheticWebm(), nClusterWebm(5), nClusterWebm(12)];
+    const u = installUniqueUrls();
+    const confirmSpy = { n: 0 }; sandbox.confirm = () => { confirmSpy.n++; return true; };
+    try {
+      const { ids } = await openParts(bufs);
+      const video = gk('reviewVideo');
+      const wholeUrl = video.src;
+      const scansBefore = api.reviewState.scans;
+      const paneHtml = html.slice(html.indexOf('id="reviewPane"'), html.indexOf('</main>'));
+      assert((paneHtml.match(/<video\b/g) || []).length === 1, 'GL: the review pane still has exactly ONE video element');
+
+      await S.reviewPlayPart(1);
+      assert(api.reviewState.playingPart === 1, 'GL: Part 2 is the part playing');
+      assert(video.src !== wholeUrl && (await u.bytes(video.src)).equals(await expectedBytes(bufs[1])), 'GL: the player now has JUST Part 2 (its own bytes === makeSeekable of that part alone)');
+      assert(api.reviewState.previewUrl === wholeUrl && !u.revoked.includes(wholeUrl), 'GL: the whole-video preview is kept, not rebuilt or revoked');
+      assert(api.reviewState.scans === scansBefore && api.reviewState.segments === api.reviewState.segments && api.reviewState.segments.length === 3 && api.reviewState.scans.length === 3,
+        'GL: playing a part leaves the whole video\'s scans and parts untouched');
+      assert(gk('reviewPartMode').classList.contains('visible') && gk('reviewPartModeMsg').textContent === 'Playing Part 2 on its own.', 'GL: a clear banner says one part is playing');
+      assert(/class="review-part-row playing"[^>]*>\s*<span class="review-part-label">Part 2/.test(gk('reviewPartsList').innerHTML) && /Playing<\/button>/.test(gk('reviewPartsList').innerHTML), 'GL: the playing row is marked');
+      assert(gk('reviewStatus').textContent === '', 'GL: the "getting ready" note clears once it plays');
+      assert(gk('btnReRecordHere').disabled === true && gk('btnRerecordAtTime').disabled === true && gk('reviewTimeInput').disabled === true, 'GL: re-record from a time is off while one part plays (its clock is not the whole video\'s)');
+      assert(gk('btnReRecordHere').textContent === 'Re-record from here', 'GL: the re-record label does not offer a part-local time');
+      assert(gk('btnRedoLastTake').disabled === false, 'GL: Redo last take does not use the playhead, so it stays on');
+
+      // a re-record attempt is refused plainly and changes nothing
+      video.currentTime = 1.5;
+      await S.reviewCutFromHere();
+      assert(/Go back to the whole video first/.test(gk('reviewStatus').textContent), 'GL: Re-record from here is refused while one part plays');
+      gk('reviewTimeInput').value = '0:01';
+      await S.reviewCutFromTypedTime();
+      assert(/Go back to the whole video first/.test(gk('reviewStatus').textContent), 'GL: the typed time is refused too');
+      let flags = await sessionFlags();
+      assert(ids.every((id) => flags[id].cutAtByte === undefined && flags[id].discarded === undefined) && gk('reviewPane').classList.contains('visible'), 'GL: nothing was cut and the pane stays open');
+      assert(!NOT_PLAIN.test(gk('reviewStatus').textContent), 'GL: that message is plain');
+
+      // another part replaces it: the previous single-part URL is revoked
+      const firstPartUrl = video.src;
+      await S.reviewPlayPart(2);
+      assert(api.reviewState.playingPart === 2 && u.revoked.includes(firstPartUrl) && (await u.bytes(video.src)).equals(await expectedBytes(bufs[2])), 'GL: switching parts replaces the player\'s source and releases the old one');
+
+      // way back
+      const lastPartUrl = video.src;
+      video.currentTime = 0;
+      S.reviewShowWhole();
+      assert(video.src === wholeUrl && api.reviewState.playingPart === null && api.reviewState.partUrl === null, 'GL: "Back to the whole video" puts the very same whole preview back');
+      assert(u.revoked.includes(lastPartUrl) && !u.revoked.includes(wholeUrl), 'GL: the single-part preview is released, the whole one is not');
+      assert(gk('reviewPartMode').classList.contains('visible') === false && gk('reviewPartModeMsg').textContent === '', 'GL: the banner goes away');
+      assert(gk('btnReRecordHere').disabled === false && gk('btnRerecordAtTime').disabled === false && gk('reviewTimeInput').disabled === false, 'GL: the re-record controls are back');
+      assert(gk('btnReRecordHere').textContent === 'Re-record from 0:00', 'GL: and the label reads the whole video\'s clock again');
+      assert(!/class="review-part-row playing"/.test(gk('reviewPartsList').innerHTML), 'GL: no row is marked playing');
+      S.reviewShowWhole();   // already on the whole video: nothing happens
+      assert(video.src === wholeUrl, 'GL: going back when already there is a no-op');
+      assert(confirmSpy.n === 0, 'GL: no browser popup was used');
+
+      // ---- the pane is the same one after a round trip: a real cut still works from the whole video ----
+      video.currentTime = (seamOffset(scanResult(bufs[0])) + 1500) / 1000;
+      await S.reviewCutFromHere();
+      flags = await sessionFlags();
+      assert(gk('reviewPane').classList.contains('visible') === false && flags[ids[1]].cutAtByte > 0, 'GL: Re-record from here works again once back on the whole video');
+    } finally { u.restore(); delete sandbox.confirm; }
+  });
+
+  await scenario('GL2 playing a part: a newer click wins, closing the pane or going back mid-load drops the load, a failed load says so plainly and changes nothing, degraded scans still play', async () => {
+    const bufs = [syntheticWebm(), nClusterWebm(5), nClusterWebm(12)];
+    const u = installUniqueUrls();
+    try {
+      await openParts(bufs);
+      const video = gk('reviewVideo');
+      const wholeUrl = video.src;
+
+      // two quick clicks: the second wins, only one single-part preview stays live
+      const p0 = S.reviewPlayPart(0), p2 = S.reviewPlayPart(2);
+      await Promise.all([p0, p2]);
+      assert(api.reviewState.playingPart === 2 && (await u.bytes(video.src)).equals(await expectedBytes(bufs[2])), 'GL2: of two quick clicks the last one is what plays');
+      const liveParts = [...u.made.keys()].filter((k) => k !== wholeUrl && !u.revoked.includes(k));
+      assert(liveParts.length === 1 && liveParts[0] === video.src, 'GL2: exactly one single-part preview is still held');
+
+      // Back to the whole video while another part is still loading: the load is dropped
+      const pend = S.reviewPlayPart(1);
+      S.reviewShowWhole();
+      await pend;
+      assert(api.reviewState.playingPart === null && video.src === wholeUrl, 'GL2: going back mid-load wins; the late part never takes over the player');
+      assert(gk('reviewPartMode').classList.contains('visible') === false, 'GL2: and no banner is left behind');
+
+      // the pane closes mid-load: nothing is created after it
+      const madeBefore = u.made.size;
+      const pend2 = S.reviewPlayPart(1);
+      S.closeReviewPane();
+      await pend2;
+      assert(u.made.size === madeBefore && api.reviewState.partUrl === null && api.reviewState.playingPart === null, 'GL2: a part that finishes loading after the pane closed is dropped without making a new preview');
+
+      // a failed load: plain message, nothing changes
+      await openParts(bufs);
+      const url2 = gk('reviewVideo').src;
+      const realSeekable = sandbox.makeSeekable;
+      sandbox.makeSeekable = async () => { throw new Error('boom'); };
+      const origErr = console.error; console.error = () => {};
+      try { await S.reviewPlayPart(1); } finally { console.error = origErr; sandbox.makeSeekable = realSeekable; }
+      assert(api.reviewState.playingPart === null && gk('reviewVideo').src === url2, 'GL2: a failed load leaves the player on the whole video');
+      assert(/Couldn't open that part/.test(gk('reviewStatus').textContent) && !NOT_PLAIN.test(gk('reviewStatus').textContent), 'GL2: it says so in plain words (got "' + gk('reviewStatus').textContent + '")');
+      S.closeReviewPane();
+    } finally { u.restore(); }
+
+    // degraded scan: watching a single part never needed the scan
+    await openParts([syntheticWebm(), syntheticPoisonWebm()]);
+    assert(api.reviewState.scansOk === false, 'GL2 precondition: scan unavailable');
+    await S.reviewPlayPart(0);
+    assert(api.reviewState.playingPart === 0, 'GL2: a part still plays when the cut math is unavailable');
+    S.reviewShowWhole();
+    assert(gk('btnReRecordHere').disabled === true && gk('btnRedoLastTake').disabled === true, 'GL2: and the cut controls stay off after coming back (the scan gate still holds)');
+    S.closeReviewPane();
+  });
+
+  await scenario('GM deleting a part: in-pane confirm first (nothing changes until it is confirmed), then the part leaves the video, the preview and total update, the list renumbers', async () => {
+    const bufs = [syntheticWebm(), nClusterWebm(5), nClusterWebm(12)];
+    const u = installUniqueUrls();
+    const confirmSpy = { n: 0 }; sandbox.confirm = () => { confirmSpy.n++; return true; };
+    try {
+      const { ids } = await openParts(bufs);
+      const video = gk('reviewVideo');
+      const wholeUrl = video.src;
+
+      S.requestReviewPartRemove(1);
+      assert(gk('reviewPartConfirm').classList.contains('visible'), 'GM: Delete opens the confirm IN the pane');
+      const msg = gk('reviewPartConfirmMsg').textContent;
+      assert(/Delete Part 2 — 0:05 from this video\?/.test(msg) && /Restore all parts/.test(msg) && !NOT_PLAIN.test(msg), 'GM: the question names the part and the way back, in plain words (got "' + msg + '")');
+      assert(gk('btnReviewPartDelete').textContent === 'Delete Part 2', 'GM: the confirm button says what it deletes');
+      assert(api.reviewState.pendingRemoveId === ids[1], 'GM: the pane remembers which part is being asked about');
+      let flags = await sessionFlags();
+      assert(ids.every((id) => flags[id].discarded === undefined) && api.reviewState.segments.length === 3 && video.src === wholeUrl, 'GM: asking changes nothing');
+
+      // "Keep it"
+      S.hideReviewPartConfirm();
+      assert(gk('reviewPartConfirm').classList.contains('visible') === false && api.reviewState.pendingRemoveId === null, 'GM: Keep it closes the question');
+      await S.reviewPartRemoveConfirmed();   // nothing pending: a stray confirm does nothing
+      flags = await sessionFlags();
+      assert(ids.every((id) => flags[id].discarded === undefined) && api.reviewState.segments.length === 3, 'GM: a confirm with nothing pending changes nothing');
+
+      // the discard-recording question and the part question never show together
+      S.requestReviewDiscard();
+      S.requestReviewPartRemove(1);
+      assert(gk('reviewDiscardConfirm').classList.contains('visible') === false && gk('reviewPartConfirm').classList.contains('visible'), 'GM: opening the part question closes the discard question');
+      S.requestReviewDiscard();
+      assert(gk('reviewPartConfirm').classList.contains('visible') === false, 'GM: and the other way round');
+      S.hideReviewDiscardConfirm();
+
+      // ---- delete the middle part ----
+      S.requestReviewPartRemove(1);
+      await S.reviewPartRemoveConfirmed();
+      assert(gk('reviewPartConfirm').classList.contains('visible') === false, 'GM: the question closes');
+      assert(api.reviewState.segments.map((s) => s.sessionId).join() === [ids[0], ids[2]].join(), 'GM: the part left the video');
+      assert(api.reviewState.entrySegments.map((s) => s.sessionId).join() === ids.join(), 'GM: the entry snapshot still holds all three');
+      assert(api.reviewState.removedIds.join() === ids[1], 'GM: the pane remembers what was deleted');
+      flags = await sessionFlags();
+      assert(flags[ids[1]].discarded === true && flags[ids[0]].discarded === undefined && flags[ids[2]].discarded === undefined, 'GM: only the deleted part is flagged (kept in storage, hidden from recovery)');
+      const chunks = await readStore('chunks');
+      assert(chunks.filter((c) => c.sessionId === ids[1]).length === 3, 'GM: its bytes are untouched (this is what makes Restore possible)');
+      assert(api.reviewState.scans.length === 2 && api.reviewState.scansOk === true, 'GM: the scans follow the new chain');
+      assert(video.src !== wholeUrl && u.revoked.includes(wholeUrl), 'GM: the old whole preview is released');
+      assert((await u.bytes(video.src)).equals(await stitchOracle([bufs[0], bufs[2]])), 'GM: the player has the video WITHOUT that part (=== buffered stitch oracle of the other two)');
+      assert(api.reviewState.previewUrl === video.src, 'GM: previewUrl points at it');
+      const model = S.reviewPartsModel();
+      assert(model.rows.map((r) => r.label).join('|') === 'Part 1 — 0:03|Part 2 — 0:12' && model.rows.map((r) => r.newest).join() === 'false,true', 'GM: the list renumbers and the newest mark follows (got ' + model.rows.map((r) => r.label).join('|') + ')');
+      assert(model.totalLabel === 'Whole video — 0:14', 'GM: the total updates (got ' + model.totalLabel + ')');
+      assert(infoDurationMs(await u.bytes(video.src)) === 2933 + 11933, 'GM: and matches the new preview\'s own Duration');
+      assert(gk('btnRestoreParts').style.display === '' && gk('btnRestoreParts').disabled === false, 'GM: Restore all parts appears');
+      assert(/Part 2 was deleted\./.test(gk('reviewStatus').textContent) && /moved up one number/.test(gk('reviewStatus').textContent) && /Restore all parts/.test(gk('reviewStatus').textContent) && !NOT_PLAIN.test(gk('reviewStatus').textContent),
+        'GM: a plain note says what happened (got "' + gk('reviewStatus').textContent + '")');
+      assert(api.reviewState.partsBusy === false && gk('reviewPane').classList.contains('visible'), 'GM: the pane stays open and ready');
+      assert(confirmSpy.n === 0, 'GM: no browser popup was used');
+
+      // ---- the cut controls now work on the NEW video ----
+      assert(S.reviewPartsModel().rows.length === 2 && gk('btnRedoLastTake').style.display === '', 'GM: with 2 parts left Redo last take is still offered');
+
+      // ---- deleting the NEWEST part: no "moved up" note, the newest mark moves to the last one left ----
+      S.requestReviewPartRemove(1);
+      assert(/Delete Part 2 — 0:12/.test(gk('reviewPartConfirmMsg').textContent), 'GM: the question names Part 2 as it is NOW numbered');
+      S.hideReviewPartConfirm();
+    } finally { u.restore(); delete sandbox.confirm; }
+  });
+
+  await scenario('GM2 deleting the newest part; deleting while a part is playing; a delete that fails changes nothing; a pane that closes mid-delete leaves the part in the video', async () => {
+    const bufs = [syntheticWebm(), nClusterWebm(5), nClusterWebm(12)];
+    const u = installUniqueUrls();
+    try {
+      let { ids } = await openParts(bufs);
+      // newest part
+      S.requestReviewPartRemove(2);
+      await S.reviewPartRemoveConfirmed();
+      assert(api.reviewState.segments.map((s) => s.sessionId).join() === [ids[0], ids[1]].join(), 'GM2: the newest part can be deleted');
+      assert(!/moved up/.test(gk('reviewStatus').textContent) && /Part 3 was deleted\./.test(gk('reviewStatus').textContent), 'GM2: nothing after it, so no renumbering note (got "' + gk('reviewStatus').textContent + '")');
+      let m = S.reviewPartsModel();
+      assert(m.rows.map((r) => r.label).join('|') === 'Part 1 — 0:03|Part 2 — 0:05' && m.rows[1].newest === true, 'GM2: the new last part is marked newest');
+      S.closeReviewPane();
+
+      // deleting while a part plays: back to the whole video, now without it
+      ({ ids } = await openParts(bufs));
+      await S.reviewPlayPart(0);
+      assert(api.reviewState.playingPart === 0, 'GM2 precondition: Part 1 is playing');
+      const partUrl = gk('reviewVideo').src;
+      S.requestReviewPartRemove(2);
+      await S.reviewPartRemoveConfirmed();
+      assert(api.reviewState.playingPart === null && api.reviewState.partUrl === null && u.revoked.includes(partUrl), 'GM2: deleting leaves single-part mode and releases the part preview');
+      assert((await u.bytes(gk('reviewVideo').src)).equals(await stitchOracle([bufs[0], bufs[1]])), 'GM2: the player shows the whole video without the deleted part');
+      assert(gk('reviewPartMode').classList.contains('visible') === false && gk('btnReRecordHere').disabled === false, 'GM2: the banner is gone and re-record is back');
+      S.closeReviewPane();
+
+      // a failure while rebuilding the preview: nothing is deleted
+      ({ ids } = await openParts(bufs));
+      const scansBefore = api.reviewState.scans, urlBefore = gk('reviewVideo').src;
+      const realConcat = sandbox.concatenateWebM;
+      sandbox.concatenateWebM = async () => { throw new Error('boom'); };
+      const origErr = console.error; console.error = () => {};
+      S.requestReviewPartRemove(1);
+      try { await S.reviewPartRemoveConfirmed(); } finally { console.error = origErr; sandbox.concatenateWebM = realConcat; }
+      let flags = await sessionFlags();
+      assert(ids.every((id) => flags[id].discarded === undefined) && api.reviewState.segments.length === 3 && api.reviewState.removedIds.length === 0, 'GM2: a failed rebuild deletes nothing');
+      assert(api.reviewState.scans === scansBefore && api.reviewState.scansOk === true && gk('reviewVideo').src === urlBefore && api.reviewState.previewUrl === urlBefore, 'GM2: the old scans and preview are still in place');
+      assert(/Couldn't delete that part\. Your video is unchanged/.test(gk('reviewStatus').textContent) && !NOT_PLAIN.test(gk('reviewStatus').textContent), 'GM2: it says so plainly (got "' + gk('reviewStatus').textContent + '")');
+      assert(api.reviewState.partsBusy === false && gk('btnRestoreParts').style.display === 'none' && S.reviewPartsModel().rows.length === 3, 'GM2: the list is whole again and usable');
+
+      // a failure while flagging: also nothing deleted
+      const realFlag = sandbox.setSessionDiscarded;
+      sandbox.setSessionDiscarded = async () => { throw new Error('boom'); };
+      console.error = () => {};
+      S.requestReviewPartRemove(1);
+      try { await S.reviewPartRemoveConfirmed(); } finally { console.error = origErr; sandbox.setSessionDiscarded = realFlag; }
+      flags = await sessionFlags();
+      assert(ids.every((id) => flags[id].discarded === undefined) && api.reviewState.segments.length === 3 && api.reviewState.scans === scansBefore, 'GM2: a failed delete write also leaves everything as it was (scans restored)');
+      S.closeReviewPane();
+
+      // the pane closes while the preview is rebuilding: the part stays in the video
+      ({ ids } = await openParts(bufs));
+      const countedFlag = sandbox.setSessionDiscarded; let flagWrites = 0;
+      sandbox.setSessionDiscarded = async (id, d) => { flagWrites++; return countedFlag(id, d); };
+      S.requestReviewPartRemove(1);
+      const pend = S.reviewPartRemoveConfirmed();
+      S.closeReviewPane();   // e.g. Back to recorder, mid-rebuild
+      try { await pend; } finally { sandbox.setSessionDiscarded = countedFlag; }
+      flags = await sessionFlags();
+      assert(ids.every((id) => flags[id].discarded === undefined) && flagWrites === 0, 'GM2: a pane that closed mid-rebuild deletes nothing and does not even write (writes: ' + flagWrites + ')');
+      assert(api.reviewState.active === false && api.reviewState.removedIds.length === 0 && api.reviewState.partsBusy === false, 'GM2: and leaves no half state');
+
+      // the pane closes while the delete is being written: the write is taken back
+      ({ ids } = await openParts(bufs));
+      const wrapFlag = sandbox.setSessionDiscarded;
+      sandbox.setSessionDiscarded = async (id, d) => { await wrapFlag(id, d); if (d) S.closeReviewPane(); };
+      S.requestReviewPartRemove(1);
+      try { await S.reviewPartRemoveConfirmed(); } finally { sandbox.setSessionDiscarded = wrapFlag; }
+      flags = await sessionFlags();
+      assert(ids.every((id) => flags[id].discarded === undefined), 'GM2: a pane that closed while the delete was being written gets the part back (no half-deleted video left for recovery)');
+    } finally { u.restore(); }
+  });
+
+  await scenario('GN the only remaining part is never offered for deletion (that is Discard recording); a forged confirm is refused; Redo last take follows the part count', async () => {
+    const bufs = [syntheticWebm(), nClusterWebm(5)];
+    const { ids } = await openParts(bufs);
+    assert(gk('btnRedoLastTake').style.display === '', 'GN precondition: 2 parts offer Redo last take');
+    S.requestReviewPartRemove(1);
+    await S.reviewPartRemoveConfirmed();
+    assert(api.reviewState.segments.length === 1 && api.reviewState.segments[0].sessionId === ids[0], 'GN precondition: one part left');
+    const m = S.reviewPartsModel();
+    assert(m.rows.length === 1 && m.rows[0].canDelete === false && m.rows[0].newest === false, 'GN: the last part cannot be deleted and is not "newest"');
+    assert(m.show === true, 'GN: the list stays up (Restore all parts lives there)');
+    const html = gk('reviewPartsList').innerHTML;
+    assert(!/requestReviewPartRemove/.test(html) && /reviewPlayPart\(0\)/.test(html), 'GN: no Delete control on the last part (Play stays)');
+    assert(gk('btnRedoLastTake').style.display === 'none', 'GN: Redo last take disappears with one part (nothing to fall back to)');
+    S.requestReviewPartRemove(0);
+    assert(gk('reviewPartConfirm').classList.contains('visible') === false && api.reviewState.pendingRemoveId === null, 'GN: asking to delete the last part opens nothing');
+    api.reviewState.pendingRemoveId = ids[0];   // a forged / stale confirm
+    await S.reviewPartRemoveConfirmed();
+    const flags = await sessionFlags();
+    assert(flags[ids[0]].discarded === undefined && api.reviewState.segments.length === 1, 'GN: even a stray confirm cannot delete the last part');
+    await S.reviewRestoreParts();
+    assert(api.reviewState.segments.length === 2 && gk('btnRedoLastTake').style.display === '', 'GN: Restore brings Redo last take back too');
+    S.closeReviewPane();
+  });
+
+  await scenario('GO Restore all parts returns the video EXACTLY to how it was when the pane opened: order, scans, preview, flags; it is hidden when there is nothing to restore', async () => {
+    const bufs = [syntheticWebm(), nClusterWebm(5), nClusterWebm(12)];
+    const u = installUniqueUrls();
+    try {
+      const { ids } = await openParts(bufs);
+      const entryUrl = gk('reviewVideo').src;
+      const entryBytes = await u.bytes(entryUrl);
+      const entryModel = JSON.stringify(S.reviewPartsModel());
+      const entryScans = JSON.stringify(api.reviewState.scans);
+      await S.reviewRestoreParts();   // nothing deleted yet
+      assert(gk('reviewVideo').src === entryUrl && api.reviewState.segments.length === 3, 'GO: Restore with nothing deleted is a no-op');
+
+      // delete two parts, then play the one left
+      S.requestReviewPartRemove(1); await S.reviewPartRemoveConfirmed();
+      S.requestReviewPartRemove(0); await S.reviewPartRemoveConfirmed();
+      assert(api.reviewState.segments.length === 1 && api.reviewState.segments[0].sessionId === ids[2] && api.reviewState.removedIds.join() === [ids[1], ids[0]].join(), 'GO precondition: only Part 3 is left');
+      await S.reviewPlayPart(0);
+      assert(api.reviewState.playingPart === 0, 'GO precondition: playing the one left');
+
+      await S.reviewRestoreParts();
+      assert(api.reviewState.segments.map((s) => s.sessionId).join() === ids.join(), 'GO: all three parts are back, in the original order');
+      assert(api.reviewState.removedIds.length === 0 && api.reviewState.playingPart === null && api.reviewState.partUrl === null, 'GO: nothing left deleted, single-part mode left');
+      const flags = await sessionFlags();
+      assert(ids.every((id) => flags[id].discarded === undefined), 'GO: no part is flagged any more');
+      assert(JSON.stringify(api.reviewState.scans) === entryScans && api.reviewState.scansOk === true, 'GO: the scans are exactly the entry scans');
+      assert((await u.bytes(gk('reviewVideo').src)).equals(entryBytes) && (await u.bytes(gk('reviewVideo').src)).equals(await stitchOracle(bufs)), 'GO: the preview is byte-identical to the one the pane opened with');
+      assert(JSON.stringify(S.reviewPartsModel()) === entryModel, 'GO: the parts list is identical to the entry list');
+      assert(gk('btnRestoreParts').style.display === 'none' && gk('btnRedoLastTake').style.display === '', 'GO: Restore all parts goes away again and Redo last take is back');
+      assert(gk('reviewPartMode').classList.contains('visible') === false && gk('btnReRecordHere').disabled === false, 'GO: the player is on the whole video with all controls');
+      assert(/All parts are back/.test(gk('reviewStatus').textContent) && !NOT_PLAIN.test(gk('reviewStatus').textContent), 'GO: a plain note (got "' + gk('reviewStatus').textContent + '")');
+      assert(api.reviewState.partsBusy === false, 'GO: ready for the next click');
+
+      // a failed restore changes nothing
+      S.requestReviewPartRemove(1); await S.reviewPartRemoveConfirmed();
+      const scansNow = api.reviewState.scans, urlNow = gk('reviewVideo').src;
+      const realFlag = sandbox.setSessionDiscarded;
+      sandbox.setSessionDiscarded = async () => { throw new Error('boom'); };
+      const origErr = console.error; console.error = () => {};
+      try { await S.reviewRestoreParts(); } finally { console.error = origErr; sandbox.setSessionDiscarded = realFlag; }
+      const flags2 = await sessionFlags();
+      assert(flags2[ids[1]].discarded === true && api.reviewState.segments.length === 2 && api.reviewState.removedIds.join() === ids[1] && api.reviewState.scans === scansNow && gk('reviewVideo').src === urlNow, 'GO: a failed restore leaves the video as it was');
+      assert(/Couldn't restore the parts\. Your video is unchanged/.test(gk('reviewStatus').textContent) && !NOT_PLAIN.test(gk('reviewStatus').textContent), 'GO: and says so plainly');
+      await S.reviewRestoreParts();
+      assert(api.reviewState.segments.length === 3, 'GO: trying again works');
+      S.closeReviewPane();
+    } finally { u.restore(); }
+  });
+
+  await scenario('GP the Restore rule vs cuts: a cut or Redo closes the pane, so a pane never holds a cut of its own; earlier deletions stay deleted and are NOT part of Undo re-record; the next pane takes a fresh entry snapshot', async () => {
+    const bufs = [syntheticWebm(), nClusterWebm(5), nClusterWebm(12)];
+    const scans = bufs.map(scanResult);
+    // ---- A. delete Part 2, then a scrubbed cut: indexes follow the CURRENT chain ----
+    {
+      const { ids } = await openParts(bufs);
+      S.requestReviewPartRemove(1); await S.reviewPartRemoveConfirmed();
+      assert(api.reviewState.segments.length === 2, 'GP precondition: Part 2 deleted');
+      const T = seamOffset(scans[0]) + midTs(scans[2].clusters[3].timestamp, scans[2].clusters[4].timestamp);
+      const plan = S.computeCutPlan([scans[0], scans[2]], T);
+      assert(plan.kind === 'cut' && plan.segIndex === 1 && plan.cutAtByte > 0, 'GP precondition: this time lands inside the (new) Part 2');
+      gk('reviewVideo').currentTime = T / 1000;
+      await S.reviewCutFromHere();
+      const flags = await sessionFlags();
+      assert(flags[ids[2]].cutAtByte > 0 && flags[ids[0]].cutAtByte === undefined && flags[ids[1]].cutAtByte === undefined, 'GP: the cut landed on the right stored part (the old Part 3), not by its old number');
+      assert(flags[ids[1]].discarded === true && flags[ids[2]].discarded === undefined, 'GP: the deleted part stays deleted');
+      assert(gk('reviewPane').classList.contains('visible') === false, 'GP: the cut closed the pane');
+      assert(state.priorSegments.map((s) => s.sessionId).join() === [ids[0], ids[2]].join(), 'GP: the kept chain is the pane\'s chain (without the deleted part)');
+      assert(api.reviewState.removedIds.length === 0 && api.reviewState.entrySegments.length === 0 && api.reviewState.playingPart === null, 'GP: the parts state resets with the pane');
+      assert(api.reviewState.undo.restoreSegments.map((s) => s.sessionId).join() === [ids[0], ids[2]].join() && api.reviewState.undo.discardedSessionIds.length === 0,
+        'GP: Undo re-record\'s record is untouched in shape — it restores the chain the cut was made on and owns only the cut\'s own changes');
+      await S.reviewRestoreParts();
+      assert(state.priorSegments.length === 2 && flags[ids[1]].discarded === true, 'GP: Restore all parts after the pane is gone does nothing');
+      await S.undoReRecord();
+      const flags2 = await sessionFlags();
+      assert(flags2[ids[2]].cutAtByte === undefined && flags2[ids[1]].discarded === true, 'GP: Undo re-record undoes the cut and (as before) does not touch the part deleted from the list');
+      assert(state.priorSegments.map((s) => s.sessionId).join() === [ids[0], ids[2]].join(), 'GP: Undo re-record arms the same chain');
+      state.priorSegments = [];
+    }
+    await resetState();
+    // ---- B. delete Part 2, then Redo last take, then Undo, then a new take and a new pane ----
+    {
+      const { ids } = await openParts(bufs);
+      S.requestReviewPartRemove(1); await S.reviewPartRemoveConfirmed();
+      await S.redoLastTake();
+      let flags = await sessionFlags();
+      assert(flags[ids[2]].discarded === true && flags[ids[1]].discarded === true && flags[ids[0]].discarded === undefined, 'GP: Redo last take discards the newest part of the CURRENT chain');
+      assert(state.priorSegments.map((s) => s.sessionId).join() === ids[0], 'GP: only Part 1 is kept');
+      assert(api.reviewState.undo.discardedSessionIds.join() === ids[2], 'GP: Undo re-record owns only what Redo discarded');
+      await S.undoReRecord();
+      flags = await sessionFlags();
+      assert(flags[ids[2]].discarded === undefined && flags[ids[1]].discarded === true, 'GP: undo brings back the redone part, not the deleted one');
+      assert(state.priorSegments.map((s) => s.sessionId).join() === [ids[0], ids[2]].join(), 'GP: chain after undo');
+
+      // a NEW pane (a new take was recorded) starts from the chain as it now stands
+      const newBuf = nClusterWebm(5);
+      const [newId] = await seedSegments([newBuf]);
+      await S.openReviewPane([...state.priorSegments, { sessionId: newId, mimeType: 'video/webm' }]);
+      assert(api.reviewState.entrySegments.map((s) => s.sessionId).join() === [ids[0], ids[2], newId].join(), 'GP: the new pane\'s entry snapshot is the chain as it stands (kept parts + the new take)');
+      assert(api.reviewState.removedIds.length === 0 && gk('btnRestoreParts').style.display === 'none', 'GP: nothing to restore in the new pane — a part deleted in an earlier pane is not offered back');
+      flags = await sessionFlags();
+      assert(flags[ids[1]].discarded === true, 'GP: it stays flagged (swept at the next save or discard)');
+      assert(S.reviewPartsModel().rows.length === 3 && S.reviewPartsModel().rows[2].newest, 'GP: three parts listed, the new take newest');
+      S.closeReviewPane();
+    }
+  });
+
+  await scenario('GQ the existing flows are unchanged: Save as is saves what is left (and sweeps the deleted part); cancelling keeps the pane and Restore still works; Discard recording removes everything; Back to recorder keeps only what is left', async () => {
+    const bufs = [syntheticWebm(), nClusterWebm(5), nClusterWebm(12)];
+    // ---- Save as is after a delete: the real streamed save over the remaining parts ----
+    {
+      const { ids } = await openParts(bufs);
+      S.requestReviewPartRemove(1); await S.reviewPartRemoveConfirmed();
+      windowMock.showSaveFilePicker = pickerSequence(['abort']);
+      await S.reviewSaveAsIs();
+      assert(gk('reviewPane').classList.contains('visible') && /Save cancelled — your recording is still here/.test(gk('reviewStatus').textContent), 'GQ: cancelling the save keeps the pane (existing message)');
+      assert(api.reviewState.segments.length === 2 && api.reviewState.removedIds.join() === ids[1], 'GQ: and the deletion');
+      await S.reviewRestoreParts();
+      assert(api.reviewState.segments.length === 3, 'GQ: Restore still works after a cancelled save');
+      S.requestReviewPartRemove(1); await S.reviewPartRemoveConfirmed();
+      windowMock.showSaveFilePicker = pickerSequence(['ok']);
+      await S.reviewSaveAsIs();
+      const got = Buffer.from(await lastWritten.pop().arrayBuffer());
+      assert(Buffer.compare(got, await stitchOracle([bufs[0], bufs[2]])) === 0, 'GQ: the real saved file === stitch oracle of the remaining parts (the deleted part is not in it)');
+      assertNoOverlap(got, 'GQ saved output');
+      assert((await readStore('sessions')).length === 0 && (await readStore('chunks')).length === 0, 'GQ: every stored part, the deleted one included, is cleared after the confirmed save');
+      assert(gk('reviewPane').classList.contains('visible') === false && state.priorSegments.length === 0, 'GQ: pane closed, nothing kept');
+    }
+    await resetState();
+    // ---- Discard recording after a delete ----
+    {
+      await openParts(bufs);
+      S.requestReviewPartRemove(0); await S.reviewPartRemoveConfirmed();
+      S.requestReviewDiscard();
+      await S.reviewDiscardConfirmed();
+      assert((await readStore('sessions')).length === 0 && (await readStore('chunks')).length === 0, 'GQ: Discard recording removes every part, including the deleted one');
+      assert(gk('reviewPane').classList.contains('visible') === false && state.priorSegments.length === 0, 'GQ: back to a clean recorder');
+    }
+    await resetState();
+    // ---- Back to recorder after a delete: the kept recording is what is left ----
+    {
+      const { ids } = await openParts(bufs);
+      S.requestReviewPartRemove(1); await S.reviewPartRemoveConfirmed();
+      S.reviewBackToRecorder();
+      await drain(300);   // the kept-recording banner's own storage check runs in the background
+      await S.checkForRecovery();
+      assert(state.priorSegments.map((s) => s.sessionId).join() === [ids[0], ids[2]].join(), 'GQ: Back to recorder keeps the remaining parts as the kept recording');
+      assert((windowMock._recoverySessions || []).map((x) => x.id).sort().join() === [ids[0], ids[2]].sort().join(), 'GQ: and the deleted part is not offered by the recovery banner (the list is in storage order, so compared as a set)');
+      assert(api.reviewState.removedIds.length === 0 && api.reviewState.partUrl === null, 'GQ: the parts state is clean after leaving');
+      // recording more later saves only what is left
+      state.priorSegments = [];
+    }
+  });
+
+  await scenario('GR dirty on purpose: leave the pane mid-part, with a deletion and a question open, then close it — everything resets', async () => {
+    const bufs = [syntheticWebm(), nClusterWebm(5), nClusterWebm(12)];
+    await openParts(bufs);
+    S.requestReviewPartRemove(2); await S.reviewPartRemoveConfirmed();
+    await S.reviewPlayPart(0);
+    S.requestReviewPartRemove(1);
+    assert(api.reviewState.playingPart === 0 && api.reviewState.removedIds.length === 1 && gk('reviewPartConfirm').classList.contains('visible') && gk('reviewPartMode').classList.contains('visible'), 'GR precondition: dirty on purpose');
+    S.closeReviewPane();
+    const r = api.reviewState;
+    assert(r.entrySegments.length === 0 && r.removedIds.length === 0 && r.playingPart === null && r.partUrl === null && r.partsBusy === false && r.pendingRemoveId === null, 'GR: closing the pane resets every parts field');
+    assert(gk('reviewPartConfirm').classList.contains('visible') === false && gk('reviewPartMode').classList.contains('visible') === false && gk('reviewParts').classList.contains('visible') === false && gk('reviewPartsList').innerHTML === '' && gk('btnRestoreParts').style.display === 'none', 'GR: and clears the parts UI');
+    // dirty again for the next scenario's resetState to clean up:
+    await openParts(bufs);
+    S.requestReviewPartRemove(2); await S.reviewPartRemoveConfirmed();
+    await S.reviewPlayPart(0);
+    S.requestReviewPartRemove(1);
+  });
+
+  await scenario('GS resetState leaves no parts-list state behind (the previous scenario ended with the pane open, a part playing, a deletion and a question open)', async () => {
+    const r = api.reviewState;
+    assert(r.active === false && r.entrySegments.length === 0 && r.removedIds.length === 0 && r.playingPart === null && r.partUrl === null && r.partToken === 0 && r.partsBusy === false && r.pendingRemoveId === null, 'GS: every new reviewState field is back to its default');
+    assert(gk('reviewPartConfirm').classList.contains('visible') === false && gk('reviewPartMode').classList.contains('visible') === false && gk('reviewParts').classList.contains('visible') === false, 'GS: parts banners are hidden');
+    assert(gk('reviewPartsList').innerHTML === '' && gk('reviewPartsTotal').textContent === '' && gk('btnRestoreParts').style.display === 'none' && gk('btnRestoreParts').disabled === false, 'GS: list, total and Restore button are clear');
+    assert(gk('btnReRecordHere').disabled === false && gk('btnReRecordHere').textContent === 'Re-record from 0:00' && gk('reviewVideo').src === undefined, 'GS: the player and re-record controls are back to defaults');
+    // and the defaults the app itself ships with
+    const keys = ['entrySegments', 'removedIds', 'playingPart', 'partUrl', 'partToken', 'partsBusy', 'pendingRemoveId'];
+    assert(keys.every((k) => k in r), 'GS: all seven new fields exist on reviewState');
+  });
+
+  await scenario('GU while a delete is between its rebuild and its commit, nothing else may change the chain: Redo last take, a cut, Back to recorder and Discard all wait with a note; no cut is applied, no stray flag write; the delete then lands normally', async () => {
+    const bufs = [syntheticWebm(), nClusterWebm(5), nClusterWebm(12)];
+    const u = installUniqueUrls();
+    const origApply = sandbox.applyReviewCutPlan;
+    const origFlag = sandbox.setSessionDiscarded;
+    let applyCalls = 0, closedDuring = null, backTried = false;
+    sandbox.applyReviewCutPlan = async (...a) => { applyCalls++; return origApply(...a); };
+    try {
+      const { ids } = await openParts(bufs);
+      // The flag write is the window the review found: scans already describe the
+      // new chain while segments still hold the old one. Poke every chain-changing
+      // control from inside it.
+      sandbox.setSessionDiscarded = async (id, d) => {
+        if (d) {
+          assert(api.reviewState.partsBusy === true, 'GU: partsBusy is set inside the window');
+          assert(gk('btnRedoLastTake').disabled === true && gk('btnReRecordHere').disabled === true && gk('reviewTimeInput').disabled === true, 'GU: the cut controls are off inside the window');
+          await S.redoLastTake();
+          await S.reviewCutFromHere();
+          gk('reviewTimeInput').value = '0:04'; await S.reviewCutFromTypedTime();
+          S.reviewBackToRecorder(); backTried = true;
+          closedDuring = api.reviewState.active;
+          S.requestReviewDiscard();
+          assert(/One moment — still updating the parts list/.test(gk('reviewStatus').textContent), 'GU: each refusal says why (got "' + gk('reviewStatus').textContent + '")');
+          assert(!gk('reviewDiscardConfirm').classList.contains('visible'), 'GU: Discard did not open its question');
+        }
+        return origFlag(id, d);
+      };
+      S.requestReviewPartRemove(1);
+      await S.reviewPartRemoveConfirmed();
+      assert(applyCalls === 0, 'GU: no cut was applied during the window (got ' + applyCalls + ')');
+      assert(backTried && closedDuring === true, 'GU: Back to recorder was refused — the pane stayed open');
+      assert(api.reviewState.active === true && api.reviewState.segments.map((s) => s.sessionId).join() === [ids[0], ids[2]].join(), 'GU: the delete landed normally afterwards');
+      assert(api.reviewState.partsBusy === false && gk('btnRedoLastTake').disabled === false, 'GU: controls are back on');
+      const flags = await sessionFlags();
+      assert(flags[ids[1]].discarded === true && !flags[ids[0]].discarded && !flags[ids[2]].discarded, 'GU: exactly the deleted part is flagged');
+      assert(api.reviewState.undo === null || api.reviewState.undo === undefined, 'GU: no cut undo was armed');
+      // Now, with the window closed, Back to recorder works as usual.
+      S.reviewBackToRecorder();
+      assert(api.reviewState.active === false && state.priorSegments.map((s) => s.sessionId).join() === [ids[0], ids[2]].join(), 'GU: Back to recorder hands on the chain without the deleted part');
+    } finally {
+      sandbox.applyReviewCutPlan = origApply;
+      sandbox.setSessionDiscarded = origFlag;
+      u.restore();
+    }
+  });
+
+  await scenario('GT the parts list and Save as is gate each other: while a save is in flight the parts controls do nothing and look off; while a delete is still rebuilding, Save as is waits with a plain note and never starts a save', async () => {
+    const bufs = [syntheticWebm(), nClusterWebm(5), nClusterWebm(12)];
+    const realStitch = sandbox.saveSessionsStreamedStitch;
+    try {
+      // ---- (a) a save in flight blocks every parts action ----
+      {
+        const { ids } = await openParts(bufs);
+        S.requestReviewPartRemove(1); await S.reviewPartRemoveConfirmed();   // Part 2 deleted first, so Restore has something to refuse
+        assert(api.reviewState.removedIds.join() === ids[1] && api.reviewState.segments.length === 2, 'GT precondition: one part deleted, two left');
+        let release = null, calls = 0, savedChain = null;
+        sandbox.saveSessionsStreamedStitch = (segs) => { calls++; savedChain = segs; return new Promise((res) => { release = res; }); };
+        const savePromise = S.reviewSaveAsIs();
+        assert(calls === 1 && api.reviewState.saving === true, 'GT: Save as is started and marked itself in flight right away');
+        assert(S.reviewPartsModel().busy === true, 'GT: the parts list reports busy while the save runs');
+        const html = gk('reviewPartsList').innerHTML;
+        assert((html.match(/ disabled/g) || []).length === 4 , 'GT: every Play and Delete button is rendered disabled (2 rows x 2)');
+        assert(gk('btnRestoreParts').disabled === true, 'GT: Restore all parts is greyed out too');
+
+        const segBefore = api.reviewState.segments, tokenBefore = api.reviewState.partToken;
+        S.requestReviewPartRemove(0);
+        assert(gk('reviewPartConfirm').classList.contains('visible') === false && api.reviewState.pendingRemoveId === null, 'GT: Delete during a save shows no question and remembers nothing');
+        api.reviewState.pendingRemoveId = ids[0];   // a stale/forged confirm
+        await S.reviewPartRemoveConfirmed();
+        await S.reviewRestoreParts();
+        await S.reviewPlayPart(0);
+        let flags = await sessionFlags();
+        assert(api.reviewState.segments === segBefore && api.reviewState.removedIds.join() === ids[1] && flags[ids[0]].discarded === undefined && flags[ids[1]].discarded === true,
+          'GT: a stray confirm and Restore all parts both do nothing during the save (chain, deleted part and flags unchanged)');
+        assert(api.reviewState.playingPart === null && api.reviewState.partUrl === null && api.reviewState.partToken === tokenBefore && !/Getting that part ready/.test(gk('reviewStatus').textContent),
+          'GT: Play does nothing during the save');
+        assert(savedChain === segBefore && savedChain.length === 2, 'GT: the save is working on the chain it started with');
+
+        release('saved');
+        await savePromise;
+        assert(api.reviewState.saving === false, 'GT: saving clears when the save ends');
+        assert((await readStore('sessions')).length === 0 && (await readStore('chunks')).length === 0 && state.priorSegments.length === 0, 'GT: the normal completion path still ran (every stored part, the deleted one included, cleared)');
+        assert(gk('reviewPane').classList.contains('visible') === false, 'GT: and the pane closed');
+      }
+      await resetState();
+      // ---- a cancelled save hands the controls back ----
+      {
+        const { ids } = await openParts(bufs);
+        let release = null;
+        sandbox.saveSessionsStreamedStitch = () => new Promise((res) => { release = res; });
+        const p = S.reviewSaveAsIs();
+        assert(api.reviewState.saving === true, 'GT: save in flight (cancel case)');
+        release('cancelled'); await p;
+        assert(api.reviewState.saving === false && /Save cancelled/.test(gk('reviewStatus').textContent) && S.reviewPartsModel().busy === false && !/ disabled/.test(gk('reviewPartsList').innerHTML),
+          'GT: after a cancelled save the parts controls are enabled again');
+        S.requestReviewPartRemove(1);
+        assert(gk('reviewPartConfirm').classList.contains('visible') && api.reviewState.pendingRemoveId === ids[1], 'GT: and Delete works again');
+        S.hideReviewPartConfirm();
+        // a failed save too
+        sandbox.saveSessionsStreamedStitch = async () => { throw new Error('disk error'); };
+        const origErr = console.error; console.error = () => {};
+        try { await S.reviewSaveAsIs(); } finally { console.error = origErr; }
+        assert(api.reviewState.saving === false && /Save failed/.test(gk('reviewStatus').textContent) && S.reviewPartsModel().busy === false, 'GT: a failed save also hands the controls back');
+        S.closeReviewPane();
+      }
+      await resetState();
+      // ---- (b) a delete still rebuilding makes Save as is wait ----
+      {
+        const { ids } = await openParts(bufs);
+        let calls = 0;
+        sandbox.saveSessionsStreamedStitch = async () => { calls++; return 'cancelled'; };
+        api.reviewState.partsBusy = true;   // forced
+        await S.reviewSaveAsIs();
+        assert(calls === 0 && api.reviewState.saving === false, 'GT: with the parts list busy, Save as is never starts a save');
+        const w = gk('reviewStatus').textContent;
+        assert(/One moment/.test(w) && /try Save as is again/.test(w) && !NOT_PLAIN.test(w), 'GT: it says so in plain words (got "' + w + '")');
+        api.reviewState.partsBusy = false;
+
+        // the real thing: Save as is clicked while a delete is mid-rebuild
+        S.requestReviewPartRemove(1);
+        const del = S.reviewPartRemoveConfirmed();
+        assert(api.reviewState.partsBusy === true, 'GT precondition: the delete is rebuilding');
+        await S.reviewSaveAsIs();
+        assert(calls === 0 && /One moment/.test(gk('reviewStatus').textContent), 'GT: Save as is during a real delete waits and saves nothing');
+        await del;
+        assert(api.reviewState.segments.length === 2 && api.reviewState.segments[1].sessionId === ids[2], 'GT: the delete finished normally');
+        await S.reviewSaveAsIs();
+        assert(calls === 1 && /Save cancelled/.test(gk('reviewStatus').textContent), 'GT: Save as is works once the list is idle again');
+        S.closeReviewPane();
+      }
+    } finally { sandbox.saveSessionsStreamedStitch = realStitch; }
   });
 
   console.log('\n================  ' + passed + ' passed, ' + failed + ' failed  ================');
