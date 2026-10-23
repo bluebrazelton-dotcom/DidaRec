@@ -6724,6 +6724,30 @@ Real cue text
     assert(api.reviewState.active === false && state.screenStream === null && state.cameraStream === null && r.counts.screen === 1 && r.counts.cam === 1, 'GW: Discard recording releases both sources (stops: ' + JSON.stringify(r.counts) + ')');
   });
 
+  // ---------- v1.39: in-app help panel ----------
+  await scenario('GX the help panel: How to use opens a side panel with the guide (loaded on first open only), can stay open while recording without touching the recorder, closes on the close button; aria-expanded follows', async () => {
+    const panel = el29('helpPanel'), btn = el29('btnHelp'), frame = el29('helpFrame');
+    panel.classList.remove('open'); panel.hidden = true; frame.src = '';
+    sandbox.toggleHelp();
+    assert(panel.classList.contains('open') && panel.hidden === false, 'GX: open (the page-makes-room class is checked by the rig; the harness body has no classList)');
+    assert(frame.src === 'guide.html?embedded=1', 'GX: the guide loads on first open, embedded (got ' + frame.src + ')');
+    sandbox.toggleHelp(false);
+    assert(!panel.classList.contains('open') && panel.hidden === true, 'GX: closed');
+    frame.src = 'already-loaded';
+    sandbox.toggleHelp();
+    assert(frame.src === 'already-loaded', 'GX: a second open does not reload the guide');
+    // open while recording: the recorder is untouched
+    state.sources = { screen: true, camera: false, mic: false };
+    state.screenStream = makeStream([makeEndedCapableTrack('video', 'scr-gx')]);
+    await api.startRecording();
+    const rec = state.mediaRecorder;
+    sandbox.toggleHelp(false); sandbox.toggleHelp(true);
+    assert(state.recording === true && state.mediaRecorder === rec && rec._stopCalls === 0 && state.paused === false, 'GX: opening and closing the panel never touches the recording');
+    sandbox.toggleHelp(false);
+    await sandbox.stopRecording();
+    await drain();
+  });
+
   // ---------- REVIEW #34 (v1.30): Webcam and Mic while paused ----------
   const camTrack = () => ({ kind: 'video', readyState: 'live', getSettings: () => ({ width: 320, height: 240 }), addEventListener() {}, stop() { this.readyState = 'ended'; } });
   const startScreenRecWith = async ({ mic, cam }) => {

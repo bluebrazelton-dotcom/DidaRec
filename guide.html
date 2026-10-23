@@ -71,7 +71,18 @@
     h2 { break-after: avoid; } figure, .tip, .note, li { break-inside: avoid; }
     a { color: #000; text-decoration: none; }
   }
+  /* Inside DidaRec's help panel (guide.html?embedded=1): no band, no "back" links. */
+  body.embedded .band, body.embedded .back-link { display: none; }
+  body.embedded main { padding-top: 0.75rem; }
 </style>
+<script>
+  if (/[?&]embedded=1/.test(location.search)) {
+    document.addEventListener('DOMContentLoaded', () => {
+      document.body.classList.add('embedded');
+      for (const a of document.querySelectorAll('a[href^="http"], a[href^="mailto:"]')) { a.target = '_blank'; a.rel = 'noopener'; }
+    });
+  }
+</script>
 </head>
 <body>
 <a class="skip" href="#start">Skip to the instructions</a>
@@ -254,7 +265,7 @@
   </dl>
 
   <footer>
-    <p>This guide matches DidaRec v1.39. <a href="./">Back to DidaRec</a></p>
+    <p>This guide matches DidaRec v1.39. <a class="back-link" href="./">Back to DidaRec</a></p>
   </footer>
 </main>
 </body>

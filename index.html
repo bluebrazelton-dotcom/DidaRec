@@ -4,26 +4,38 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DidaRec — Screen Recorder</title>
+<link rel="icon" href="brand/favicon.ico" sizes="48x48">
+<link rel="icon" href="brand/favicon.svg" type="image/svg+xml">
 <style>
+  /* Brand type (self-hosted from fonts/, SIL OFL): Roboto body, Roboto Slab
+     headings; the brand's fallbacks take over if a file is missing. */
+  @font-face { font-family: 'Roboto'; font-weight: 400; font-style: normal; font-display: swap; src: url('fonts/Roboto-Regular.ttf') format('truetype'); }
+  @font-face { font-family: 'Roboto'; font-weight: 700; font-style: normal; font-display: swap; src: url('fonts/Roboto-Bold.ttf') format('truetype'); }
+  @font-face { font-family: 'Roboto Slab'; font-weight: 600; font-style: normal; font-display: swap; src: url('fonts/RobotoSlab-SemiBold.ttf') format('truetype'); }
+  h1, h2, h3 { font-family: 'Roboto Slab', Rockwell, Georgia, serif; font-weight: 600; }
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --bg: #1a1a2e;
-    --surface: #16213e;
-    --surface-hover: #1a2744;
-    --border: #2a3a5c;
-    --text: #e0e0e0;
-    --text-dim: #8892a4;
-    --accent: #e94560;
-    --accent-hover: #ff6b81;
-    --green: #4ecca3;
-    --green-dim: #2d8a6e;
-    --yellow: #f0c040;
+    /* Brand palette (Blue Brazelton brand standards v0.8, dark-mode web
+       rules): Night slate page, Night card panels, Night rule borders,
+       Parchment text; Sky for on / selected / save; Terracotta-on-dark for
+       Record, live and attention. The variable names kept their old roles. */
+    --bg: #1F2B3D;            /* Night slate */
+    --surface: #2A3A52;       /* Night card */
+    --surface-hover: rgba(156, 205, 238, 0.08); /* Sky tint */
+    --border: #4A5D7C;        /* Night rule */
+    --text: #EFE6D3;          /* Parchment */
+    --text-dim: #BDB6A8;      /* Parchment tint: secondary text */
+    --accent: #E0997A;        /* Terracotta on dark: Record, live, attention */
+    --accent-hover: #EBB096;  /* Terracotta on dark, lighter */
+    --green: #9CCDEE;         /* Sky: on, selected, save */
+    --green-dim: #6F84A3;     /* Light slate: Sky borders */
+    --yellow: #E0997A;        /* paused / kept: terracotta on dark */
     --radius: 8px;
   }
 
   body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    font-family: 'Roboto', 'Segoe UI', Arial, sans-serif;
     background: var(--bg);
     color: var(--text);
     min-height: 100vh;
@@ -33,6 +45,7 @@
   }
 
   header {
+    background: #3A4F6E; /* Slate: the header is its own layer (brand) */
     width: 100%;
     padding: 1.25rem 2rem;
     display: flex;
@@ -41,22 +54,51 @@
     border-bottom: 1px solid var(--border);
   }
 
+  header .brand { display: flex; align-items: center; gap: 0.6rem; }
+  header .brand img { height: 30px; width: auto; }
   header h1 {
-    font-size: 1.1rem;
+    font-size: 1.15rem;
     font-weight: 600;
     letter-spacing: 0.02em;
   }
 
   header .header-right { display: flex; align-items: center; gap: 1rem; }
-  header .help-link { color: var(--green); font-size: 0.85rem; font-weight: 600; text-decoration: none; }
+  header .help-link { color: var(--green); font-size: 0.85rem; font-weight: 600; text-decoration: none; background: none; border: 0; padding: 0; cursor: pointer; font-family: inherit; }
   header .help-link:hover, header .help-link:focus-visible { text-decoration: underline; }
+  header .help-link[aria-expanded="true"] { text-decoration: underline; }
+
+  /* In-app help panel (v1.39): the guide, in a side panel that scrolls on its
+     own, over the page's right edge. The app underneath stays usable — and
+     recording — with it open; it sits outside the recorded picture. */
+  .help-panel {
+    position: fixed; top: 0; right: 0; height: 100%; width: min(460px, 100%);
+    display: none; flex-direction: column;
+    background: var(--surface); border-left: 1px solid var(--border);
+    box-shadow: -8px 0 24px rgba(0, 0, 0, 0.35); z-index: 50;
+  }
+  .help-panel.open { display: flex; }
+  .help-panel-bar {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.6rem 0.9rem; background: #3A4F6E; color: var(--text);
+    border-bottom: 1px solid var(--border);
+  }
+  .help-panel-bar h2 { font-size: 1rem; margin: 0; }
+  .help-panel-bar a { color: var(--green); font-size: 0.8rem; margin-left: auto; }
+  .help-panel-close {
+    background: none; border: 1px solid rgba(239, 230, 211, 0.4); color: var(--text);
+    border-radius: 6px; width: 2rem; height: 2rem; font-size: 1.1rem; cursor: pointer; line-height: 1;
+  }
+  .help-panel-close:hover, .help-panel-close:focus-visible { border-color: var(--green); color: var(--green); }
+  .help-panel iframe { flex: 1; width: 100%; border: 0; background: var(--bg); }
+  /* With the panel open the page makes room for it, so no control is covered. */
+  body.help-open header, body.help-open main, body.help-open footer { margin-right: min(460px, 100%); width: auto; }
 
   header .badge {
     font-size: 0.7rem;
     padding: 0.2rem 0.5rem;
     border-radius: 999px;
-    background: var(--border);
-    color: var(--text-dim);
+    background: rgba(239, 230, 211, 0.12);
+    color: var(--text);
   }
 
   main {
@@ -74,7 +116,7 @@
     position: relative;
     width: 100%;
     aspect-ratio: 16/9;
-    background: #0d0d1a;
+    background: #000;
     border-radius: var(--radius);
     overflow: hidden;
     border: 1px solid var(--border);
@@ -189,7 +231,7 @@
   .toggle-btn.active {
     border-color: var(--green-dim);
     color: var(--green);
-    background: rgba(78, 204, 163, 0.08);
+    background: rgba(156, 205, 238, 0.08);
   }
 
   .toggle-btn svg { width: 16px; height: 16px; }
@@ -208,7 +250,7 @@
     height: 17px;
     border-radius: 50%;
     border: 1px solid var(--border);
-    background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c9d1e0' stroke-width='2.6' stroke-linecap='round'%3E%3Crect x='5' y='11' width='14' height='10' rx='2'/%3E%3Cpath d='M8 11V7a4 4 0 018 0v4'/%3E%3C/svg%3E") center / 10px 10px no-repeat;
+    background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23EFE6D3' stroke-width='2.6' stroke-linecap='round'%3E%3Crect x='5' y='11' width='14' height='10' rx='2'/%3E%3Cpath d='M8 11V7a4 4 0 018 0v4'/%3E%3C/svg%3E") center / 10px 10px no-repeat;
   }
 
   /* Source groups: toggle + device selector stacked */
@@ -320,7 +362,7 @@
     cursor: not-allowed;
   }
   .btn-select-screen.selected {
-    background: rgba(78, 204, 163, 0.15);
+    background: rgba(156, 205, 238, 0.15);
     border-color: var(--green);
   }
 
@@ -328,7 +370,7 @@
     background: var(--border);
     color: var(--text);
   }
-  .btn-stop:hover { background: #3a4a6c; }
+  .btn-stop:hover { background: #4A5D7C; }
 
   .btn-pause {
     background: var(--border);
@@ -350,7 +392,7 @@
     background: var(--border);
     color: var(--text);
   }
-  .btn-change-screen:hover { background: #3a4a6c; }
+  .btn-change-screen:hover { background: #4A5D7C; }
   .btn-change-screen:disabled {
     opacity: 0.4;
     cursor: not-allowed;
@@ -358,17 +400,17 @@
 
   .btn-save {
     background: var(--green);
-    color: #111;
+    color: #1F2B3D;
   }
-  .btn-save:hover { background: #6fe0bb; }
+  .btn-save:hover { background: #B9DDF3; }
 
   button.primary:not(:disabled):active { transform: scale(0.97); }
 
   /* Recovery banner */
   .recovery-banner {
     padding: 1rem 1.25rem;
-    background: rgba(240, 192, 64, 0.1);
-    border: 1px solid rgba(240, 192, 64, 0.3);
+    background: rgba(224, 153, 122, 0.1);
+    border: 1px solid rgba(224, 153, 122, 0.3);
     border-radius: var(--radius);
     display: none;
   }
@@ -395,8 +437,8 @@
   /* Download confirmation bar (Firefox download-fallback saves) */
   .download-confirm {
     padding: 1rem 1.25rem;
-    background: rgba(78, 204, 163, 0.08);
-    border: 1px solid rgba(78, 204, 163, 0.3);
+    background: rgba(156, 205, 238, 0.08);
+    border: 1px solid rgba(156, 205, 238, 0.3);
     border-radius: var(--radius);
     display: none;
   }
@@ -423,11 +465,11 @@
   /* Error display */
   .error-banner {
     padding: 0.75rem 1rem;
-    background: rgba(233, 69, 96, 0.1);
-    border: 1px solid rgba(233, 69, 96, 0.3);
+    background: rgba(224, 153, 122, 0.1);
+    border: 1px solid rgba(224, 153, 122, 0.3);
     border-radius: var(--radius);
     font-size: 0.8rem;
-    color: var(--accent-hover);
+    color: var(--text);
     display: none;
     align-items: center;
     justify-content: space-between;
@@ -454,8 +496,8 @@
      via showInfoBanner() but swaps the error-red palette for a neutral
      tint built from the app's existing --text-dim, never a new color. */
   .error-banner.info {
-    background: rgba(136, 146, 164, 0.1);
-    border-color: rgba(136, 146, 164, 0.3);
+    background: rgba(156, 205, 238, 0.1);
+    border-color: rgba(156, 205, 238, 0.3);
     color: var(--text);
   }
   .error-banner.info .error-banner-close { color: var(--text-dim); }
@@ -465,13 +507,13 @@
     background: var(--border);
     color: var(--text);
   }
-  .btn-caption-editor:hover { background: #3a4a6c; }
+  .btn-caption-editor:hover { background: #4A5D7C; }
 
   .btn-back-recorder {
     background: var(--border);
     color: var(--text);
   }
-  .btn-back-recorder:hover { background: #3a4a6c; }
+  .btn-back-recorder:hover { background: #4A5D7C; }
 
   .caption-editor {
     display: none;
@@ -507,9 +549,9 @@
 
   .btn-save-vtt {
     background: var(--green);
-    color: #111;
+    color: #1F2B3D;
   }
-  .btn-save-vtt:hover { background: #6fe0bb; }
+  .btn-save-vtt:hover { background: #B9DDF3; }
 
   .btn-save-srt {
     background: var(--surface);
@@ -534,7 +576,7 @@
   .caption-video-wrap {
     position: relative;
     width: 100%;
-    background: #0d0d1a;
+    background: #000;
     border-radius: var(--radius);
     border: 1px solid var(--border);
     overflow: hidden;
@@ -578,7 +620,7 @@
 
   .caption-cue-row.active {
     border-color: var(--green);
-    background: rgba(78, 204, 163, 0.08);
+    background: rgba(156, 205, 238, 0.08);
   }
 
   .caption-time-input {
@@ -614,14 +656,14 @@
     font-size: 0.75rem;
     cursor: pointer;
   }
-  .btn-delete-cue:hover { background: rgba(233, 69, 96, 0.1); }
+  .btn-delete-cue:hover { background: rgba(224, 153, 122, 0.1); }
 
   /* Review pane (REVIEW #21 session 2) */
   .btn-stop-review {
     background: var(--border);
     color: var(--text);
   }
-  .btn-stop-review:hover { background: #3a4a6c; }
+  .btn-stop-review:hover { background: #4A5D7C; }
 
   .btn-undo-rerecord {
     background: var(--surface);
@@ -678,9 +720,9 @@
 
   .btn-save-as-is {
     background: var(--green);
-    color: #111;
+    color: #1F2B3D;
   }
-  .btn-save-as-is:hover { background: #6fe0bb; }
+  .btn-save-as-is:hover { background: #B9DDF3; }
 
   .review-pane {
     display: none;
@@ -699,7 +741,7 @@
     padding: 0.6rem 0.9rem;
     border-radius: var(--radius);
     border: 1px solid var(--green-dim);
-    background: rgba(78, 204, 163, 0.08);
+    background: rgba(156, 205, 238, 0.08);
     font-size: 0.85rem;
   }
   .review-part-mode.visible { display: flex; }
@@ -749,7 +791,7 @@
   }
   .review-part-row.playing {
     border-color: var(--green);
-    background: rgba(78, 204, 163, 0.08);
+    background: rgba(156, 205, 238, 0.08);
   }
   .review-part-label {
     font-size: 0.85rem;
@@ -782,7 +824,7 @@
     color: var(--accent-hover);
     border-color: var(--border);
   }
-  .btn-part.danger:hover { background: rgba(233, 69, 96, 0.1); }
+  .btn-part.danger:hover { background: rgba(224, 153, 122, 0.1); }
 
   /* Footer */
   footer {
@@ -800,10 +842,11 @@
 <body>
 
 <header>
-  <h1>DidaRec</h1>
+  <span class="brand"><img src="brand/bb_owl_parchment.svg" alt=""><h1>DidaRec</h1></span>
   <span class="header-right">
-    <!-- New tab on purpose: a click mid-recording must never navigate away from the recording. -->
-    <a class="help-link" href="guide.html" target="_blank" rel="noopener">How to use</a>
+    <!-- Opens the guide in a side panel (v1.39): the page never navigates, so
+         a click mid-recording is safe, and the instructions can be read while recording. -->
+    <button type="button" class="help-link" id="btnHelp" aria-expanded="false" aria-controls="helpPanel" onclick="toggleHelp()">How to use</button>
     <span class="badge">DidaWorks</span>
   </span>
 </header>
@@ -1077,9 +1120,19 @@
   </div>
 </main>
 
+<!-- In-app help panel (v1.39): loads guide.html on first open. -->
+<aside class="help-panel" id="helpPanel" aria-label="How to use DidaRec" hidden>
+  <div class="help-panel-bar">
+    <h2>How to use</h2>
+    <a href="guide.html" target="_blank" rel="noopener">Open as a page</a>
+    <button type="button" class="help-panel-close" id="btnHelpClose" onclick="toggleHelp(false)" aria-label="Close the help panel">&times;</button>
+  </div>
+  <iframe id="helpFrame" title="How to use DidaRec" loading="lazy"></iframe>
+</aside>
+
 <footer>
   <div>Click "Select Screen" to choose which screen, window, or tab to record. Your browser will show a popup — this is a required security step the app cannot bypass.</div>
-  <div style="margin-top: 0.5rem;">DidaRec <span id="appVersion">v1.38</span> by DidaWorks &middot; Open source &middot; MIT License &middot; No account, no server, no watermark, no time limits</div>
+  <div style="margin-top: 0.5rem;">DidaRec <span id="appVersion">v1.39</span> by DidaWorks &middot; Open source &middot; MIT License &middot; No account, no server, no watermark, no time limits</div>
 </footer>
 
 <script>
@@ -6077,6 +6130,43 @@ function resetUI() {
   clearPartEndWatchdog();
   // (The canvas is cleared by refreshIdlePreview above when the placeholder
   // shows; a live preview must not be wiped.)
+}
+
+// In-app help panel (v1.39). The guide loads on the first open only; the
+// panel is a sibling of <main>, so opening it never touches the recorder,
+// the compositor or the canvas being recorded.
+function toggleHelp(open) {
+  const panel = document.getElementById('helpPanel');
+  const btn = document.getElementById('btnHelp');
+  const isOpen = panel.classList.contains('open');
+  const next = typeof open === 'boolean' ? open : !isOpen;
+  if (next === isOpen) return;
+  const setExpanded = (v) => { if (typeof btn.setAttribute === 'function') btn.setAttribute('aria-expanded', v); };
+  const room = (on) => { const b = document.body; if (b && b.classList) b.classList.toggle('help-open', on); };
+  if (next) {
+    const frame = document.getElementById('helpFrame');
+    if (frame && !frame.src) frame.src = 'guide.html?embedded=1'; // loaded once, on the first open
+    panel.hidden = false;
+    panel.classList.add('open');
+    room(true);
+    setExpanded('true');
+    const close = document.getElementById('btnHelpClose');
+    if (close && typeof close.focus === 'function') close.focus();
+  } else {
+    panel.classList.remove('open');
+    panel.hidden = true;
+    room(false);
+    setExpanded('false');
+    if (typeof btn.focus === 'function') btn.focus();
+  }
+}
+if (typeof document.addEventListener === 'function') {
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const panel = document.getElementById('helpPanel');
+      if (panel && panel.classList.contains('open')) toggleHelp(false);
+    }
+  });
 }
 
 function updateStatus(mode, text) {
