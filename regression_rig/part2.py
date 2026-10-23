@@ -516,6 +516,28 @@ def s15_keep_sources(r):
             % (a["hasScreen"], a["hasCam"], b["hasScreen"], b["hasCam"], b["btnSelect"]["text"], b["btnSelect"]["sel"], not b["btnRecord"]["dis"], not b["placeholder"], c["rec"], not d["hasScreen"] and not d["hasCam"], pr["duration"], not e["hasScreen"] and not e["hasCam"], e["btnSelect"]["text"]))
 
 
+def s15_pause_parts(r):
+    """v1.38 (#49): every pause starts a new part; the review page lists them; the saved video joins them."""
+    r.start("rev15pp")
+    mic_on(r); r.select_screen(1); r.record(4)
+    r.page.click("#btnPause"); r.wait(1500)
+    a = r.ui()
+    r.page.click("#btnPause"); r.wait(4000)
+    r.page.click("#btnPause"); r.wait(1500)
+    r.page.click("#btnPause"); r.wait(4000)
+    b = r.ui()
+    review_open(r)
+    k = r.ev("() => ({ panel: document.getElementById('reviewParts').classList.contains('visible'), rows: [...document.querySelectorAll('#reviewPartsList .review-part-label')].map(e => e.textContent), total: document.getElementById('reviewPartsTotal').textContent })")
+    r.stop_save("15_pause_parts.webm", button="#reviewPane .btn-save-as-is")
+    pr = r.probe("15_pause_parts.webm", step=0.5); sm = summarize(pr)
+    secs = [secs_of(x) for x in k["rows"]]
+    ok = (a["paused"] and a["rec"] and b["rec"] and not b["paused"] and k["panel"] and len(k["rows"]) == 3
+          and all(3 <= s_ <= 6 for s_ in secs) and sm["valid"] == sm["n"] and 10 <= pr["duration"] <= 15.5)
+    r.check("15.28", ok,
+            "extra (v1.38, REVIEW #49): record 4s, pause, resume 4s, pause, resume 4s -> paused state seen=%s, recording again=%s; Stop & review lists %d parts %s (%s); Save as is -> one %.1fs file, %d/%d frames valid (the pauses themselves are not in it)"
+            % (a["paused"], b["rec"], len(k["rows"]), k["rows"], k["total"], pr["duration"], sm["valid"], sm["n"]))
+
+
 def s15_kept(r):
     """v1.29 (owner pass 2026-10-05): after reviewing, kept-but-unsaved footage is offered for saving without a refresh."""
     KEPT = "() => ({ up: document.getElementById('recoveryBanner').classList.contains('visible'), title: document.getElementById('recoveryTitle').textContent, info: document.getElementById('recoveryInfo').textContent, cont: getComputedStyle(document.getElementById('btnRecoveryContinue')).display !== 'none', save: document.getElementById('btnRecoverySave').textContent.trim(), hint: getComputedStyle(document.getElementById('recoveryKeptHint')).display !== 'none' && document.getElementById('recoveryKeptHint').textContent })"
@@ -774,7 +796,7 @@ def s15_parts(r):
     r.check("15.26", lay["sw"] <= lay["cw"] + 1 and lay["rowsFit"], "375px wide: page scrollWidth %d vs clientWidth %d, every part row inside the window=%s (measured, not eyeballed)" % (lay["sw"], lay["cw"], lay["rowsFit"]))
 
 
-ALL = [s15_cut_micoff, s10_crash, s11_continue, s12_cancel, s13_seek, s15_review_a, s15_review_b, s15_review_c, s15_review_d, s12_kept_after_cancel, s15_keep_sources, s15_kept, s15_precision_end, s15_parts]
+ALL = [s15_cut_micoff, s10_crash, s11_continue, s12_cancel, s13_seek, s15_review_a, s15_review_b, s15_review_c, s15_review_d, s12_kept_after_cancel, s15_keep_sources, s15_pause_parts, s15_kept, s15_precision_end, s15_parts]
 
 if __name__ == "__main__":
     kind = sys.argv[1]
