@@ -490,6 +490,32 @@ def s12_kept_after_cancel(r):
             % (u["err"], k["title"], k["info"], k["save"], u["status"], pr["duration"], not u2["recovery"], clean))
 
 
+def s15_keep_sources(r):
+    """v1.37: Stop & review keeps the screen and webcam; Back to recorder lands on Record; Save as is releases."""
+    r.start("rev15s")
+    r.cfg(camMode="canvas")
+    mic_on(r); r.select_screen(1)
+    r.page.click("#toggleCamera"); r.page.wait_for_function("!!state.cameraStream"); r.wait(600)
+    r.record(6); review_open(r)
+    a = r.ui()
+    r.page.click("#reviewPane .btn-back-recorder"); r.wait(900)
+    b = r.ui()
+    kept = a["hasScreen"] and a["hasCam"] and b["hasScreen"] and b["hasCam"] and b["btnSelect"]["text"] == "Change Screen" and b["btnSelect"]["sel"] and not b["btnRecord"]["dis"] and not b["placeholder"]
+    # record again with NO Select Screen step
+    r.record(4)
+    c = r.ui()
+    r.stop_save("15_keep_sources.webm")
+    d = r.ui(); pr = r.probe("15_keep_sources.webm", step=0.5); sm = summarize(pr)
+    # Save as is from a review ends the session: sources released
+    r.select_screen(1); r.record(4); review_open(r)
+    r.stop_save("15_keep_sources_b.webm", button="#reviewPane .btn-save-as-is")
+    e = r.ui()
+    r.check("15.27", kept and c["rec"] and c["hasScreen"] and not d["hasScreen"] and not d["hasCam"] and seq_of(pr) == [1] and sm["valid"] == sm["n"] and pr["duration"] > 8
+            and not e["hasScreen"] and not e["hasCam"] and e["btnSelect"]["text"] == "Select Screen",
+            "extra (v1.37): after Stop & review the screen and webcam are still on (review=%s/%s; Back to recorder: screen=%s, webcam=%s, button '%s' selected=%s, Record enabled=%s, live preview=%s); Record with no Select Screen step -> recording=%s on the same screen; Stop & save released them=%s; one %.1fs file of both parts. Save as is from a review released them too=%s (button '%s')"
+            % (a["hasScreen"], a["hasCam"], b["hasScreen"], b["hasCam"], b["btnSelect"]["text"], b["btnSelect"]["sel"], not b["btnRecord"]["dis"], not b["placeholder"], c["rec"], not d["hasScreen"] and not d["hasCam"], pr["duration"], not e["hasScreen"] and not e["hasCam"], e["btnSelect"]["text"]))
+
+
 def s15_kept(r):
     """v1.29 (owner pass 2026-10-05): after reviewing, kept-but-unsaved footage is offered for saving without a refresh."""
     KEPT = "() => ({ up: document.getElementById('recoveryBanner').classList.contains('visible'), title: document.getElementById('recoveryTitle').textContent, info: document.getElementById('recoveryInfo').textContent, cont: getComputedStyle(document.getElementById('btnRecoveryContinue')).display !== 'none', save: document.getElementById('btnRecoverySave').textContent.trim(), hint: getComputedStyle(document.getElementById('recoveryKeptHint')).display !== 'none' && document.getElementById('recoveryKeptHint').textContent })"
@@ -748,7 +774,7 @@ def s15_parts(r):
     r.check("15.26", lay["sw"] <= lay["cw"] + 1 and lay["rowsFit"], "375px wide: page scrollWidth %d vs clientWidth %d, every part row inside the window=%s (measured, not eyeballed)" % (lay["sw"], lay["cw"], lay["rowsFit"]))
 
 
-ALL = [s15_cut_micoff, s10_crash, s11_continue, s12_cancel, s13_seek, s15_review_a, s15_review_b, s15_review_c, s15_review_d, s12_kept_after_cancel, s15_kept, s15_precision_end, s15_parts]
+ALL = [s15_cut_micoff, s10_crash, s11_continue, s12_cancel, s13_seek, s15_review_a, s15_review_b, s15_review_c, s15_review_d, s12_kept_after_cancel, s15_keep_sources, s15_kept, s15_precision_end, s15_parts]
 
 if __name__ == "__main__":
     kind = sys.argv[1]
