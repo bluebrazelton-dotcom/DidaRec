@@ -2550,6 +2550,39 @@ opens the picker and the webcam returns to the corner; webcam-only
 recording and playback work. Noted for v1.34: the webcam is stretched
 when it fills the frame.
 
+### v1.34 — Webcam full screen (#42) (2026-10-05)
+
+**Full screen** is the fourth entry in the webcam shape list (Rectangle,
+Square, Circle, Full screen), remembered in `pipLayout` like the others.
+With it, `drawOneFrame` draws the camera over the whole frame via
+`drawCameraFull()` — fitted at its own proportions, centred, black bars
+where the shapes differ (owner choice 2026-10-05: bars, not crop) — and
+does NOT draw the shared screen underneath (it stays live and returns
+when the shape does; drawing it would put slide edges in the bars). The
+same path now serves camera-only, which used to stretch the camera to
+the frame. Dragging and resizing are ignored in Full screen.
+
+**Switchable while paused.** `updateToggleUI` unlocks the shape list
+while paused (the REVIEW #34 rule: nothing changes on air), so a
+recording can go corner → full → corner across pauses.
+
+**720p camera.** `captureCamera` asks for 1280×720 "ideal" instead of
+320×240, so the camera is sharp enough to fill the frame; the corner
+picture scales down. A webcam that can't do 720p gives what it has.
+
+**Verification.** Harness: **200 scenarios / 1418 assertions** (GD–GF
+new). Rig, Chrome 154: new check 42.1 — camera captured at 1280×720;
+shape list locked while recording, unlocked while paused, locked after
+Resume; Full screen chosen while paused; the saved file shows the corner
+picture, then the webcam filling the frame with black bars (centre
+magenta, both bars black), then the corner picture again; the shape is
+saved. Parts 1–3: 64 / 39 / 17 pass, 0 fail. Guide updated (shape list,
+while-paused list). Firefox and part 4 not run (a part-4 Chrome run and
+an Edge smoke pass follow as pre-announcement checks).
+
+**Owner check PASSED 2026-10-05**, real Chrome, local file: all four
+steps green, full-screen picture acceptable.
+
 ### v1.34 — Webcam full screen (#42); Resume salvages a dead recorder (#45) (2026-10-17)
 
 **Full screen (#42).** A fourth entry in the webcam shape list: the
