@@ -740,6 +740,23 @@ def s18_misc(r):
     r.select_screen(1)
     r.select_screen(2, mode="cancel")
     u = r.ui()
+    # 18.3 (v1.39) the help panel: guide inside the app, scrolls on its own, works while recording
+    r.start()
+    H = "() => { const p = document.getElementById('helpPanel'); const f = document.getElementById('helpFrame'); return { open: p.classList.contains('open'), vis: getComputedStyle(p).display !== 'none', src: f.getAttribute('src') || '', ex: document.getElementById('btnHelp').getAttribute('aria-expanded'), w: p.getBoundingClientRect().width }; }"
+    h0 = r.ev(H)
+    r.page.click("#btnHelp"); r.wait(1200)
+    h1 = r.ev(H)
+    inner = r.ev("""() => { const f = document.getElementById('helpFrame'); try { const d = f.contentDocument; return { title: d.title, embedded: d.body.classList.contains('embedded'), band: d.querySelector('.band') ? getComputedStyle(d.querySelector('.band')).display : 'none', h1: (d.querySelector('h1') || {}).textContent || '', scrollable: d.documentElement.scrollHeight > f.clientHeight }; } catch (e) { return { err: String(e) }; } }""")
+    r.select_screen(1); r.record(3)
+    h2 = r.ev(H); rec = r.ui()["rec"]
+    r.page.keyboard.press("Escape"); r.wait(300)
+    h3 = r.ev(H); rec2 = r.ui()["rec"]
+    r.stop_save("18_3_help.webm")
+    r.check("18.3", (not h0["open"]) and h1["open"] and h1["vis"] and h1["src"].startswith("guide.html") and h1["ex"] == "true" and 300 <= h1["w"] <= 470
+            and inner.get("title") == "How to use DidaRec" and inner.get("embedded") is True and inner.get("band") == "none" and inner.get("scrollable") is True
+            and h2["open"] and rec and (not h3["open"]) and h3["ex"] == "false" and rec2,
+            "extra (v1.39): How to use opens a %dpx side panel (guide loaded as '%s', title '%s', embedded look=%s, band hidden=%s, scrolls on its own=%s); stayed open while recording (open=%s, recording=%s); Esc closed it (open=%s) with the recording still running (%s)"
+            % (h1["w"], h1["src"], inner.get("title"), inner.get("embedded"), inner.get("band") == "none", inner.get("scrollable"), h2["open"], rec, h3["open"], rec2))
     r.check("18.2", u["btnSelect"]["text"] == "Select Screen" and not u["btnSelect"]["sel"] and u["btnRecord"]["dis"] and u["placeholder"] and not u["screenActive"],
             "cancelled re-selection: button reads '%s' (selected style=%s), Record disabled=%s, placeholder shown=%s, Screen toggle lit=%s; banner='%s'" % (u["btnSelect"]["text"], u["btnSelect"]["sel"], u["btnRecord"]["dis"], u["placeholder"], u["screenActive"], u["err"]))
 
