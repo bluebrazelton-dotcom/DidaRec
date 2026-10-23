@@ -8,18 +8,9 @@ exactly as it was; lit = in effect; padlock while recording; disabled
 in webcam-only; v1.34's shape-'full' layouts migrate (loadPipLayout).
 Harness **203 / 1457** (GH/GI/GJ new, GE retargeted). Rig part 1 green
 on the final file (42.1 retargeted). Owner check PASSED 2026-10-17.
-**Queue now (reordered by owner, 2026-10-19 — features before the demo
-video; a blog post is due within the week):**
-(1) **#43 stage 1, v1.36** (parts list: see/play/delete/restore) —
-design settled in REVIEW #43; Sonnet draft green at 214/1636 +
-orchestrator amendment in flight (save-vs-delete mutual gate, GT);
-orchestrator review then owner check next.
-(2) **#43 stage 2, v1.37** — record a replacement INTO a middle
-position. (3) Scripted demo video (can show Full screen + part
-editing), then the owner's blog post. (4) **#47 chapter marks +
-sidecar export** (see REVIEW — queued AFTER #43 so marks ride the
-parts model). (5) Optional Firefox + part-4 rig re-run (not since
-v1.28). Future, to explore: #44 (design conversation first).
+**Queue now:** (1) Scripted demo video (can show Full screen).
+(2) Optional Firefox + part-4 rig re-run (not run since v1.28).
+Future, to explore: #43, #44 (design conversations first).
 
 **Before that, same day: v1.34 SHIPPED — #42 Webcam full screen + the
 #45 Resume dead-click fix.** Harness 199 / 1425 (GD/GE/GF/GG new). Rig
