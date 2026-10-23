@@ -2735,6 +2735,55 @@ not run.
 
 **Owner check:** not run before the push (owner asked for commit and push to get on to #49); the rig's real-Chrome check 15.27 covers the behaviour end to end. Worth one glance on the hosted page: Stop & review, Back to recorder, Record.
 
+### v1.38 — Every pause starts a new part (#49) (2026-10-23)
+
+Owner, 2026-10-23: pausing to switch screens or webcam layouts is far
+more convenient than Stop & review, so those switches should become the
+edit points. Decision: automatic (one rule — a part runs from Record or
+Resume to Pause or Stop), not a button.
+
+**How.** The per-part machinery was lifted out of startRecording into
+`startRecorderPart()`: a session, a MediaRecorder on the recording's
+composite stream (unchanged: canvas capture + audio mix, which live for
+the whole recording), its chunk-write and stop handlers, and the
+start-verify / write-stall watchdogs. **Pause** (`pauseEndingPart`) stops
+the current recorder with `__partEnd` set, so its onstop files the part
+instead of finalizing (`onPartEnded`; a part-end watchdog gives up waiting
+after STOP_WATCHDOG_MS); the session stays `state.sessionId`, so Stop &
+save / Stop & review from that pause still see it as the current part.
+**Resume** (`resumeNewPart`) moves the ended part into `priorSegments`
+and starts a fresh recorder on the same streams; the flags flip at once,
+the start is awaited by `stopRecording` (`state.partStartPromise`), and a
+failed start falls back to the pause with the ended part restored as the
+current session and a plain message. **Stop while paused between parts**
+goes straight to the save or the review (no live recorder to stop, no
+salvage message). Each part's handlers write to THEIR OWN session with
+their own index (`partSessionId` / `partIndex`), so a chunk that arrives
+after Resume has moved on still lands in the part it belongs to; the
+counter is cumulative (`partChunkBase`). The Stop-sharing handler treats
+"paused between parts" as alive (no recorder, but a recording). Nothing
+about chunk bytes, stitching or saving changed: a paused recording is now
+simply a multi-part recording, the shape crash-recovery "continue" has
+always produced, so the review page's parts list, the kept banner and
+recovery all work on it unchanged.
+
+**Accepted.** A resume has a brief start-up gap (inside a pause, so not
+visible); short pauses make short parts (the list grows); Change screen,
+Webcam, Mic and Full screen while paused do not add parts.
+
+**Verification.** Harness: **218 scenarios / 1691 assertions** — ER, EU,
+FQ re-pinned to the new semantics; GG rewritten (pause ends the recorder;
+a failed Resume is never a dead click and restores the ended part; a late
+chunk from the ended part lands in its own session; Stop while paused
+finishes normally). Rig, Chrome: new 15.28 — record / pause / resume /
+pause / resume → Stop & review lists three parts ("Part 1 — 0:05, Part 2 —
+0:04, Part 3 — 0:04", whole 0:13), Save as is → one 13 s file with every
+frame valid. Parts 1–3: 64 / 53 / 17 pass, 0 fail (the crash and continue scenarios included); part 4: the 30-minute crash recovery (363 MB recovered in 79 s, plays and seeks) and the 30-minute recording both pass. Guide: "a part runs from Record or
+Resume to Pause or Stop"; the pause section says each stretch becomes a
+part.
+
+**Owner check:** not run before the push (owner asked for commit and push on a clean run, then the restyle); rig 15.28 is the real-Chrome equivalent. Worth one glance on the hosted page: record, pause, resume, pause, Stop & review — three parts listed.
+
 ---
 
 ## Known limitations

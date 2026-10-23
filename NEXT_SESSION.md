@@ -1,6 +1,14 @@
 # DidaRec — Next Session, Start Here
 
-**Newest (2026-10-23): v1.37 — Stop & review keeps the screen and webcam
+**Newest (2026-10-23): v1.38 — every pause starts a new part (#49 DONE).**
+Harness **218 / 1691**. `startRecorderPart()` is the per-part unit (session +
+recorder + handlers + watchdogs); `pauseEndingPart` / `resumeNewPart` /
+`onPartEnded`; `state.partPaused` = paused between parts (no live recorder,
+recording alive — the Stop-sharing handler, stopRecording and the
+start-verify watchdog all know). Handlers use their own `partSessionId` /
+`partIndex`, never state.sessionId. Next: the brand restyle (v1.39).
+
+**Earlier (2026-10-23): v1.37 — Stop & review keeps the screen and webcam
 (#48 DONE).** Harness **218 / 1687** (GV, GW). `releaseSources()` is the
 one place the screen share and webcam are released; Stop & save, Save as
 is and Discard call it, Stop & review does not. `resetUI` now hands the
@@ -26,8 +34,7 @@ it. Owner check PASSED; the kept box now says how to add more
 Harness 216 / 1671.
 (2) **DONE v1.37 (2026-10-23): Stop & review keeps the screen and webcam**
 (REVIEW #48) — Back to recorder lands on Record; Save as is / Discard
-release. (3) **#49 Every pause starts a new part, v1.38** (owner:
-automatic; see REVIEW #49 for the mechanism and the verification bar).
+release. (3) **DONE v1.38: #49 every pause starts a new part** (automatic).
 (4) **Brand restyle, v1.39** (owner, 2026-10-23): DidaRec, the guide
 and the screenshots follow `Aegis Framework, Phase 1\Brand Standards\
 brand_standards.md` v0.8 (dark-mode web rules: Slate header, Night

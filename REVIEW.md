@@ -1049,7 +1049,12 @@ screen again, and that just slows down the transition". Fixed v1.37: Stop &
 review keeps both sources; Save as is and Discard release them (as Stop &
 save does). Rig 15.27; harness GV/GW.
 
-### 49. Every pause starts a new part — owner-prioritized 2026-10-23, queued as v1.38
+### 49. Every pause starts a new part — ✓ DONE v1.38 (2026-10-23)
+
+**Done v1.38:** pause ends the part's recorder, resume starts a fresh one on
+the same streams; parts show on the review page; each part's handlers write
+to their own session. Harness ER/EU/FQ/GG re-pinned; rig 15.28. Original
+plan follows.
 
 Owner decision: automatic (one rule — a part runs from Record or Resume to
 Pause or Stop), not a button. Each Pause ends the current recording the way
