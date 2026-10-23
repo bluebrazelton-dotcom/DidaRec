@@ -6657,6 +6657,73 @@ Real cue text
     sv.videoWidth = saved.vw; sv.videoHeight = saved.vh;
   });
 
+  // ---------- v1.37: Stop & review keeps the screen and webcam ----------
+  // Mock tracks count their stop() calls; the screen track is the ended-capable
+  // one (its stop() fires 'ended', the worst-case browser), so a release must
+  // unwire the listener first — which is exactly what releaseSources does.
+  const reviewFromLive = async () => {
+    state.sources = { screen: true, camera: true, mic: false };
+    const st = makeEndedCapableTrack('video', 'scr-37');
+    const counts = { screen: 0, cam: 0 };
+    const stStop = st.stop; st.stop = () => { counts.screen++; stStop.call(st); };
+    const ct = { kind: 'video', getSettings: () => ({ width: 1280, height: 720 }), addEventListener() {}, removeEventListener() {}, stop() { counts.cam++; } };
+    const screen = makeStream([st]);
+    state.screenStream = screen; S.wireScreenEndedListener(screen);
+    state.cameraStream = makeStream([ct]);
+    await api.startRecording();
+    state.mediaRecorder.ondataavailable({ data: new Blob(['x']) });
+    await drain();
+    S.stopAndReview();
+    await drain();
+    return { st, ct, screen, counts };
+  };
+
+  await scenario('GV Stop & review keeps the screen share and the webcam: Back to recorder lands on Record with the screen still selected, the preview live and the Stop-sharing listener still wired; a cut-style exit keeps them too; Stop & save still releases', async () => {
+    const { st, screen, counts } = await reviewFromLive();
+    assert(api.reviewState.active === true && state.recording === false, 'GV precondition: review open, recording ended');
+    assert(state.screenStream === screen && state.cameraStream !== null && counts.screen === 0 && counts.cam === 0, 'GV: the screen share and the webcam survive the review stop (stops: ' + JSON.stringify(counts) + ')');
+    assert(state.mediaRecorder === null && state.compositeStream === null && state.audioContext === null, 'GV: the recording\'s own streams and mix are gone');
+    S.reviewBackToRecorder();
+    await drain();
+    assert(api.reviewState.active === false, 'GV: back at the recorder');
+    assert(el29('btnSelectScreen').textContent === 'Change Screen' && el29('btnSelectScreen').classList.contains('selected'), 'GV: Select Screen reads Change Screen, selected');
+    assert(el29('btnRecord').disabled === false && state.sources.screen === true, 'GV: Record is available at once');
+    assert(el29('placeholder').classList.contains('hidden') && typeof state.drawFrame === 'function', 'GV: the live preview is showing, not the placeholder');
+    assert(state.screenEndedTrack === st, 'GV: the Stop-sharing listener is still on the shared screen');
+    await api.startRecording();
+    assert(state.recording === true && state.screenStream === screen, 'GV: the next recording starts on the same screen without re-selecting');
+    await sandbox.stopRecording();
+    await drain();
+    assert(state.screenStream === null && counts.screen === 1 && counts.cam === 1, 'GV: Stop & save still releases the screen share and the webcam (stops: ' + JSON.stringify(counts) + ')');
+
+    await resetState();
+    const two = await reviewFromLive();
+    S.closeReviewPane(); S.resetUI();   // the cut path's exit (applyReviewCutPlan closes the pane and resets the UI)
+    assert(state.screenStream === two.screen && el29('btnRecord').disabled === false, 'GV: after a cut-style exit the screen is still selected and Record is available');
+    two.st._fireEnded();
+    assert(state.screenStream === null && state.sources.screen === false && el29('placeholder').classList.contains('hidden'), 'GV: Stop sharing while idle after a review releases the screen; with the webcam still on, the preview is the webcam alone (v1.33 rule)');
+  });
+
+  await scenario('GW Save as is and Discard recording end the session, so they release the screen share and the webcam (as Stop & save does); a cancelled Save as is keeps them', async () => {
+    let r = await reviewFromLive();
+    windowMock.showSaveFilePicker = pickerSequence(['abort']);
+    await S.reviewSaveAsIs();
+    await drain();
+    assert(api.reviewState.active === true && state.screenStream === r.screen && r.counts.screen === 0 && r.counts.cam === 0, 'GW: a cancelled Save as is keeps the review open and the sources alive (stops: ' + JSON.stringify(r.counts) + ')');
+    windowMock.showSaveFilePicker = pickerSequence(['ok']);
+    await S.reviewSaveAsIs();
+    await drain();
+    assert(api.reviewState.active === false && state.screenStream === null && state.cameraStream === null && r.counts.screen === 1 && r.counts.cam === 1, 'GW: a confirmed Save as is releases both sources (stops: ' + JSON.stringify(r.counts) + ')');
+    assert(el29('btnSelectScreen').textContent === 'Select Screen' && !el29('placeholder').classList.contains('hidden'), 'GW: back to Select Screen and the placeholder');
+
+    await resetState();
+    r = await reviewFromLive();
+    S.requestReviewDiscard();
+    await S.reviewDiscardConfirmed();
+    await drain();
+    assert(api.reviewState.active === false && state.screenStream === null && state.cameraStream === null && r.counts.screen === 1 && r.counts.cam === 1, 'GW: Discard recording releases both sources (stops: ' + JSON.stringify(r.counts) + ')');
+  });
+
   // ---------- REVIEW #34 (v1.30): Webcam and Mic while paused ----------
   const camTrack = () => ({ kind: 'video', readyState: 'live', getSettings: () => ({ width: 320, height: 240 }), addEventListener() {}, stop() { this.readyState = 'ended'; } });
   const startScreenRecWith = async ({ mic, cam }) => {

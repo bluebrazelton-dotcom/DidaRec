@@ -1079,7 +1079,7 @@
 
 <footer>
   <div>Click "Select Screen" to choose which screen, window, or tab to record. Your browser will show a popup — this is a required security step the app cannot bypass.</div>
-  <div style="margin-top: 0.5rem;">DidaRec <span id="appVersion">v1.36</span> by DidaWorks &middot; Open source &middot; MIT License &middot; No account, no server, no watermark, no time limits</div>
+  <div style="margin-top: 0.5rem;">DidaRec <span id="appVersion">v1.37</span> by DidaWorks &middot; Open source &middot; MIT License &middot; No account, no server, no watermark, no time limits</div>
 </footer>
 
 <script>
@@ -4368,7 +4368,7 @@ function wireScreenEndedListener(stream) {
 }
 
 function unwireScreenEndedListener() {
-  if (state.screenEndedTrack && state.screenEndedHandler) {
+  if (state.screenEndedTrack && state.screenEndedHandler && typeof state.screenEndedTrack.removeEventListener === 'function') {
     state.screenEndedTrack.removeEventListener('ended', state.screenEndedHandler);
   }
   state.screenEndedTrack = null;
@@ -5181,7 +5181,9 @@ async function finalizeRecording() {
       keepAfter = true;
     }
   } finally {
-    cleanupStreams();
+    // v1.37: Stop & review keeps the screen and webcam, so Back to recorder
+    // (and a re-record cut) can go straight to Record.
+    cleanupStreams({ keepSources: stopMode === 'review' });
     resetUI();
     // v1.32: a cancelled or failed save leaves the video as a kept recording,
     // with its "Save it now" box showing — nobody is told to reload the page.
@@ -5846,17 +5848,15 @@ function releaseMicRecordingRef() {
   state.micStream = null;
 }
 
-function cleanupStreams() {
+// v1.37: `keepSources` leaves the screen share and the webcam running (as
+// they are between Select Screen and Record) — used by Stop & review, so
+// Back to recorder lands on Record instead of Select Screen. Everything that
+// belongs to the recording itself (recorder, mix, canvas capture) still goes.
+function cleanupStreams(opts) {
+  const keep = !!(opts && opts.keepSources);
   stopCompositing();
 
-  if (state.screenStream) {
-    state.screenStream.getTracks().forEach(t => t.stop());
-    state.screenStream = null;
-  }
-  if (state.cameraStream) {
-    state.cameraStream.getTracks().forEach(t => t.stop());
-    state.cameraStream = null;
-  }
+  if (!keep) releaseSources();
   if (state.micMuted) {
     // REVIEW #34: the recording ended with the mic muted. Un-mute the track
     // (a muted hold would silently carry into the next recording) and make it
@@ -5880,12 +5880,27 @@ function cleanupStreams() {
     state.compositeStream = null;
   }
 
-  screenVideo.srcObject = null;
-  cameraVideo.srcObject = null;
   state.mediaRecorder = null;
   state.recording = false;
   state.paused = false;
   state.screenLost = false;
+}
+
+// Stop sharing the screen and switch the webcam off (the user's sources, as
+// opposed to the recording's own streams). Stop & save, Save as is and
+// Discard end a session, so they release; Stop & review does not.
+function releaseSources() {
+  unwireScreenEndedListener();
+  if (state.screenStream) {
+    state.screenStream.getTracks().forEach(t => t.stop());
+    state.screenStream = null;
+  }
+  if (state.cameraStream) {
+    state.cameraStream.getTracks().forEach(t => t.stop());
+    state.cameraStream = null;
+  }
+  screenVideo.srcObject = null;
+  cameraVideo.srcObject = null;
 }
 
 // ============================================================
@@ -5907,15 +5922,15 @@ function resetUI() {
   document.getElementById('btnChangeScreen').style.display = 'none';
   document.getElementById('btnChangeScreen').disabled = false;
   document.getElementById('btnChangeScreen').textContent = 'Change screen';
-  document.getElementById('btnSelectScreen').style.display = '';
-  document.getElementById('btnSelectScreen').disabled = false;
-  document.getElementById('btnSelectScreen').textContent = 'Select Screen';
-  document.getElementById('btnSelectScreen').classList.remove('selected');
-  document.getElementById('placeholder').classList.remove('hidden');
-  syncScreenMode();        // v1.33: webcam still on + no screen = camera-only, Record available
-  updatePlaceholderText();
-  updateToggleUI();
-  updateRecordButton();
+  const btnSelect = document.getElementById('btnSelectScreen');
+  btnSelect.style.display = '';
+  btnSelect.disabled = false;
+  // v1.37: the screen may still be shared (Stop & review keeps it) — say so.
+  btnSelect.textContent = state.screenStream ? 'Change Screen' : 'Select Screen';
+  btnSelect.classList.toggle('selected', !!state.screenStream);
+  // The live sources, the webcam alone, or the placeholder (which also
+  // syncs screen mode, the placeholder text, the toggles and Record).
+  refreshIdlePreview();
   // Show segment indicator if continuing a recording
   if (state.priorSegments.length > 0) {
     updateStatus('idle', KEPT_STATUS);
@@ -5940,10 +5955,8 @@ function resetUI() {
   // place: startRecording(), at the start of the NEXT recording.
   clearStartVerify();
   clearStopWatchdog();
-
-  // Clear canvas
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  // (The canvas is cleared by refreshIdlePreview above when the placeholder
+  // shows; a live preview must not be wiped.)
 }
 
 function updateStatus(mode, text) {
@@ -7015,6 +7028,7 @@ async function reviewDiscardConfirmed() {
     await deleteDiscardedSessions();
     state.priorSegments = [];
     reviewState.undo = null;
+    releaseSources(); // the session is over (v1.37)
     closeReviewPane();
     resetUI();
   } catch (err) {
@@ -7694,10 +7708,12 @@ async function reviewSaveAsIs() {
       await deleteDiscardedSessions();
       state.priorSegments = [];
       reviewState.undo = null;
+      releaseSources(); // the session is over — same as after Stop & save (v1.37)
       closeReviewPane();
       resetUI();
     } else if (result === 'downloaded') {
       offerDownloadConfirm(segments.map(s => s.sessionId), 1);
+      releaseSources();
       closeReviewPane();
       resetUI();
     } else {
