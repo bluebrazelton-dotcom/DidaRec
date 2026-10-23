@@ -2646,6 +2646,64 @@ pre-verified on copies with the real harness; orchestrator review
 amended one stale comment and rendered the button before any repo
 write.
 
+### v1.36 — Review page parts list: see, play, delete, restore (#43 stage 1) (2026-10-23)
+
+Drafted 2026-10-19 (Sonnet draft + orchestrator amendment; design settled
+with the owner, see REVIEW #43); taken over, reviewed, fixed and shipped
+from a second session 2026-10-23.
+
+**What it does.** A video recorded in parts (continued after a stop, a
+crash, or a re-record cut) shows **Parts of this video** under the review
+player: one row per part, "Part N — m:ss" in order, the newest marked, the
+whole length above. **Play** shows one part alone in the same player, with
+a bar saying so and **Back to the whole video**; the re-record controls
+step aside meanwhile (a part's playhead is not a time on the whole video).
+**Delete** asks in the pane, then takes the part out of the video; the last
+remaining part is never offered (that is Discard recording). **Restore all
+parts** returns the chain to exactly what it was when the pane opened.
+Save as is saves what is left. No new recording paths.
+
+**How.** Each part is already its own stored session, and the preview
+assembly already scans each one, so part lengths come from the existing
+scans (reviewDurationMs reuses computeCutPlan's seam math — no fifth copy).
+A deleted part is soft-deleted with the same discarded flag a cut uses, so
+recovery ignores it and every confirmed-save / discard site already sweeps
+it; Restore is a plain un-flag. Delete and Restore are ordered rebuild →
+flag → commit, with full rollback on any failure and an un-flag if the pane
+closed mid-way. New reviewState fields (entrySegments, removedIds,
+playingPart, partUrl, partToken, partsBusy, saving, pendingRemoveId) reset
+in resetReviewPartsState on open and close, and in the harness resetState.
+
+**Review fixes (independent reviewer, 2026-10-23).** Between a delete's
+rebuild and its commit, scans describe the new chain while segments still
+hold the old one; the cut controls were live in that window, so a Redo or
+cut there could discard the wrong part, and Back to recorder could hand on
+a chain mid-change. Now: syncReviewCutControls gates on partsBusy and
+saving; reviewCutFromHere, reviewCutFromTypedTime, redoLastTake,
+reviewBackToRecorder and requestReviewDiscard return with a one-line note
+while either is set (reviewPartsBusyNote); the pane reset no longer clears
+`saving` (it belongs to reviewSaveAsIs's finally); a rebuild says
+"Updating the parts list…" / "Bringing the parts back…". Not changed: the
+reviewer's wording nit on the delete question (the harness pins it).
+
+**Verification.** Harness: **216 scenarios / 1669 assertions** (GK–GT from
+the draft; GU new: every chain-changing control poked from inside the flag
+write — no cut applied, no stray flag, the delete lands). Rig, Chrome:
+parts 1-3 on this tree, 64 / 51 / 17 pass, 0 fail (part 2 now carries s15_parts, 15.20-15.26: list and labels, play one part alone, re-record refused in part mode, delete with confirm and the saved file without that part, last part not deletable, Restore all parts exact, cut after a delete, recovery after Back to recorder shows the kept parts, 375 px layout). Guide: new "See and change the parts of your video"
+section. Firefox and part 4 not run for v1.36.
+
+**Owner check 2026-10-23**, real Chrome, local file: play one part, delete
+and restore, save with a part removed, wording — all PASSED. First
+finding: the owner stopped three times at the "Recording kept — not saved
+yet" box, which offered only Save it now / Discard; the way to add more
+(select a screen, click Record) was only on the status line below.
+**Fixed:** the box itself now says "To add more, select a screen and click
+Record. To finish, click Save it now." (`#recoveryKeptHint`, kept mode
+only; harness FS/FT, rig 15.17). Second finding: a paused-and-resumed
+(or Change-screen) recording is ONE part, which surprised the owner —
+the guide now says a part runs from Record to Stop. Harness after these:
+216 scenarios / 1671 assertions.
+
 ---
 
 ## Known limitations

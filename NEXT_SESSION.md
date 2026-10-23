@@ -8,9 +8,29 @@ exactly as it was; lit = in effect; padlock while recording; disabled
 in webcam-only; v1.34's shape-'full' layouts migrate (loadPipLayout).
 Harness **203 / 1457** (GH/GI/GJ new, GE retargeted). Rig part 1 green
 on the final file (42.1 retargeted). Owner check PASSED 2026-10-17.
-**Queue now:** (1) Scripted demo video (can show Full screen).
-(2) Optional Firefox + part-4 rig re-run (not run since v1.28).
-Future, to explore: #43, #44 (design conversations first).
+**Queue now (reordered by owner, 2026-10-19 — features before the demo
+video; a blog post is due within the week):**
+(1) **#43 stage 1, v1.36 — DONE 2026-10-23** (parts list: see/play/
+delete/restore). Taken over by a second session: independent review
+found one real gap (cut/Redo/Back/Discard were live between a delete's
+rebuild and its commit) — gated via reviewPartsBusyNote; harness GU pins
+it. Owner check PASSED; the kept box now says how to add more
+(#recoveryKeptHint); guide says a part runs from Record to Stop.
+Harness 216 / 1671.
+(2) **Brand restyle, v1.37** (owner, 2026-10-23): DidaRec, the guide
+and the screenshots follow `Aegis Framework, Phase 1\Brand Standards\
+brand_standards.md` v0.8 (dark-mode web rules: Slate header, Night
+slate / Night card / Night rule, Parchment text, Sky for on/selected/
+save, Terracotta-on-dark for Record/live/attention; Roboto Slab
+headings, Roboto body SELF-HOSTED from `fonts/`; the owl mark in the
+header; the brand favicon). Owner approved the preview and the owl
+2026-10-23. Scratch preview: this session's scratchpad `brand_preview/`.
+(3) **#43 stage 2, v1.38** — record a replacement INTO a middle
+position. (4) Scripted demo video (can show Full screen + part
+editing), then the owner's blog post. (5) **#47 chapter marks +
+sidecar export** (see REVIEW — queued AFTER #43 so marks ride the
+parts model). (6) Optional Firefox + part-4 rig re-run (not since
+v1.28). Future, to explore: #44 (design conversation first).
 
 **Before that, same day: v1.34 SHIPPED — #42 Webcam full screen + the
 #45 Resume dead-click fix.** Harness 199 / 1425 (GD/GE/GF/GG new). Rig

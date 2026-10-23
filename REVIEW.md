@@ -959,7 +959,13 @@ re-open, and webcam-only sharpness improves everywhere. Fitted with
 bars, never cropped or stretched (owner choice). Harness GD/GE/GF; rig
 42.1 end-to-end. Owner check pending at the v1.34 gate.
 
-### 43. Review page: see every part and work on one at a time — FUTURE, to explore (owner, 2026-10-05)
+### 43. Review page: see every part and work on one at a time — stage 1 ✓ DONE v1.36 (2026-10-23); stage 2 queued as v1.38
+
+**Stage 1 shipped v1.36:** parts list ("Part N — m:ss", newest marked), play
+one part alone, delete with in-pane confirm (never the last part), Restore
+all parts. Drafted 2026-10-19; reviewed, gated (no cut/Back/Discard while a
+delete, restore or save is in flight) and shipped 2026-10-23. Owner check
+PASSED; the kept box now says how to add more. Original note follows.
 
 Show all recorded parts of a video on the review page, play each one by
 itself, and change or replace a single part. Starting points already in the
@@ -970,6 +976,18 @@ player, and recording a replacement INTO a middle position (today new takes
 only append). Questions to settle first: how parts are named and ordered on
 screen, whether parts can be reordered or deleted individually, and what
 Undo means with several edits.
+
+Design settled (owner + orchestrator, 2026-10-19): parts shown as
+"Part N — m:ss" in order, newest marked, no thumbnails in v1. Replace
+= full normal recording flow into position k, any length, cancel
+restores the old part untouched (Change-screen's no-op philosophy).
+Individual parts deletable with in-pane confirmation (the last part is
+Discard, not delete). Undo = one "Restore all parts" returning the
+chain as it was when review opened; no multi-step stack. Out of scope
+for v1: drag-reordering, thumbnails. Staged: v1.36 = list / play one /
+delete / restore-all (no new recording paths); v1.37 = replace-into-
+position. Existing Undo re-record for cuts stays untouched in stage 1;
+how the two undos merge is a stage-2 design point.
 
 ### 44. Save a video project and come back to it later — FUTURE, to explore (owner, 2026-10-05)
 
@@ -1023,6 +1041,27 @@ flip.
 Owner check PASSED 2026-10-17 (Chrome, local file) — shipped v1.35 the
 same day. Harness GH/GI/GJ new, GE retargeted; rig 42.1 retargeted and
 green on the final file.
+
+### 47. Chapter marks + chapter sidecar export — owner-prioritized 2026-10-19, queued AFTER #43
+
+Mark moments while recording; export the chapter list beside the saved
+video. v1 scope (settled with the owner 2026-10-19): a "Mark chapter"
+button plus a keyboard shortcut that works while DidaRec's own window
+has focus — a web page cannot hear keys while another window is
+focused, so this is "mark it when you touch the recorder," never a
+global hotkey; say so honestly in the guide. Marks are auto-named
+("Chapter 1, 2, 3…"), no typing mid-recording; renaming happens in the
+exported file. Two exports, both from the caption system's existing
+sidecar machinery: a plain-text YouTube-description chapter list
+("00:00 Introduction") — likely the most useful output for faculty —
+and a WebVTT chapters file. Marks store crash-safe with the session
+(small additive storage change) as part + offset-within-part, and are
+mapped to the final timeline at export using the stitcher's existing
+content-end data — which is why this item is queued AFTER #43: marks
+must survive cuts, Redo last take, deleted parts (#43 stage 1) and
+replaced parts (stage 2), so it builds on the parts model rather than
+being reworked by it. Rough size: between #34 and #43 stage 1 — one to
+two sessions.
 
 ### 39. "Stop sharing" now pauses instead of ending the recording (Y2) — ✓ CHANGED v1.29
 
