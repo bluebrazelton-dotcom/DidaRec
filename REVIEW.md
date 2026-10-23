@@ -1042,6 +1042,25 @@ Owner check PASSED 2026-10-17 (Chrome, local file) — shipped v1.35 the
 same day. Harness GH/GI/GJ new, GE retargeted; rig 42.1 retargeted and
 green on the final file.
 
+### 48. Stop & review released the screen and webcam, so every return meant Select Screen again — ✓ FIXED v1.37
+
+Owner, 2026-10-23: "every time I come back from reviewing, I have to select the
+screen again, and that just slows down the transition". Fixed v1.37: Stop &
+review keeps both sources; Save as is and Discard release them (as Stop &
+save does). Rig 15.27; harness GV/GW.
+
+### 49. Every pause starts a new part — owner-prioritized 2026-10-23, queued as v1.38
+
+Owner decision: automatic (one rule — a part runs from Record or Resume to
+Pause or Stop), not a button. Each Pause ends the current recording the way
+Stop does without saving or releasing anything; each Resume starts a fresh
+recording on the same screen and camera — the crash-recovery "continue"
+machinery used on purpose, so the joins are the seams the stitcher already
+handles. Touches the recorder's stop/start paths, the watchdogs and the
+timer: verify with the crash scenarios and the 30-minute run. Accepted:
+a resume has a brief start-up gap (invisible inside a pause); short pauses
+make short parts. With this, Stop & review becomes a once-at-the-end step.
+
 ### 47. Chapter marks + chapter sidecar export — owner-prioritized 2026-10-19, queued AFTER #43
 
 Mark moments while recording; export the chapter list beside the saved

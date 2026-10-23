@@ -2704,6 +2704,37 @@ only; harness FS/FT, rig 15.17). Second finding: a paused-and-resumed
 the guide now says a part runs from Record to Stop. Harness after these:
 216 scenarios / 1671 assertions.
 
+### v1.37 — Stop & review keeps the screen and webcam (#48) (2026-10-23)
+
+Owner, after the v1.36 check: every return from the review page meant
+selecting the screen again, which slowed the pause-and-switch workflow.
+
+**Now.** Stop & review ends the recording but leaves the screen share and
+the webcam running, exactly as they are between Select Screen and Record:
+`cleanupStreams({ keepSources: true })` on the review path skips
+`releaseSources()` (the new home of the screen/camera teardown; it unwires
+the Stop-sharing listener first, since a scripted track stop can fire
+'ended'). Back to recorder, a re-record cut, Redo and Undo therefore land
+on Record with the screen still selected: `resetUI` now labels Select
+Screen "Change Screen"/selected when a share is live and hands the preview
+to `refreshIdlePreview()` (which also replaced resetUI's own canvas wipe —
+a live preview must not be cleared). Save as is (saved or downloaded) and
+Discard recording end the session and call `releaseSources()`, the same
+outcome as Stop & save; a cancelled Save as is keeps everything. Chrome's
+"sharing your screen" bar stays up during a review, which is honest: the
+session is still open.
+
+**Verification.** Harness: **218 scenarios / 1687 assertions** (GV, GW
+new). Rig, Chrome: new check 15.27 — after Stop & review the screen and
+webcam are still on; Back to recorder shows "Change Screen", Record
+enabled, live preview; Record with no Select Screen step records on the
+same screen; Stop & save releases; Save as is from a review releases.
+Parts 1–3: 64 / 52 / 17 pass, 0 fail. Guide: the Back to recorder bullet says
+the sources stay on and switch off at save or discard. Firefox and part 4
+not run.
+
+**Owner check:** not run before the push (owner asked for commit and push to get on to #49); the rig's real-Chrome check 15.27 covers the behaviour end to end. Worth one glance on the hosted page: Stop & review, Back to recorder, Record.
+
 ---
 
 ## Known limitations

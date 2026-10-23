@@ -1,6 +1,13 @@
 # DidaRec — Next Session, Start Here
 
-**Newest (2026-10-17): v1.35 SHIPPED — #46 Full screen is a one-click
+**Newest (2026-10-23): v1.37 — Stop & review keeps the screen and webcam
+(#48 DONE).** Harness **218 / 1687** (GV, GW). `releaseSources()` is the
+one place the screen share and webcam are released; Stop & save, Save as
+is and Discard call it, Stop & review does not. `resetUI` now hands the
+preview to `refreshIdlePreview()` and must not wipe the canvas itself.
+Next: #49 automatic parts (v1.38), then the brand restyle (v1.39).
+
+**Earlier (2026-10-17): v1.35 SHIPPED — #46 Full screen is a one-click
 button.** Owner-raised at the v1.34 check, designed, built, checked and
 shipped the same day. The button sits under the shape list (which is
 back to Rectangle/Square/Circle); off returns the corner picture
@@ -17,7 +24,11 @@ rebuild and its commit) — gated via reviewPartsBusyNote; harness GU pins
 it. Owner check PASSED; the kept box now says how to add more
 (#recoveryKeptHint); guide says a part runs from Record to Stop.
 Harness 216 / 1671.
-(2) **Brand restyle, v1.37** (owner, 2026-10-23): DidaRec, the guide
+(2) **DONE v1.37 (2026-10-23): Stop & review keeps the screen and webcam**
+(REVIEW #48) — Back to recorder lands on Record; Save as is / Discard
+release. (3) **#49 Every pause starts a new part, v1.38** (owner:
+automatic; see REVIEW #49 for the mechanism and the verification bar).
+(4) **Brand restyle, v1.39** (owner, 2026-10-23): DidaRec, the guide
 and the screenshots follow `Aegis Framework, Phase 1\Brand Standards\
 brand_standards.md` v0.8 (dark-mode web rules: Slate header, Night
 slate / Night card / Night rule, Parchment text, Sky for on/selected/
@@ -25,12 +36,12 @@ save, Terracotta-on-dark for Record/live/attention; Roboto Slab
 headings, Roboto body SELF-HOSTED from `fonts/`; the owl mark in the
 header; the brand favicon). Owner approved the preview and the owl
 2026-10-23. Scratch preview: this session's scratchpad `brand_preview/`.
-(3) **#43 stage 2, v1.38** — record a replacement INTO a middle
-position. (4) Scripted demo video (can show Full screen + part
-editing), then the owner's blog post. (5) **#47 chapter marks +
+(5) **#43 stage 2, v1.40** — record a replacement INTO a middle
+position. (6) Scripted demo video (can show Full screen + part
+editing), then the owner's blog post. (7) **#47 chapter marks +
 sidecar export** (see REVIEW — queued AFTER #43 so marks ride the
-parts model). (6) Optional Firefox + part-4 rig re-run (not since
-v1.28). Future, to explore: #44 (design conversation first).
+parts model). (8) Optional Firefox + part-4 rig re-run (not since
+v1.28; the Chrome part 4 ran on v1.35, 2026-10-23). Future, to explore: #44 (design conversation first).
 
 **Before that, same day: v1.34 SHIPPED — #42 Webcam full screen + the
 #45 Resume dead-click fix.** Harness 199 / 1425 (GD/GE/GF/GG new). Rig
