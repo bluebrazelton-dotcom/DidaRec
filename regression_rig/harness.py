@@ -67,7 +67,7 @@ class Rig:
         self.page = None
         self.results = {}
         part = os.path.splitext(os.path.basename(sys.argv[0]))[0]
-        self.results_path = os.path.join(HERE, "results_%s%s.json" % (kind, "" if part == "part1" else "_" + part))
+        self.results_path = os.path.join(HERE, "results_%s%s%s.json" % (kind, os.environ.get("DIDAREC_RESULTS_TAG", ""), "" if part == "part1" else "_" + part))
         if os.path.exists(self.results_path):
             with open(self.results_path, encoding="utf-8") as f:
                 self.results = json.load(f)
@@ -88,7 +88,7 @@ class Rig:
         self.profile = profile
         if self.kind == "cr":
             self.ctx = self.pw.chromium.launch_persistent_context(
-                pdir, channel="chrome", headless=self.headless, accept_downloads=True,
+                pdir, channel=os.environ.get("DIDAREC_CHANNEL", "chrome"), headless=self.headless, accept_downloads=True,
                 args=["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream",
                       "--autoplay-policy=no-user-gesture-required"],
                 viewport={"width": 1400, "height": 1000})

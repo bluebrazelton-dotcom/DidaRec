@@ -492,7 +492,7 @@ def s12_kept_after_cancel(r):
 
 def s15_kept(r):
     """v1.29 (owner pass 2026-10-05): after reviewing, kept-but-unsaved footage is offered for saving without a refresh."""
-    KEPT = "() => ({ up: document.getElementById('recoveryBanner').classList.contains('visible'), title: document.getElementById('recoveryTitle').textContent, info: document.getElementById('recoveryInfo').textContent, cont: getComputedStyle(document.getElementById('btnRecoveryContinue')).display !== 'none', save: document.getElementById('btnRecoverySave').textContent.trim() })"
+    KEPT = "() => ({ up: document.getElementById('recoveryBanner').classList.contains('visible'), title: document.getElementById('recoveryTitle').textContent, info: document.getElementById('recoveryInfo').textContent, cont: getComputedStyle(document.getElementById('btnRecoveryContinue')).display !== 'none', save: document.getElementById('btnRecoverySave').textContent.trim(), hint: getComputedStyle(document.getElementById('recoveryKeptHint')).display !== 'none' && document.getElementById('recoveryKeptHint').textContent })"
     r.start("rev15k")
     # a) Back to recorder -> banner -> Save it now
     mic_on(r); r.select_screen(1); r.record(8); review_open(r)
@@ -502,7 +502,7 @@ def s15_kept(r):
     u1 = r.ui(); pr = r.probe("15_kept_a.webm", step=0.5); sm = summarize(pr)
     r.reload(); r.wait(700)
     clean_a = not r.ui()["recovery"]
-    ok_a = (k["up"] and k["title"].startswith("Recording kept") and not k["cont"] and k["save"] == "Save it now" and "of video" in k["info"]
+    ok_a = (k["up"] and k["title"].startswith("Recording kept") and not k["cont"] and k["save"] == "Save it now" and "of video" in k["info"] and k.get("hint") and "click Record" in k["hint"]
             and u0["prior"] == 1 and sm["valid"] == sm["n"] and pr["duration"] > 6 and u1["prior"] == 0 and not u1["recovery"] and clean_a)
     r.check("15.17", ok_a, "extra (v1.29): Back to recorder -> banner '%s' ('%s'), Continue button shown=%s, save button '%s'; Save it now -> %.1fs playable file, kept segments now %d, banner gone=%s; reload shows no banner=%s"
             % (k["title"], k["info"], k["cont"], k["save"], pr["duration"], u1["prior"], not u1["recovery"], clean_a))
@@ -565,7 +565,190 @@ def s15_cut_micoff(r):
         r.rec("15.3b", "FAIL", "extra: mic OFF (no audio), 14s recording, cut requested at 0:08 -> no cut; app answered '%s'" % (c["prompt"] or c["status"]))
 
 
-ALL = [s15_cut_micoff, s10_crash, s11_continue, s12_cancel, s13_seek, s15_review_a, s15_review_b, s15_review_c, s15_review_d, s12_kept_after_cancel, s15_kept, s15_precision_end]
+
+def three_parts(r, secs=(8, 6, 5)):
+    """Record len(secs) takes on fake screens 1..n, each reviewed then 'Back to recorder', so the
+    chain has len(secs) parts; leaves the review pane OPEN on the last one."""
+    mic_on_if_needed(r)
+    for i, s in enumerate(secs):
+        r.select_screen(i + 1); r.record(s)
+        review_open(r)
+        if i < len(secs) - 1:
+            r.page.click("#reviewPane .btn-back-recorder"); r.wait(700)
+
+
+PARTS = """() => ({
+  rows: [...document.querySelectorAll('#reviewPartsList .review-part-row')].map(x => ({
+    label: x.querySelector('.review-part-label').textContent,
+    newest: !!x.querySelector('.review-part-badge'),
+    del: !!x.querySelector('.btn-part.danger'),
+    playing: x.classList.contains('playing') })),
+  total: document.getElementById('reviewPartsTotal').textContent,
+  panel: getComputedStyle(document.getElementById('reviewParts')).display !== 'none',
+  restore: getComputedStyle(document.getElementById('btnRestoreParts')).display !== 'none',
+  mode: getComputedStyle(document.getElementById('reviewPartMode')).display !== 'none',
+  modeMsg: document.getElementById('reviewPartModeMsg').textContent,
+  confirm: getComputedStyle(document.getElementById('reviewPartConfirm')).display !== 'none',
+  confirmMsg: document.getElementById('reviewPartConfirmMsg').textContent,
+  dur: document.getElementById('reviewVideo').duration,
+  status: document.getElementById('reviewStatus').textContent,
+  rr: document.getElementById('btnReRecordHere').disabled,
+  redo: getComputedStyle(document.getElementById('btnRedoLastTake')).display !== 'none',
+})"""
+
+
+def parts(r):
+    return r.ev(PARTS)
+
+
+def row_btn(n, danger=False):
+    return "#reviewPartsList .review-part-row:nth-child(%d) .btn-part%s" % (n, ".danger" if danger else ":not(.danger)")
+
+
+def secs_of(label):
+    m = re.search(r"(\d+):(\d\d)$", label)
+    return int(m.group(1)) * 60 + int(m.group(2)) if m else None
+
+
+def s15_parts(r):
+    """v1.36 (#43 stage 1): the review pane's parts list - list, play one part, delete one, Restore all parts,
+    last part, and the interplay with a cut and with a crash. 15.20-15.25."""
+    # ---- 15.20 the list: one row per part, "Part N - m:ss", newest marked, total shown; one part = no list ----
+    r.start("rev15p")
+    mic_on(r); r.select_screen(1); r.record(6); review_open(r)
+    one = parts(r)
+    r.check("15.20a", not one["panel"],
+            "a one-part video shows no parts list (panel shown=%s)" % one["panel"])
+    r.page.click("#reviewPane .btn-back-recorder"); r.wait(700)
+    r.select_screen(2); r.record(6); review_open(r)
+    r.page.click("#reviewPane .btn-back-recorder"); r.wait(700)
+    r.select_screen(3); r.record(5); review_open(r)       # 3 parts (~6s, ~6s, ~5s), pane open
+    p0 = parts(r)
+    durs = [secs_of(x["label"]) for x in p0["rows"]]
+    labels_ok = all(re.match(r"^Part %d — \d+:\d\d$" % (i + 1), x["label"]) for i, x in enumerate(p0["rows"]))
+    r.check("15.20", p0["panel"] and len(p0["rows"]) == 3 and labels_ok
+            and [x["newest"] for x in p0["rows"]] == [False, False, True]
+            and all(x["del"] for x in p0["rows"])
+            and all(d is not None and abs(d - w) <= 1.5 for d, w in zip(durs, (6, 6, 5)))
+            and abs(secs_of(p0["total"]) - p0["dur"]) <= 1.5 and not p0["restore"] and not p0["mode"],
+            "3 takes -> rows %s, Newest on the last only, total '%s' vs player duration %.1fs, Restore all parts hidden"
+            % ([x["label"] for x in p0["rows"]], p0["total"], p0["dur"]))
+    entry_dur = p0["dur"]
+
+    # ---- 15.21 play ONE part in the same player, then the way back ----
+    r.page.click(row_btn(2))
+    r.page.wait_for_function("reviewState.playingPart === 1 && document.getElementById('reviewVideo').readyState >= 1", timeout=60000)
+    r.wait(1200)
+    p1 = parts(r)
+    advancing = r.ev("document.getElementById('reviewVideo').currentTime") > 0.5      # autoplay after the click
+    n_video = r.ev("document.querySelectorAll('#reviewPane video').length")
+    r.check("15.21a", p1["mode"] and p1["modeMsg"] == "Playing Part 2 on its own." and abs(p1["dur"] - 6) <= 1.5
+            and p1["rows"][1]["playing"] and p1["rr"] and n_video == 1 and advancing,
+            "Play on Part 2 -> banner '%s', player duration %.1fs (about Part 2 alone, not the %.1fs whole), row marked playing, "
+            "re-record buttons off=%s, still ONE <video> in the pane (%d), playhead advancing=%s" % (p1["modeMsg"], p1["dur"], entry_dur, p1["rr"], n_video, advancing))
+    r.page.click("#reviewPartMode .btn-back-to-whole")
+    r.page.wait_for_function("reviewState.playingPart === null && document.getElementById('reviewVideo').readyState >= 1", timeout=60000)
+    r.wait(400)
+    p2 = parts(r)
+    r.check("15.21b", not p2["mode"] and abs(p2["dur"] - entry_dur) <= 0.3 and not p2["rr"],
+            "Back to the whole video -> banner gone=%s, duration %.1fs == the %.1fs it had on entry, re-record buttons back=%s" % (not p2["mode"], p2["dur"], entry_dur, not p2["rr"]))
+    # a re-record button while one part plays is refused, not a wrong cut (pin of the guard):
+    r.page.click(row_btn(1)); r.page.wait_for_function("reviewState.playingPart === 0", timeout=60000)
+    r.ev("reviewCutFromHere()"); r.wait(300)
+    guard = parts(r)["status"]
+    r.page.click("#reviewPartMode .btn-back-to-whole"); r.wait(600)
+    r.check("15.21c", "Go back to the whole video first" in guard and r.ui()["review"], "re-record attempted while Part 1 plays -> '%s', pane still open, nothing cut" % guard)
+
+    # ---- 15.22 delete Part 2: in-pane confirm (no browser popup), list / player / total update, Save as is saves the rest ----
+    d0 = len(r.dialogs())
+    r.page.click(row_btn(2, danger=True)); r.wait(300)
+    q = parts(r)
+    r.page.click("#reviewPartConfirm button.btn-record"); r.wait(300)      # Keep it
+    kept = parts(r)
+    r.page.click(row_btn(2, danger=True)); r.wait(300)
+    r.page.click("#btnReviewPartDelete")                                    # Delete Part 2
+    r.page.wait_for_function("reviewState.segments.length === 2 && !reviewState.partsBusy && document.getElementById('reviewVideo').readyState >= 1", timeout=60000)
+    r.wait(400)
+    p3 = parts(r)
+    r.check("15.22a", q["confirm"] and q["confirmMsg"].startswith("Delete Part 2") and "Restore all parts" in q["confirmMsg"]
+            and not kept["confirm"] and len(kept["rows"]) == 3 and len(r.dialogs()) == d0
+            and len(p3["rows"]) == 2 and [x["label"][:6] for x in p3["rows"]] == ["Part 1", "Part 2"]
+            and p3["rows"][1]["newest"] and abs(p3["dur"] - (entry_dur - 6)) <= 1.5 and p3["restore"] and not p3["confirm"]
+            and "Part 2 was deleted" in p3["status"],
+            "Delete -> question inside the pane ('%s'); Keep it changed nothing; Delete Part 2 -> 2 rows %s, player %.1fs (was %.1fs), "
+            "Restore all parts shown=%s; browser popups: %d" % (q["confirmMsg"][:60], [x["label"] for x in p3["rows"]], p3["dur"], entry_dur, p3["restore"], len(r.dialogs()) - d0))
+    r.stop_save("15_20_parts_delete.webm", button="#reviewPane .btn-save-as-is")
+    pr = r.probe("15_20_parts_delete.webm", step=0.5); sm = summarize(pr)
+    r.reload(); r.wait(700)
+    r.check("15.22b", seq_of(pr) == [1, 3] and sm["valid"] == sm["n"] and abs(pr["duration"] - (entry_dur - 6)) <= 1.5 and not r.ui()["recovery"],
+            "Save as is after deleting Part 2 -> file shows takes %s only (take 2 absent), %.1fs, plays through; reload shows no recovery banner "
+            "(the deleted part was swept with the save)" % (seq_of(pr), pr["duration"]))
+
+    # ---- 15.23 Restore all parts returns the entry state; last part can't be deleted ----
+    r.start("rev15q")
+    three_parts(r)
+    e = parts(r)
+    r.page.click(row_btn(1, danger=True)); r.page.click("#btnReviewPartDelete")
+    r.page.wait_for_function("reviewState.segments.length === 2 && !reviewState.partsBusy", timeout=60000)
+    r.page.click(row_btn(1, danger=True)); r.page.click("#btnReviewPartDelete")
+    r.page.wait_for_function("reviewState.segments.length === 1 && !reviewState.partsBusy", timeout=60000)
+    r.wait(500)
+    last = parts(r)
+    r.check("15.23a", len(last["rows"]) == 1 and not last["rows"][0]["del"] and last["restore"] and not last["redo"],
+            "two deletions -> one part left: its Delete control is not offered (%s), Restore all parts shown=%s, Redo last take hidden=%s" % (last["rows"][0]["del"], last["restore"], not last["redo"]))
+    r.page.click("#btnRestoreParts")
+    r.page.wait_for_function("reviewState.segments.length === 3 && !reviewState.partsBusy && document.getElementById('reviewVideo').readyState >= 1", timeout=60000)
+    r.wait(400)
+    back = parts(r)
+    r.stop_save("15_21_parts_restore.webm", button="#reviewPane .btn-save-as-is")
+    pr = r.probe("15_21_parts_restore.webm", step=0.5)
+    r.reload(); r.wait(600)
+    r.check("15.23b", [x["label"] for x in back["rows"]] == [x["label"] for x in e["rows"]] and abs(back["dur"] - e["dur"]) <= 0.3
+            and not back["restore"] and seq_of(pr) == [1, 2, 3] and abs(pr["duration"] - e["dur"]) <= 1.5,
+            "Restore all parts -> rows %s (entry %s), player %.1fs (entry %.1fs), button gone=%s; Save as is -> file shows takes %s, %.1fs"
+            % ([x["label"] for x in back["rows"]], [x["label"] for x in e["rows"]], back["dur"], e["dur"], not back["restore"], seq_of(pr), pr["duration"]))
+
+    # ---- 15.24 delete, then a re-record cut: the cut lands on the RIGHT part (by chain, not by old number) and the
+    #      deleted part stays deleted; Undo re-record is unchanged ----
+    r.start("rev15r")
+    three_parts(r, secs=(8, 6, 10))
+    r.page.click(row_btn(2, danger=True)); r.page.click("#btnReviewPartDelete")
+    r.page.wait_for_function("reviewState.segments.length === 2 && !reviewState.partsBusy && document.getElementById('reviewVideo').readyState >= 1", timeout=60000)
+    seam = r.ev("(() => { const s = reviewState.scans; return Math.max(s[0].lastClusterMaxBlockTime, s[0].maxClusterTs) / 1000; })()")
+    tgt = round(seam + 5.5, 1)                                        # 5.5s into the (new) Part 2, which was the 10s take
+    c = try_cut(r, "scrub", tgt)
+    st = r.ui()
+    pr, au, sm = cut_and_take(r, "15_22_parts_cut.webm", 4)
+    sq = seq_of(pr); s4 = span(pr, 4)
+    r.check("15.24", c["landed"] and sq == [1, 3, 4] and abs(s4[0] - tgt) <= 1.0 and st["btnUndo"],
+            "deleted Part 2, then re-recorded from %.1fs (inside the take that is now Part 2): status '%s'; saved file = takes %s (take 2 stays deleted, "
+            "take 3 cut, new take starts at %.2fs vs requested %.1fs); Undo re-record was offered=%s" % (tgt, (c["status"] or "")[:12], sq, s4[0], tgt, st["btnUndo"]))
+
+    # ---- 15.25 deleted, then the tab dies with the pane open: recovery offers only what is left ----
+    r.start("rev15s")
+    three_parts(r, secs=(6, 5, 5))
+    r.page.click(row_btn(2, danger=True)); r.page.click("#btnReviewPartDelete")
+    r.page.wait_for_function("reviewState.segments.length === 2 && !reviewState.partsBusy", timeout=60000)
+    r.kill_tab(); r.wait(900)
+    u = r.ui()
+    r.stop_save("15_23_parts_recover.webm", button=RECOVER)
+    pr = r.probe("15_23_parts_recover.webm", step=0.5)
+    r.check("15.25", u["recovery"] and "in 2 parts" in (u["recoveryInfo"] or "") and seq_of(pr) == [1, 3],
+            "Part 2 deleted, tab killed with the pane open -> banner '%s' (2 parts, not 3); recovered file shows takes %s" % (u["recoveryInfo"], seq_of(pr)))
+
+    # ---- 15.26 layout: the list and the confirm fit a phone-width window without sideways scrolling ----
+    r.start("rev15t")
+    three_parts(r, secs=(4, 4, 4))
+    r.page.set_viewport_size({"width": 375, "height": 800}); r.wait(300)
+    r.page.click(row_btn(2, danger=True)); r.wait(300)
+    lay = r.ev("() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth, "
+               "rowsFit: [...document.querySelectorAll('#reviewPartsList .review-part-row')].every(x => x.getBoundingClientRect().right <= innerWidth + 1) })")
+    r.page.click("#reviewPartConfirm button.btn-record")
+    r.page.set_viewport_size({"width": 1280, "height": 800})
+    r.check("15.26", lay["sw"] <= lay["cw"] + 1 and lay["rowsFit"], "375px wide: page scrollWidth %d vs clientWidth %d, every part row inside the window=%s (measured, not eyeballed)" % (lay["sw"], lay["cw"], lay["rowsFit"]))
+
+
+ALL = [s15_cut_micoff, s10_crash, s11_continue, s12_cancel, s13_seek, s15_review_a, s15_review_b, s15_review_c, s15_review_d, s12_kept_after_cancel, s15_kept, s15_precision_end, s15_parts]
 
 if __name__ == "__main__":
     kind = sys.argv[1]
