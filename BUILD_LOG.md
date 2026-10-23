@@ -2784,6 +2784,63 @@ part.
 
 **Owner check:** not run before the push (owner asked for commit and push on a clean run, then the restyle); rig 15.28 is the real-Chrome equivalent. Worth one glance on the hosted page: record, pause, resume, pause, Stop & review — three parts listed.
 
+### v1.39 — Brand restyle (2026-10-23)
+
+DidaRec, the guide and the screenshots now follow `Aegis Framework, Phase
+1\Brand Standards\brand_standards.md` v0.8 (owner request 2026-10-23;
+preview and the owl approved the same day).
+
+**App (dark-mode web rules).** Page Night slate #1F2B3D, panels Night
+card #2A3A52, borders Night rule #4A5D7C, text Parchment #EFE6D3
+(secondary #BDB6A8); **Sky** #9CCDEE for on / selected / save (Night
+slate text on Sky buttons, 8.4:1); **Terracotta on dark** #E0997A for
+Record, the live dot, paused / kept and attention edges (6.1:1 on Night
+slate); the header is its own **Slate** #3A4F6E layer with the owl mark
+(`brand/bb_owl_parchment.svg`) before the name; the brand favicon. The
+only liberties are tints of Sky and Terracotta for hover and banner
+backgrounds. The CSS variable names kept their old roles (`--green` is
+now Sky, `--accent` terracotta) so no rule had to be renamed; the
+stylesheet's hard-coded colours were mapped in one pass; the error banner
+now uses Parchment text on a terracotta-edged card (words carry the
+meaning, the colour never alone).
+
+**Type.** Roboto body, Roboto Slab SemiBold headings, **self-hosted** from
+`fonts/` (TTF, SIL OFL, licence files beside them; about 480 KB) — no
+requests to anyone's servers, works from a local file; the brand's
+fallbacks (Segoe UI → Arial, Rockwell → Georgia) take over if a file is
+missing. Owner chose self-hosting 2026-10-23.
+
+**Guide.** Light brand palette (Parchment page, Ink text, terracotta
+links and emphasis, Slate-edged tips, terracotta-edged notes), the Night
+palette in dark mode, the same fonts, and a Slate band with the owl at
+the top. (The guide's restyle rode in the v1.38 commit by mistake of
+timing — it was done while the v1.38 rig run was still using the app
+file; the app's restyle is this version.) Screenshots retaken.
+
+**In-app help panel** (owner, same day: the instructions should be easy
+to read while using the app, even while recording). The header's "How to
+use" is now a button that opens a side panel on the right (`#helpPanel`,
+min(460px, 100%) wide, fixed, outside <main> and the recorded canvas) with
+the guide inside it in an iframe (`guide.html?embedded=1`, loaded on the
+first open only) that scrolls on its own; the app underneath stays
+usable, recording included. Esc or the close button shuts it;
+aria-expanded follows; "Open as a page" keeps the full-page guide one
+click away. Embedded, the guide hides its Slate band and "Back to
+DidaRec" links (they would navigate the panel) and opens outside links in
+a new tab.
+
+**Verification.** Harness: **219 scenarios / 1696 assertions** (GX new:
+open/close, load-once, untouched recorder while open). Rig: new check 18.3
+— in real Chrome the button opens a 460 px panel, the guide inside it is in
+its embedded look (band hidden) and scrolls on its own, the panel stays open
+while a recording starts, and Esc closes it with the recording still running;
+the page makes room for the panel (margin-right) so no control is covered —
+found by the first run, where the panel sat over Select Screen. Rig, Chrome 154: parts 1–3 on the final file 65 / 53 / 17 pass, 0 fail — the
+colour-sensitive checks (5.1b Resume vs Record colour, 34.3 padlock
+badge and unchanged colours when locked) pass on the new palette.
+
+**Owner look:** the preview and the owl were approved on the scratch copy (2026-10-23); the final file was pushed on the owner's standing word (commit and push on a clean run) before a look at the live page — screenshot 07-help-panel.png shows the panel open while recording.
+
 ---
 
 ## Known limitations

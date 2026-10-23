@@ -1042,6 +1042,12 @@ Owner check PASSED 2026-10-17 (Chrome, local file) — shipped v1.35 the
 same day. Harness GH/GI/GJ new, GE retargeted; rig 42.1 retargeted and
 green on the final file.
 
+### 50. Brand restyle — ✓ DONE v1.39 (2026-10-23)
+
+App, guide and screenshots follow the Blue Brazelton brand standards v0.8
+(see BUILD_LOG v1.39): Night palette, Sky / Terracotta-on-dark roles,
+Slate header with the owl, self-hosted Roboto / Roboto Slab, brand favicon.
+
 ### 48. Stop & review released the screen and webcam, so every return meant Select Screen again — ✓ FIXED v1.37
 
 Owner, 2026-10-23: "every time I come back from reviewing, I have to select the

@@ -1,6 +1,13 @@
 # DidaRec — Next Session, Start Here
 
-**Newest (2026-10-23): v1.38 — every pause starts a new part (#49 DONE).**
+**Newest (2026-10-23): v1.39 — brand restyle (#50 DONE).** The app's CSS
+variables keep their old names with brand values (`--green` = Sky,
+`--accent` = Terracotta on dark, `--bg` = Night slate…); fonts self-hosted
+in `fonts/`; owl + favicon in `brand/`. Any new colour must come from
+`Brand Standards\brand_standards.md` (tints of Sky/Terracotta/Parchment are
+the only liberties). Next: #43 stage 2 (v1.40), then the demo video.
+
+**Earlier (2026-10-23): v1.38 — every pause starts a new part (#49 DONE).**
 Harness **218 / 1691**. `startRecorderPart()` is the per-part unit (session +
 recorder + handlers + watchdogs); `pauseEndingPart` / `resumeNewPart` /
 `onPartEnded`; `state.partPaused` = paused between parts (no live recorder,
@@ -35,7 +42,7 @@ Harness 216 / 1671.
 (2) **DONE v1.37 (2026-10-23): Stop & review keeps the screen and webcam**
 (REVIEW #48) — Back to recorder lands on Record; Save as is / Discard
 release. (3) **DONE v1.38: #49 every pause starts a new part** (automatic).
-(4) **Brand restyle, v1.39** (owner, 2026-10-23): DidaRec, the guide
+(4) **DONE v1.39: brand restyle** (owner, 2026-10-23): DidaRec, the guide
 and the screenshots follow `Aegis Framework, Phase 1\Brand Standards\
 brand_standards.md` v0.8 (dark-mode web rules: Slate header, Night
 slate / Night card / Night rule, Parchment text, Sky for on/selected/
