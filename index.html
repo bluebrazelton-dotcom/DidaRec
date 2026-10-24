@@ -233,11 +233,15 @@
   }
 
   .toggle-btn:hover { background: var(--surface-hover); }
+  /* v1.42 (owner, 2026-10-23): "on" is a solid Sky fill with Night slate text —
+     the brand's "on / selected / save" colour, same as the Save buttons. The
+     earlier tint-and-border look was hard to tell from "off". */
   .toggle-btn.active {
-    border-color: var(--green-dim);
-    color: var(--green);
-    background: rgba(156, 205, 238, 0.08);
+    border-color: var(--green);
+    color: #1F2B3D;
+    background: var(--green);
   }
+  .toggle-btn.active:hover { background: #B9DDF3; }
 
   .toggle-btn svg { width: 16px; height: 16px; }
 
@@ -1173,7 +1177,9 @@
 
 <footer>
   <div>Click "Select Screen" to choose which screen, window, or tab to record. Your browser will show a popup — this is a required security step the app cannot bypass.</div>
-  <div style="margin-top: 0.5rem;">DidaRec <span id="appVersion">v1.41</span> by DidaWorks &middot; Open source &middot; MIT License &middot; No account, no server, no watermark, no time limits</div>
+  <div style="margin-top: 0.5rem;">DidaRec <span id="appVersion">v1.42</span> by DidaWorks &middot; Open source &middot; MIT License &middot; No account, no server, no watermark, no time limits</div>
+  <!-- v1.42: the bug-report path. buildReportLink() fills the subject and body on load. -->
+  <div style="margin-top: 0.5rem;">Something not working? <a id="reportLink" href="mailto:blue.brazelton@gmail.com?subject=DidaRec%20problem">Email Blue</a> &mdash; say what you did, what happened, and which browser you use.</div>
 </footer>
 
 <script>
@@ -8397,10 +8403,42 @@ async function reviewSaveAsIs() {
 // ============================================================
 // Init
 // ============================================================
+// v1.42: the footer's "Email Blue" link, with the version and the browser in
+// the subject and the three prompts in the body, so a report arrives with the
+// basics even when the writer forgets them. Plain data in a mailto: — no
+// network, no tracking, nothing sent until the person sends their email.
+function describeBrowser(ua) {
+  ua = String(ua || '');
+  let name = 'a browser';
+  let m;
+  if ((m = /Edg\/(\d+)/.exec(ua))) name = 'Edge ' + m[1];
+  else if ((m = /Firefox\/(\d+)/.exec(ua))) name = 'Firefox ' + m[1];
+  else if ((m = /Chrome\/(\d+)/.exec(ua))) name = 'Chrome ' + m[1];
+  else if (/Safari\//.test(ua)) name = 'Safari';
+  let os = '';
+  if (/Windows/.test(ua)) os = 'Windows';
+  else if (/Mac OS X/.test(ua)) os = 'Mac';
+  else if (/CrOS/.test(ua)) os = 'ChromeOS';
+  else if (/Linux/.test(ua)) os = 'Linux';
+  return os ? name + ' on ' + os : name;
+}
+function buildReportLink() {
+  const a = document.getElementById('reportLink');
+  if (!a) return null;
+  const versionEl = document.getElementById('appVersion');
+  const version = versionEl ? String(versionEl.textContent || '').trim() : '';
+  const browser = describeBrowser(typeof navigator !== 'undefined' ? navigator.userAgent : '');
+  const subject = 'DidaRec ' + version + ' problem — ' + browser;
+  const body = 'What I did:\n\n\nWhat happened (what did the page say?):\n\n\nBrowser and computer: ' + browser + '\n';
+  a.href = 'mailto:blue.brazelton@gmail.com?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+  return a.href;
+}
+
 window.addEventListener('load', () => {
   checkForRecovery();
   enumerateDevices();
   updateToggleUI(); // sync toggle buttons + selectors with real state (camera starts off)
+  buildReportLink(); // v1.42
 
   // Restore saved PiP shape in the dropdown
   document.getElementById('pipShapeSelect').value = pipState.shape;
