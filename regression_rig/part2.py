@@ -839,7 +839,129 @@ def s15_parts(r):
     r.check("15.26", lay["sw"] <= lay["cw"] + 1 and lay["rowsFit"], "375px wide: page scrollWidth %d vs clientWidth %d, every part row inside the window=%s (measured, not eyeballed)" % (lay["sw"], lay["cw"], lay["rowsFit"]))
 
 
-ALL = [s15_cut_micoff, s10_crash, s11_continue, s12_cancel, s13_seek, s15_review_a, s15_review_b, s15_review_c, s15_review_d, s12_kept_after_cancel, s15_keep_sources, s15_pause_parts, s15_replace, s15_kept, s15_precision_end, s15_parts]
+CHAPTER_UI = """() => ({
+  btn: { vis: getComputedStyle(document.getElementById('btnMarkChapter')).display !== 'none', dis: document.getElementById('btnMarkChapter').disabled, text: document.getElementById('btnMarkChapter').textContent.trim() },
+  status: document.getElementById('statusText').textContent.trim(),
+  offer: document.getElementById('chapterOffer').classList.contains('visible'),
+  offerTitle: document.getElementById('chapterOfferTitle').textContent.trim(),
+  offerStatus: document.getElementById('chapterOfferStatus').textContent.trim(),
+  clock: state.startTime ? Date.now() - state.startTime - state.pausedDuration - (state.paused && state.pauseStart ? Date.now() - state.pauseStart : 0) : null,
+  count: state.chapterCount,
+})"""
+
+
+def chapter_lines(path):
+    with open(path, encoding="utf-8") as f:
+        return [l for l in f.read().split("\n") if l.strip()]
+
+
+def clock_secs(txt):
+    m = re.match(r"^(?:(\d+):)?(\d\d):(\d\d) (.*)$", txt)
+    if not m:
+        return None, None
+    return (int(m.group(1) or 0) * 3600 + int(m.group(2)) * 60 + int(m.group(3))), m.group(4)
+
+
+def s15_chapters(r):
+    """v1.41 (#47): chapter marks while recording (button + M key, paused = off), the offer after a save,
+    the .txt list and the .vtt file on the saved video's clock, a deleted part's marks gone. 15.30-15.32."""
+    # ---- 15.30 marking: button and M key, counts, the status flash, greyed while paused, marks on the new part after Resume ----
+    r.start("chap")
+    mic_on(r); r.select_screen(1)
+    idle = r.ev(CHAPTER_UI)
+    r.record(2)
+    rec0 = r.ev(CHAPTER_UI)
+    marks = []                                         # the timer clock (ms) at each mark, for the export check
+    r.page.click("#btnMarkChapter"); marks.append(r.ev(CHAPTER_UI)["clock"]); r.wait(300)
+    m1 = r.ev(CHAPTER_UI)
+    r.wait(1700)
+    r.page.keyboard.press("m"); marks.append(r.ev(CHAPTER_UI)["clock"]); r.wait(300)
+    m2 = r.ev(CHAPTER_UI)
+    stored_a = r.page.evaluate("async () => (await getSessionRecord(state.sessionId)).marks")
+    r.wait(2000)
+    r.page.click("#btnPause"); r.wait(500)
+    paused = r.ev(CHAPTER_UI)
+    r.page.click("#btnMarkChapter", force=True); r.page.keyboard.press("m"); r.wait(300)   # force: Playwright would otherwise wait for the greyed button
+    paused_after = r.ev(CHAPTER_UI)
+    r.page.click("#btnPause")                           # Resume -> a new part
+    r.page.wait_for_function("state.recording && !state.paused && state.chunkIndex > 0", timeout=30000)
+    r.wait(1500)
+    r.page.keyboard.press("m"); marks.append(r.ev(CHAPTER_UI)["clock"]); r.wait(300)
+    m3 = r.ev(CHAPTER_UI)
+    stored_b = r.page.evaluate("async () => (await getSessionRecord(state.sessionId)).marks")
+    r.wait(3000)
+    r.check("15.30", not idle["btn"]["vis"] and rec0["btn"]["vis"] and not rec0["btn"]["dis"] and rec0["btn"]["text"] == "Mark chapter"
+            and m1["btn"]["text"] == "Mark chapter (1)" and re.match(r"^Chapter mark 1 added at \d+:\d\d$", m1["status"])
+            and m2["btn"]["text"] == "Mark chapter (2)" and len(stored_a) == 2 and 0 <= stored_a[0] < stored_a[1] < 10000
+            and paused["btn"]["dis"] and paused_after["count"] == 2
+            and not m3["btn"]["dis"] and m3["count"] == 3 and len(stored_b) == 1 and 0 <= stored_b[0] < 5000,
+            "idle: no button; recording: 'Mark chapter' live; click -> '(1)' + status '%s'; M key -> '(2)', part 1 stores %s; paused: greyed, "
+            "click+key add nothing (count %d); after Resume the M key -> count %d, the NEW part stores %s"
+            % (m1["status"], stored_a, paused_after["count"], m3["count"], stored_b))
+
+    # ---- 15.31 the offer after Save as is; the .txt list and the .vtt file on the saved video's clock ----
+    review_open(r)
+    before = r.ev(CHAPTER_UI)
+    r.page.click("#reviewPane .btn-save-as-is")
+    r.page.wait_for_function("document.getElementById('chapterOffer').classList.contains('visible')", timeout=60000)
+    r.wait(400)
+    offer = r.ev(CHAPTER_UI)
+    txt_path = r.save_via("chapters.txt", lambda: r.page.click("#chapterOffer .recovery-actions button:nth-child(1)"))
+    after_txt = r.ev(CHAPTER_UI)
+    vtt_path = r.save_via("chapters.vtt", lambda: r.page.click("#chapterOffer .recovery-actions button:nth-child(2)"))
+    names = r.ev("__dr.log.save.slice(-3).map(x => x.name)")
+    lines = chapter_lines(txt_path) if txt_path else []
+    parsed = [clock_secs(l) for l in lines]
+    want = [0] + [m / 1000.0 for m in marks]
+    times_ok = (len(parsed) == 4 and parsed[0] == (0, "Start")
+                and all(t is not None and abs(t - w) <= 1.5 for (t, _), w in zip(parsed, want))
+                and [n for _, n in parsed[1:]] == ["Chapter 1", "Chapter 2", "Chapter 3"])
+    vtt = open(vtt_path, encoding="utf-8").read() if vtt_path else ""
+    cues = [l for l in vtt.split("\n") if " --> " in l]
+    vtt_ok = vtt.startswith("WEBVTT") and len(cues) == 4 and cues[0].startswith("00:00:00.000 --> ")
+    r.check("15.31", not before["offer"] and offer["offer"] and offer["offerTitle"] == "3 chapter marks in this video"
+            and txt_path and times_ok and "Chapter list saved" in after_txt["offerStatus"]
+            and vtt_path and vtt_ok and names[-2].endswith(".chapters.txt") and names[-1].endswith(".chapters.vtt")
+            and re.sub(r"^\d+_\d+_", "", names[-2]).rsplit(".chapters", 1)[0] == names[-3].rsplit(".webm", 1)[0] and r.ui()["status"] == "Ready",   # the stand-in picker prefixes its stored file's name; real Chrome's handle.name is the picked name
+            "no offer before the save; after Save as is: '%s'; .txt lines %s vs marks at %s s (+-1.5 s, 00:00 Start first); "
+            "box says '%s'; .vtt: WEBVTT with %d cues, first '%s'; names %s" % (offer["offerTitle"], lines, [round(w, 1) for w in want], after_txt["offerStatus"], len(cues), cues[0] if cues else "", names))
+    r.page.click("#chapterOffer .recovery-actions button:nth-child(3)"); r.wait(200)
+    done = r.ev(CHAPTER_UI)
+
+    # ---- 15.32 a deleted part takes its marks away; the kept part's mark moves up; Record hides a leftover offer; no marks = no offer ----
+    r.select_screen(2); r.record(2)
+    r.page.keyboard.press("m"); r.wait(2500)                       # part 1: one mark at ~2 s (will be deleted)
+    r.page.click("#btnPause"); r.wait(400); r.page.click("#btnPause")
+    r.page.wait_for_function("state.recording && !state.paused && state.chunkIndex > 0", timeout=30000)
+    r.wait(2000)
+    r.page.keyboard.press("m"); mark2 = r.page.evaluate("async () => (await getSessionRecord(state.sessionId)).marks"); r.wait(2500)
+    review_open(r)
+    r.page.click(row_btn(1, danger=True)); r.wait(300)
+    r.page.click("#btnReviewPartDelete")
+    r.page.wait_for_function("reviewState.segments.length === 1 && !reviewState.partsBusy && document.getElementById('reviewVideo').readyState >= 1", timeout=60000)
+    r.wait(400)
+    r.page.click("#reviewPane .btn-save-as-is")
+    r.page.wait_for_function("document.getElementById('chapterOffer').classList.contains('visible')", timeout=60000)
+    r.wait(300)
+    offer2 = r.ev(CHAPTER_UI)
+    txt2 = r.save_via("chapters2.txt", lambda: r.page.click("#chapterOffer .recovery-actions button:nth-child(1)"))
+    lines2 = chapter_lines(txt2) if txt2 else []
+    p2 = [clock_secs(l) for l in lines2]
+    moved_ok = len(p2) == 2 and p2[0] == (0, "Start") and p2[1][1] == "Chapter 1" and abs(p2[1][0] - mark2[0] / 1000.0) <= 1.5
+    # the offer is still up; a new recording closes it, and a video without marks offers nothing
+    r.select_screen(3); r.record(3)
+    during = r.ev(CHAPTER_UI)
+    r.page.click("#btnStop")
+    r.page.wait_for_function("n => __dr.saveDone > n", arg=r.ev("__dr.saveDone") - 1, timeout=60000)
+    r.wait(800)
+    none = r.ev(CHAPTER_UI)
+    r.check("15.32", done["offer"] is False and offer2["offerTitle"] == "1 chapter mark in this video" and txt2 and moved_ok
+            and not during["offer"] and not none["offer"] and r.ui()["status"] == "Ready",
+            "Done closes the box; Part 1 (marked) deleted -> '%s', list %s = the kept part's mark at %.1f s moved to the start of the video; "
+            "Record closes a leftover offer=%s; a video with no marks offers nothing=%s" % (offer2["offerTitle"], lines2, mark2[0] / 1000.0, not during["offer"], not none["offer"]))
+
+
+ALL = [s15_cut_micoff, s10_crash, s11_continue, s12_cancel, s13_seek, s15_review_a, s15_review_b, s15_review_c, s15_review_d, s12_kept_after_cancel, s15_keep_sources, s15_pause_parts, s15_replace, s15_kept, s15_precision_end, s15_parts, s15_chapters]
 
 if __name__ == "__main__":
     kind = sys.argv[1]

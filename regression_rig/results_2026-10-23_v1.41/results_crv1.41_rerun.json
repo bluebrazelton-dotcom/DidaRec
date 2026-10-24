@@ -1,0 +1,107 @@
+{
+ "3.1": {
+  "status": "PASS",
+  "evidence": "Chrome flow: File System Access save dialog requested once (suggested 'recording-2026-10-23_211255.webm'); 466218 bytes written",
+  "at": "2026-10-23 21:12:59"
+ },
+ "3.5": {
+  "status": "PASS",
+  "evidence": "timer at Stop click=00:00:11, 1.5s later=00:00:11 (frozen)",
+  "at": "2026-10-23 21:12:59"
+ },
+ "3.6": {
+  "status": "PASS",
+  "evidence": "stale banner before stop='Finish or stop the current recording before opening the caption editor.'; immediately after Stop click banner=''; save completed",
+  "at": "2026-10-23 21:12:59"
+ },
+ "16.13": {
+  "status": "PASS",
+  "evidence": "Caption editor button hidden while recording (display none), back after the save (block); opening it mid-recording -> refused ('Finish or stop the current recording before opening the caption editor.'), editor not opened, still recording=True; Stop & save then cleared the banner at once and saved",
+  "at": "2026-10-23 21:12:59"
+ },
+ "3.2": {
+  "status": "PASS",
+  "evidence": "file plays: 11.4s video, all 23 sampled frames decode in order; audio present 11.3s (durations agree within 0.14s). Lip-sync by ear not judged.",
+  "at": "2026-10-23 21:13:01"
+ },
+ "3.4": {
+  "status": "PASS",
+  "evidence": "names: recording-2026-10-23_211255.webm / recording-2026-10-23_211305.webm",
+  "at": "2026-10-23 21:13:06"
+ },
+ "5.4": {
+  "status": "PASS",
+  "evidence": "picker cancelled: banner='', still paused=True, old screen (id 1) track live, Change screen still offered",
+  "at": "2026-10-23 21:13:26"
+ },
+ "5.5": {
+  "status": "PASS",
+  "evidence": "capture failed: banner='Couldn't switch screens — your current recording is unaffected. Could not start video source'; still paused=True, recording alive=True, old screen kept",
+  "at": "2026-10-23 21:13:27"
+ },
+ "5.1": {
+  "status": "PASS",
+  "evidence": "recording: visible=False; paused: visible=True, button order=['Resume recording', 'Mark chapter', 'Change screen', 'Stop & save', 'Stop & review']; after Resume: visible=False",
+  "at": "2026-10-23 21:13:30"
+ },
+ "5.1b": {
+  "status": "PASS",
+  "evidence": "extra (v1.29, owner pass Y1): Pause / Stop & save / Stop & review positions [left, top] recording=[[252, 846], [724, 846], [858, 846]], paused=[[252, 846], [724, 846], [858, 846]], resumed=[[252, 846], [724, 846], [858, 846]] (must be identical - no jump on Pause); paused button reads 'Resume recording', colour rgb(198, 40, 40) vs Record's rgb(198, 40, 40)",
+  "at": "2026-10-23 21:13:30"
+ },
+ "5.3": {
+  "status": "PASS",
+  "evidence": "saved file shows the screens in order with no frames from the paused picker hunts: screen sequence [1, 2, 3, 4], 39/39 frames valid, duration 19.6s",
+  "at": "2026-10-23 21:13:53"
+ },
+ "5.7": {
+  "status": "PASS",
+  "evidence": "old screen's track 'ended' after the swap -> recording kept going (recording=True). 'ended' on the CURRENT screen (v1.29) -> recording PAUSED, not stopped (recording=True, paused=True), calm notice 'Screen sharing stopped, so the recording is paused. Choose Change screen to keep going, or Stop & save.'; Resume without a screen refused ('Choose Change screen first — screen sharing has stopped.'); Change screen then Resume -> recording again (True) and the saved file continues onto the new screen (sequence [1, 2, 3, 4]). Simulated track events; the real browser 'Stop sharing' bar was not clicked.",
+  "at": "2026-10-23 21:13:53"
+ },
+ "5.8": {
+  "status": "PASS",
+  "evidence": "swap from 1280x720 to an 800x600 source (v1.29: fitted, not stretched): output stays 1280x720; 11 frames from the new source decode inside a centred picture, left edge / width in px = [[160, 960], [160, 960], [160, 960]] (expected about 160 / 960, black bars either side)",
+  "at": "2026-10-23 21:13:53"
+ },
+ "17.2": {
+  "status": "PASS",
+  "evidence": "first audio-less screen -> banner shown with class 'error-banner visible info' (calm info style)",
+  "at": "2026-10-23 21:14:00"
+ },
+ "17.3": {
+  "status": "PASS",
+  "evidence": "wording: 'This screen share doesn't include sound. To record computer audio, tick \"Also share audio\" (or \"Share tab audio\") in the picker next time you choose a screen.'",
+  "at": "2026-10-23 21:14:00"
+ },
+ "17.6": {
+  "status": "PASS",
+  "evidence": "x clicked -> banner hidden (class 'error-banner')",
+  "at": "2026-10-23 21:14:00"
+ },
+ "17.7": {
+  "status": "PASS",
+  "evidence": "after the hint, a genuine error ('Finish or stop the current recording before openin') shows with class 'error-banner visible' (normal error style)",
+  "at": "2026-10-23 21:14:04"
+ },
+ "18.3": {
+  "status": "PASS",
+  "evidence": "error banner x clicked -> dismissed",
+  "at": "2026-10-23 21:14:05"
+ },
+ "17.5": {
+  "status": "PASS",
+  "evidence": "second audio-less selection: banner='' (silent); after clearing site storage it shows again: True",
+  "at": "2026-10-23 21:14:06"
+ },
+ "17.8": {
+  "status": "PASS",
+  "evidence": "hint still unused (flag=None); paused swap to an audio-less source -> no hint from the swap path (banner='', flag=None)",
+  "at": "2026-10-23 21:14:16"
+ },
+ "17.1": {
+  "status": "PASS",
+  "evidence": "PROXY ONLY: a screen stream carrying an audio track (stand-in tone, mic off) lands in the saved file (audio RMS 0.139 in first second). Chrome's real 'Also share audio' checkbox and real system sound need the owner.",
+  "at": "2026-10-23 21:14:16"
+ }
+}

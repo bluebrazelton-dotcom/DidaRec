@@ -164,14 +164,17 @@ def s3_basic(r):
     r.cfg(saveDelay=2500)
 
     def trig():
-        r.page.click("#btnCaptionEditor"); r.wait(300)
+        # v1.41: the Caption editor button steps out of the row while recording; the refusal
+        # itself still exists behind it (openCaptionEditor), which is what 3.6 needs for a stale banner.
+        samples.append(r.ev("getComputedStyle(document.getElementById('btnCaptionEditor')).display"))
+        r.ev("openCaptionEditor()"); r.wait(300)
         samples.append(r.ui())
         r.page.click("#btnStop")
         samples.append(r.ui()); r.wait(1500); samples.append(r.ui())
 
     path = r.save_via("3_1_basic.webm", trig, resolve=None)
     name1 = r.last_name
-    stale, a, b = samples
+    capvis, stale, a, b = samples
     if r.kind == "cr":
         sv = r.ev("__dr.log.save")
         r.check("3.1", len(sv) == 1 and os.path.getsize(path) > 10000, "Chrome flow: File System Access save dialog requested once (suggested '%s'); %d bytes written" % (sv[0]["name"], os.path.getsize(path)))
@@ -181,8 +184,9 @@ def s3_basic(r):
     r.check("3.5", a["timer"] == b["timer"], "timer at Stop click=%s, 1.5s later=%s (frozen)" % (a["timer"], b["timer"]))
     r.check("3.6", "caption editor" in (stale["err"] or "") and a["err"] == "" and os.path.getsize(path) > 10000,
             "stale banner before stop='%s'; immediately after Stop click banner='%s'; save completed" % (stale["err"], a["err"]))
-    r.check("16.13", "Finish or stop the current recording" in (stale["err"] or "") and stale["rec"] and not stale["captions"] and stale["controls"] and a["err"] == "",
-            "Caption editor clicked mid-recording -> refused ('%s'), editor not opened, still recording=%s; Stop & save then cleared the banner at once and saved" % (stale["err"], stale["rec"]))
+    capvis_after = r.ev("getComputedStyle(document.getElementById('btnCaptionEditor')).display")
+    r.check("16.13", capvis == "none" and capvis_after != "none" and "Finish or stop the current recording" in (stale["err"] or "") and stale["rec"] and not stale["captions"] and stale["controls"] and a["err"] == "",
+            "Caption editor button hidden while recording (display %s), back after the save (%s); opening it mid-recording -> refused ('%s'), editor not opened, still recording=%s; Stop & save then cleared the banner at once and saved" % (capvis, capvis_after, stale["err"], stale["rec"]))
     pr = r.probe("3_1_basic.webm", step=0.5); au = r.audio("3_1_basic.webm"); sm = summarize(pr)
     okplay = sm["valid"] == sm["n"] and sm["n"] > 10 and au["has"] and abs(au["duration"] - pr["duration"]) < 0.6
     if r.kind == "cr":
@@ -277,7 +281,7 @@ def s5_change(r):
     r.page.wait_for_function("state.screenStream.__drId === 2"); r.wait(3000)
     r.page.click("#btnPause"); r.wait(300)
     e = r.ui()
-    r.check("5.1", (not a["btnChange"]) and b["btnChange"] and order == ["Caption editor", "Resume recording", "Change screen", "Stop & save", "Stop & review"] and not e["btnChange"],
+    r.check("5.1", (not a["btnChange"]) and b["btnChange"] and order == ["Resume recording", "Mark chapter", "Change screen", "Stop & save", "Stop & review"] and not e["btnChange"],
             "recording: visible=%s; paused: visible=%s, button order=%s; after Resume: visible=%s" % (a["btnChange"], b["btnChange"], order, e["btnChange"]))
     pos_resumed = r.ev(POS)
     r.check("5.1b", pos_rec == pos_paused == pos_resumed and pb[0] == "Resume recording" and pb[1] and pb[2] == pb[3],
@@ -685,7 +689,7 @@ def s17_hint(r):
     r.select_screen(2, audio=False); r.wait(300)
     u3 = r.ui()
     r.record(2)
-    r.page.click("#btnCaptionEditor"); r.wait(300)
+    r.ev("openCaptionEditor()"); r.wait(300)   # v1.41: the button is hidden while recording; the refusal is still a genuine error
     u4 = r.ui()
     r.check("17.7", bool(u4["err"]) and "info" not in u4["errClass"].split() and "visible" in u4["errClass"].split(), "after the hint, a genuine error ('%s') shows with class '%s' (normal error style)" % (u4["err"][:50], u4["errClass"]))
     r.page.click("#errorBanner .error-banner-close"); r.wait(200)

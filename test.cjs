@@ -341,6 +341,8 @@ async function resetState() {
   state.screenLost = false;
   state.micMuted = false; sandbox.pausedCameraBusy = false; // REVIEW #34
   state.replace = null; documentMock.getElementById('replaceBanner').classList.remove('visible'); // v1.40
+  state.chapterCount = 0; state.partStartedAt = null; sandbox.pendingChapters = null; sandbox.lastSaveTimeline = null; // v1.41
+  documentMock.getElementById('chapterOffer').classList.remove('visible');
   sandbox.setRecoveryBannerMode(false);
   documentMock.getElementById('btnPause').classList.remove('resume');
   documentMock.getElementById('changeScreenSpacer').style.display = 'none';
@@ -6863,6 +6865,153 @@ Real cue text
       await settle();
       assert(stitchArgs && stitchArgs.join() === [A, N4, C].join(), 'GZ: a middle replacement saved from Stop & save keeps the order (got ' + JSON.stringify(stitchArgs) + ')');
     } finally { sandbox.saveSessionsStreamedStitch = origStitch; u.restore(); }
+  });
+
+
+  // ---------- REVIEW #47 (v1.41): chapter marks + chapter sidecar export ----------
+  const keyM = (overrides) => (_docHandlers.keydown || []).forEach((fn) => fn(Object.assign({ key: 'm', target: { tagName: 'BODY' }, preventDefault() {} }, overrides || {})));
+  const marksOf = async (id) => { const rows = await readStore('sessions'); const r = rows.find((x) => x.id === id); return (r && r.marks) || []; };
+  const el47 = (id) => documentMock.getElementById(id);
+
+  await scenario('HA chapter marks while recording: the button and the M key store a mark on the CURRENT part (offset from its start), the button counts, the status line says so; paused = no marks (button greyed, key ignored); keys in a text field or with a modifier are ignored; a kept recording counts on from its own marks; Stop & save then offers the list', async () => {
+    const A = await recordNewPart();
+    await drain();
+    assert(state.recording && state.partStartedAt > 0 && el47('btnMarkChapter').style.display === '' && el47('btnMarkChapter').disabled === false && el47('btnMarkChapter').textContent === 'Mark chapter', 'HA: Record shows an enabled Mark chapter button with no count');
+    assert(el47('btnCaptionEditor').style.display === 'none', 'HA: the Caption editor button steps out of the row while recording (it cannot open then)');
+    sandbox.markChapter(); await drain();
+    keyM(); await drain();
+    let ma = await marksOf(A);
+    assert(ma.length === 2 && ma.every((m) => typeof m === 'number' && m >= 0 && m < 5000), 'HA: button + M key = two marks on the first part, small offsets (got ' + JSON.stringify(ma) + ')');
+    assert(el47('btnMarkChapter').textContent === 'Mark chapter (2)', 'HA: the button counts (got ' + el47('btnMarkChapter').textContent + ')');
+    assert(/^Chapter mark 2 added at \d+:\d\d$/.test(el47('statusText').textContent), 'HA: the status line names the mark and its time (got ' + el47('statusText').textContent + ')');
+    keyM({ target: { tagName: 'INPUT' } }); keyM({ ctrlKey: true }); keyM({ repeat: true }); keyM({ key: 'x' }); await drain();
+    assert((await marksOf(A)).length === 2, 'HA: a key in a text field, with Ctrl, a held key or another letter adds nothing');
+    sandbox.pauseResume(); await drain();
+    assert(state.paused && el47('btnMarkChapter').disabled === true, 'HA: paused -> the button is greyed');
+    sandbox.markChapter(); keyM(); await drain();
+    assert((await marksOf(A)).length === 2 && state.chapterCount === 2, 'HA: nothing is marked while paused');
+    sandbox.pauseResume(); await settle(); await drain();
+    const B = state.sessionId;
+    assert(B !== A && el47('btnMarkChapter').disabled === false, 'HA precondition: Resume started a new part, button live again');
+    await api.addChunk(B, 0, new Blob([syntheticWebm()])); state.chunkIndex = 1;
+    keyM(); await drain();
+    assert((await marksOf(B)).length === 1 && (await marksOf(A)).length === 2 && state.chapterCount === 3 && el47('btnMarkChapter').textContent === 'Mark chapter (3)', 'HA: after Resume the mark goes on the NEW part; the count runs on (3)');
+    windowMock.showSaveFilePicker = pickerSequence(['ok']);
+    state.stopMode = 'save';
+    await sandbox.stopRecording(); await settle(); await drain();
+    assert(!state.recording && el47('btnMarkChapter').style.display === 'none' && el47('btnCaptionEditor').style.display === '', 'HA: idle again hides the button and brings Caption editor back');
+    const pc = sandbox.pendingChapters;
+    assert(pc && pc.chapters.length === 3 && el47('chapterOffer').classList.contains('visible') && el47('chapterOfferTitle').textContent === '3 chapter marks in this video', 'HA: Stop & save offers the three marks (got ' + JSON.stringify(pc && pc.chapters) + ')');
+    assert(pc.chapters.map((c) => c.title).join('|') === 'Chapter 1|Chapter 2|Chapter 3' && pc.chapters.every((c, i) => i === 0 || c.ms >= pc.chapters[i - 1].ms), 'HA: auto-named in time order');
+    sandbox.dismissChapterOffer();
+    assert(sandbox.pendingChapters === null && !el47('chapterOffer').classList.contains('visible'), 'HA: Done closes the offer');
+
+    // a kept recording's marks count on
+    await resetState();
+    const K = await seed(1);
+    await sandbox.addSessionMark(K, 1200);
+    state.priorSegments = [{ sessionId: K, mimeType: 'video/webm;codecs=vp9,opus' }];
+    await recordNewPart(); await drain();
+    assert(state.chapterCount === 1 && el47('btnMarkChapter').textContent === 'Mark chapter (1)', 'HA: Record on a kept recording starts the count at its marks (got ' + state.chapterCount + ')');
+    sandbox.markChapter(); await drain();
+    assert(state.chapterCount === 2, 'HA: and counts on from there');
+    windowMock.showSaveFilePicker = pickerSequence(['abort']);
+    state.stopMode = 'save';
+    await sandbox.stopRecording(); await settle(); await drain();
+    assert(sandbox.pendingChapters === null && !el47('chapterOffer').classList.contains('visible'), 'HA: a cancelled save offers nothing (the marks stay with the kept parts)');
+    const again = await marksOf(K);
+    assert(again.length === 1, 'HA: the kept part still has its mark after the cancel');
+  });
+
+  await scenario('HB chapter marks land on the saved video\'s clock: the stitcher\'s seam offsets place each part\'s marks; a mark past a re-record cut or past a part\'s content end is dropped; a deleted part takes its marks away; the .txt list opens with 00:00 Start and the .vtt file is valid WebVTT; files are named after the saved video; a single-part save and the download path work too; no marks = no offer', async () => {
+    const u = installUniqueUrls();
+    try {
+      const { ids, segs } = await openParts([syntheticWebm(), nClusterWebm(5), nClusterWebm(12)]);
+      const [A, B, C] = ids;
+      await sandbox.addSessionMark(A, 1000); await sandbox.addSessionMark(A, 2500); await sandbox.addSessionMark(A, 99000);
+      await sandbox.addSessionMark(B, 1500); await sandbox.addSessionMark(B, 3000);
+      await sandbox.addSessionMark(C, 4000);
+      // a cut on B at 2000 ms (bytes untouched here: the rule under test is "a mark past the cut is gone")
+      const bBytes = await readStore('chunks').then((rows) => rows.filter((r) => r.sessionId === B).reduce((n, r) => n + r.data.byteLength, 0));
+      await sandbox.setSessionCut(B, bBytes, 2000);
+      const tl = (await sandbox.scanSegmentsForStitch(segs)).timeline;
+      assert(tl && tl.offsets.length === 3 && tl.offsets[0] === 0 && tl.offsets[1] > 0 && tl.offsets[2] > tl.offsets[1] && isFinite(tl.endMs), 'HB precondition: the stitch scan reports a timeline (got ' + JSON.stringify(tl) + ')');
+      const names = [];
+      const seq = pickerSequence(['ok', 'ok', 'ok']);
+      windowMock.showSaveFilePicker = async (opts) => { names.push(opts.suggestedName); const h = await seq(opts); h.name = 'lecture 3.webm'; return h; };
+      await sandbox.reviewSaveAsIs(); await settle(); await drain();
+      const pc = sandbox.pendingChapters;
+      assert(pc && el47('chapterOffer').classList.contains('visible'), 'HB: Save as is offers the chapters');
+      const want = [1000, 2500, tl.offsets[1] + 1500, tl.offsets[2] + 4000];
+      assert(pc.chapters.map((c) => c.ms).join() === want.join(), 'HB: marks mapped with the seam offsets, the past-end mark and the past-cut mark dropped (got ' + pc.chapters.map((c) => c.ms).join() + ' want ' + want.join() + ')');
+      assert(pc.name === 'lecture 3.webm' && pc.endMs === tl.endMs, 'HB: the offer knows the saved name and the content end');
+      assert((await readStore('sessions')).length === 0, 'HB: the parts were still deleted after the confirmed save');
+      // .txt
+      const n0 = lastWritten.length;
+      const r1 = await sandbox.exportChapters('txt'); await drain();
+      const txt = await lastWritten[lastWritten.length - 1].text();
+      const clock = sandbox.chapterClock;
+      const wantTxt = ['00:00 Start', clock(1000) + ' Chapter 1', clock(2500) + ' Chapter 2', clock(want[2]) + ' Chapter 3', clock(want[3]) + ' Chapter 4'].join('\n') + '\n';
+      assert(r1 === 'saved' && lastWritten.length === n0 + 1 && txt === wantTxt, 'HB: the .txt list (got ' + JSON.stringify(txt) + ' want ' + JSON.stringify(wantTxt) + ')');
+      assert(names[names.length - 1] === 'lecture 3.chapters.txt', 'HB: named after the saved video (got ' + names[names.length - 1] + ')');
+      assert(/Chapter list saved/.test(el47('chapterOfferStatus').textContent), 'HB: the box says the list is saved');
+      // .vtt
+      const r2 = await sandbox.exportChapters('vtt'); await drain();
+      const vtt = await lastWritten[lastWritten.length - 1].text();
+      const lines = vtt.split('\n');
+      const cues = lines.filter((l) => / --> /.test(l));
+      assert(r2 === 'saved' && lines[0] === 'WEBVTT' && cues.length === 5 && names[names.length - 1] === 'lecture 3.chapters.vtt', 'HB: the .vtt file: WEBVTT header, 5 cues, named after the video (got ' + cues.length + ' cues, ' + names[names.length - 1] + ')');
+      assert(cues[0].startsWith('00:00:00.000 --> ' + sandbox.formatCaptionTimestamp(1)) && cues[4].endsWith(sandbox.formatCaptionTimestamp(tl.endMs / 1000)), 'HB: each cue runs to the next chapter, the last to the content end (got ' + cues[0] + ' / ' + cues[4] + ')');
+      const parsed = sandbox.parseVTT(vtt);
+      assert(parsed && parsed.cues && parsed.cues.length === 5 && parsed.cues[1].text === 'Chapter 1', 'HB: the app\'s own VTT parser reads it back');
+      sandbox.dismissChapterOffer();
+
+      // a deleted part takes its marks away; the parts after it move up
+      await resetState();
+      const two = await openParts([syntheticWebm(), nClusterWebm(5), nClusterWebm(12)]);
+      await sandbox.addSessionMark(two.ids[1], 1500); await sandbox.addSessionMark(two.ids[2], 4000);
+      sandbox.requestReviewPartRemove(1); await sandbox.reviewPartRemoveConfirmed(); await settle(); await drain();
+      const tl2 = (await sandbox.scanSegmentsForStitch(api.reviewState.segments)).timeline;
+      windowMock.showSaveFilePicker = pickerSequence(['ok']);
+      await sandbox.reviewSaveAsIs(); await settle(); await drain();
+      const pc2 = sandbox.pendingChapters;
+      assert(pc2 && pc2.chapters.map((c) => c.ms).join() === String(tl2.offsets[1] + 4000), 'HB: only the kept part\'s mark remains, moved up to its new place (got ' + JSON.stringify(pc2 && pc2.chapters) + ')');
+      sandbox.dismissChapterOffer();
+
+      // single part, Stop & save: offset 0, a mark past the content end dropped
+      await resetState();
+      const [one] = await seedSegments([nClusterWebm(5)]);
+      await sandbox.addSessionMark(one, 700); await sandbox.addSessionMark(one, 60000);
+      state.sessionId = one; state.chunkIndex = 1;
+      windowMock.showSaveFilePicker = pickerSequence(['ok']);
+      await api.finalizeRecording(); await drain();
+      const pc3 = sandbox.pendingChapters;
+      assert(pc3 && pc3.chapters.map((c) => c.ms).join() === '700' && pc3.chapters[0].title === 'Chapter 1', 'HB: single-part save keeps the in-range mark only (got ' + JSON.stringify(pc3 && pc3.chapters) + ')');
+      const r3 = await sandbox.exportChapters('txt'); await drain();
+      const txt3 = await lastWritten[lastWritten.length - 1].text();
+      assert(r3 === 'saved' && txt3 === '00:01 Chapter 1\n', 'HB: a first mark inside the first second needs no Start row (got ' + JSON.stringify(txt3) + ')');
+      sandbox.dismissChapterOffer();
+
+      // the download path (no picker): the offer appears; the export downloads
+      await resetState();
+      const [dl] = await seedSegments([nClusterWebm(5)]);
+      await sandbox.addSessionMark(dl, 1100);
+      state.sessionId = dl; state.chunkIndex = 1;
+      downloadClicks.length = 0;
+      await api.finalizeRecording(); await drain();
+      assert(sandbox.pendingChapters && sandbox.pendingChapters.chapters.length === 1 && downloadClicks.length === 1, 'HB: the download save offers the chapters too');
+      const r4 = await sandbox.exportChapters('vtt'); await drain();
+      assert(r4 === 'downloaded' && downloadClicks.length === 2 && /\.chapters\.vtt$/.test(downloadClicks[1]), 'HB: the export downloads as <video>.chapters.vtt (got ' + downloadClicks[1] + ')');
+      sandbox.dismissChapterOffer();
+
+      // no marks: no offer
+      await resetState();
+      const [plain] = await seedSegments([nClusterWebm(5)]);
+      state.sessionId = plain; state.chunkIndex = 1;
+      windowMock.showSaveFilePicker = pickerSequence(['ok']);
+      await api.finalizeRecording(); await drain();
+      assert(sandbox.pendingChapters === null && !el47('chapterOffer').classList.contains('visible'), 'HB: a video without marks shows no chapter offer');
+    } finally { u.restore(); }
   });
 
   // ---------- REVIEW #34 (v1.30): Webcam and Mic while paused ----------
