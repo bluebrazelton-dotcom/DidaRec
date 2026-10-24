@@ -2934,6 +2934,56 @@ prints the app state after every scripted click. The repo ignores `*.webm`
 needs that too, or the push carries only the poster and captions (it did,
 once, 2026-10-23).
 
+### v1.41 — Chapter marks + chapter sidecar export (#47) (2026-10-23)
+
+**Mark chapter** (a button beside Pause while recording, or the **M** key
+while the page has the keyboard) remembers a moment: the status line says
+"Chapter mark N added at m:ss", the button counts. Nothing changes in the
+video. Paused = greyed (nothing is being recorded). After a confirmed or
+downloaded save a box offers the chapter list in two forms, both named
+after the saved video (the picked file's own name): **`<video>.chapters.txt`**
+(a YouTube-description list — `00:00 Start` opens it when the first mark
+is later than the first second, then `04:12 Chapter 1` …) and
+**`<video>.chapters.vtt`** (WebVTT, one cue per chapter running to the next
+chapter, the last to the content end). Names are "Chapter 1, 2, 3…" — no
+typing while recording; renaming happens in the file. The box stays until
+Done or the next Record.
+
+**How.** A mark is stored on its part's session record (`marks: [ms…]`,
+offsets from the part's recorder start — `state.partStartedAt`, set at
+`recorder.start()`), so it is crash-safe with the part and rides the parts
+model: a deleted / replaced / cut-away part takes its marks with it; a
+mark past a session's `cutAtMs` is dropped. Mapping onto the saved video's
+clock happens only at save time: every streamed save notes its timeline
+(`noteSaveTimeline` — segments in file order, per-segment offsets from the
+stitcher's own seam formula via `scanSegmentsForStitch`'s new `timeline`,
+the content end), and every save caller reads it with `captureChapters()`
+BEFORE deleting the sessions (stitchAndSave, saveStoppedRecording,
+reviewSaveAsIs, recoverRecording — saved and downloaded branches). A mark
+at or past the content end is dropped. `syncMarkChapterButton` rides
+`updateChangeScreenVisibility` (the pause-state hook). `countChapterMarks`
+starts the count from a kept recording's own marks at Record. Documented
+limit: the stitch-fallback path (parts saved as separate files) offers no
+chapter list. Row room: with Mark chapter added, the action row overflowed
+at 1280 px (labels wrapped — caught by the guide screenshot), so the
+**Caption editor** button steps out of the row while recording (it only
+showed an error then anyway) and comes back in resetUI.
+
+**Verification.** Harness: **223 scenarios / 1758 assertions** (HA: button +
+M key store on the CURRENT part, count, status flash, paused = off, keys in
+a text field / with Ctrl / held / other letters ignored, after Resume the
+mark goes on the new part, a kept recording counts on, a cancelled save
+offers nothing and keeps the marks; HB: seam-offset mapping with a past-end
+mark and a past-cut mark dropped, a deleted part's marks gone and the kept
+part's moved up, the .txt and .vtt texts, naming after the picked file, the
+app's own VTT parser reads the .vtt back, single-part save, the download
+path, no marks = no offer). Rig, Chrome: new check 15.30–15.32 (marks on
+the real recorder, the offer after Save as is, exported .txt within 1.5 s
+of the timer clock, .vtt with 4 cues, deleted part's mark gone, Record
+closes a leftover offer, no marks = no offer). Parts 1–3: part1 59 PASS / 2 HUMAN (8.1, 8.2) / 1 SKIP (9.2) once the three old pins (3.6/16.13, 17.7, 5.1) were re-pinned and re-run alone (21/21); part2 57 PASS / 1 SKIP (12.6) incl. 15.30–15.32; part3 17 PASS..
+
+**Owner check (real Chrome, local file, 2026-10-23): PASSED** — button and M key marks, greyed while paused, mark after Resume, Stop & save, both chapter files saved and the .txt read back at the marked times.
+
 ---
 
 ## Known limitations

@@ -12,6 +12,7 @@ A free, open-source screen recorder by DidaWorks. Runs entirely in your browser 
 - **Change screen while paused** — pause, pick a different screen or window to share, resume. The swap never gets recorded; the saved file plays as one continuous take
 - **Switch the webcam off or mute the mic while paused** — pause, click Webcam or Mic, resume. While recording, the source buttons show a small padlock; pausing unlocks Webcam and Mic
 - **Stop sharing pauses, it doesn't end** — if you end the share from the browser's own "Stop sharing" bar, the recording pauses. Choose Change screen and resume to carry on in the same file, or Stop & save
+- **Chapter marks** — click Mark chapter (or press M while the page has focus) while recording; after the save, DidaRec offers the chapter list as a plain-text file (paste into a YouTube description) and as a WebVTT chapters file, both named after your video. Marks follow the parts: deleted, replaced or cut-away parts take theirs with them
 - A screen or window with a different shape is fitted into the picture with black bars, never stretched
 - Recording quality presets and microphone noise suppression
 - Crash-resilient recording — survives browser crashes, tab closures, power loss

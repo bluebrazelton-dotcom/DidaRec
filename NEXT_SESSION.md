@@ -13,7 +13,15 @@ made by `regression_rig/demo_video.py` (`python demo_video.py cr`, ffmpeg
 on PATH, browser free; `DIDAREC_VIDEO` in harness.py records the page at
 1280x1000). Remake it whenever the recorder's look or flow changes, and
 `git add -f` the .webm (the repo ignores *.webm).
-Next: #47 chapter marks.
+
+**Newest (2026-10-23): v1.41 — chapter marks + sidecar export (#47 DONE).**
+Harness **223 / 1758** (HA, HB). Marks live on the part's session record
+(`marks`); every streamed save calls `noteSaveTimeline` and every save
+caller `captureChapters()` before deleting sessions — a NEW save path must
+do both or its chapters are lost silently. Guide section "Mark chapters
+while you record" (`#chapters`, shots 08/09 via `regression_rig/chapter_shot.py`).
+Next: the owner's blog post / announcement; optional Firefox + part-4 rig
+re-run; #44 (design conversation first).
 
 **Earlier (2026-10-23): v1.39 — brand restyle (#50 DONE).** The app's CSS
 variables keep their old names with brand values (`--green` = Sky,

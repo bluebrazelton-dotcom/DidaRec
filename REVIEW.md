@@ -1081,7 +1081,15 @@ timer: verify with the crash scenarios and the 30-minute run. Accepted:
 a resume has a brief start-up gap (invisible inside a pause); short pauses
 make short parts. With this, Stop & review becomes a once-at-the-end step.
 
-### 47. Chapter marks + chapter sidecar export — owner-prioritized 2026-10-19, queued AFTER #43
+### 47. Chapter marks + chapter sidecar export — ✓ DONE v1.41 (2026-10-23)
+
+**Shipped v1.41** as scoped below: Mark chapter button + M key (page focus
+only, said so in the guide), auto-named marks stored per part, mapped at
+save time with the stitcher's seam offsets, offered after the save as
+`<video>.chapters.txt` (YouTube list) and `<video>.chapters.vtt`. Harness
+HA/HB; rig 15.30–15.32. Not offered on the stitch-fallback path.
+
+*Original scope:*
 
 Mark moments while recording; export the chapter list beside the saved
 video. v1 scope (settled with the owner 2026-10-19): a "Mark chapter"
