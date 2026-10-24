@@ -60,6 +60,10 @@
   .tip p:first-child, .note p:first-child { margin-top: 0; } .tip p:last-child, .note p:last-child { margin-bottom: 0; }
   figure { margin: 1.25rem 0; }
   figure img { display: block; max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; }
+  figure.demo video { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; background: #1F2B3D; }
+  figure.demo details { margin-top: .5rem; font-size: .95rem; }
+  figure.demo summary { cursor: pointer; color: var(--muted); }
+  figure.demo ol { margin: .4rem 0 0; padding-left: 1.4rem; }
   figcaption { color: var(--muted); font-size: .95rem; margin-top: .4rem; }
   dl { margin: .5rem 0; }
   dt { font-weight: 600; margin-top: 1.1rem; }
@@ -90,6 +94,29 @@
 <main>
   <h1>How to use DidaRec</h1>
   <p class="lede">Record your screen, your voice and your webcam, right in your web browser. There is nothing to install and no account to create.</p>
+
+  <figure class="demo" id="demo">
+    <video controls preload="metadata" playsinline width="1280" height="1000" poster="demo/didarec-demo-poster.png">
+      <source src="demo/didarec-demo.webm" type="video/webm">
+      <track kind="captions" src="demo/didarec-demo.vtt" srclang="en" label="English">
+      Your browser cannot play this video. <a href="demo/didarec-demo.webm">Download it</a> instead.
+    </video>
+    <figcaption>DidaRec in one minute. The video is silent; everything it says is written in the picture. The browser's own "share your screen" and "save" windows are stand-ins here.</figcaption>
+    <details>
+      <summary>Read the video's captions as text</summary>
+      <ol>
+      <li>DidaRec records your screen, your webcam and your voice — right in the browser. Nothing to install, no account.</li>
+      <li>Turn on your microphone and webcam.</li>
+      <li>Select Screen asks your browser what to share — a screen, a window or a tab. (A stand-in here.)</li>
+      <li>Click Record. DidaRec saves as you go, so a crash can't lose your work.</li>
+      <li>Pause whenever you like. Each pause starts a new part you can work on later.</li>
+      <li>While paused you can change the screen, switch the webcam off, mute the mic — or fill the picture with your webcam.</li>
+      <li>Stop &amp; review shows every part. Play one on its own, delete it, or replace it with a new take.</li>
+      <li>Save as is writes one video file. Chrome asks where to put it. (A stand-in here.)</li>
+      <li>Free and open source. Your video stays on your computer. bluebrazelton-dotcom.github.io/DidaRec</li>
+      </ol>
+    </details>
+  </figure>
 
   <nav aria-label="On this page">
     <ul>

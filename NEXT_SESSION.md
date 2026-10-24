@@ -6,7 +6,13 @@
 appended by every chain built at a stop (review list, stitch, download
 ids, fallback). The two undos coexist: Undo re-record (cuts, recorder
 idle state) and Undo replacement (review page, once). **#43 is complete.**
-Next: the scripted demo video, then #47 chapter marks.
+
+**Demo video DONE (2026-10-23).** `demo/didarec-demo.webm` + `.vtt` +
+poster, linked at the top of `guide.html` (`#demo`) and from the README;
+made by `regression_rig/demo_video.py` (`python demo_video.py cr`, ffmpeg
+on PATH, browser free; `DIDAREC_VIDEO` in harness.py records the page at
+1280x1000). Remake it whenever the recorder's look or flow changes.
+Next: #47 chapter marks.
 
 **Earlier (2026-10-23): v1.39 — brand restyle (#50 DONE).** The app's CSS
 variables keep their old names with brand values (`--green` = Sky,

@@ -72,7 +72,7 @@ If a screen share ever lands with no audio, DidaRec shows a one-time reminder th
 
 Use it right now at [bluebrazelton-dotcom.github.io/DidaRec](https://bluebrazelton-dotcom.github.io/DidaRec/), or clone [the repo](https://github.com/bluebrazelton-dotcom/DidaRec) and serve it locally.
 
-New to DidaRec? Read the [plain-language guide](https://bluebrazelton-dotcom.github.io/DidaRec/guide.html).
+New to DidaRec? Read the [plain-language guide](https://bluebrazelton-dotcom.github.io/DidaRec/guide.html) or watch the [one-minute demo](https://bluebrazelton-dotcom.github.io/DidaRec/guide.html#demo) at the top of it.
 
 ## License
 

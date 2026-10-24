@@ -307,7 +307,9 @@ use" link in the recorder's header and from the README; six real screenshots
 in `guide-img/` (retake with `regression_rig/guide_shots.py`). Placement
 decision: separate page. Follow-ups queued by the owner: reword the app's own
 messages in plain language (they still say "chunks" and "segments"), then a
-scripted, silent, captioned demo video made with the rig.
+scripted, silent, captioned demo video made with the rig. Both done: the
+messages in v1.32; the demo video 2026-10-23 (`demo/`, `regression_rig/
+demo_video.py`, linked at the top of the guide).
 
 Owner-requested (2026-07-29): once the remaining pieces land (or are
 explicitly descoped — the caption editor's fate is under evaluation), write

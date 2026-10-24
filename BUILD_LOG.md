@@ -2903,6 +2903,34 @@ record is a convention people already know; white text on it is 5.3:1.
 Attention, paused and kept stay terracotta. Rig 5.1b and 34.3 pass on it;
 screenshots retaken.
 
+### Demo video (2026-10-23)
+
+A one-minute, silent, captioned tour of DidaRec, made by the rig.
+`regression_rig/demo_video.py` drives the real app (v1.40) in the stand-in
+"lecture slide" look while Playwright records the page; a drawn pointer,
+click ripples and a caption bar are overlaid on the page, never on the
+recorded canvas. Flow: Mic + Webcam on -> Select Screen -> Record -> Pause ->
+Full screen -> Resume -> Pause -> Full screen off -> Resume -> Stop & review
+(three parts) -> Save as is -> closing line with the address. Chrome's share
+picker and save dialog are stand-ins, and the captions say so.
+
+**Output** in `demo/`: `didarec-demo.webm` (VP9, 1280x1000, 56 s, ~1.0 MB),
+`didarec-demo.vtt` (the captions with the times they were shown) and
+`didarec-demo-poster.png`. The captions are burnt into the picture, so the
+VTT track is offered, not on by default; the guide also lists the captions
+as text under the video. Linked at the top of `guide.html` (`#demo`) and
+from the README.
+
+**How.** `harness.py` gained `DIDAREC_VIDEO=<dir>`: Playwright's
+`record_video_dir` plus a 1280x1000 viewport (while recording, the Pause /
+Stop buttons sit at y ~ 846-880, below an 800 px viewport, and the first cut's
+mouse clicks silently missed them). Playwright starts the video when the
+page opens, a few seconds before the overlay and its caption clock exist, so
+the script measures that head (ffprobe duration minus scripted time) and
+cuts it off while re-encoding (ffmpeg, libvpx-vp9 crf 33). Remake with
+`python demo_video.py cr` (ffmpeg on PATH, browser free); `DEMO_DEBUG=1`
+prints the app state after every scripted click.
+
 ---
 
 ## Known limitations
