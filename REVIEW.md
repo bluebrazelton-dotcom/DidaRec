@@ -959,7 +959,14 @@ re-open, and webcam-only sharpness improves everywhere. Fitted with
 bars, never cropped or stretched (owner choice). Harness GD/GE/GF; rig
 42.1 end-to-end. Owner check pending at the v1.34 gate.
 
-### 43. Review page: see every part and work on one at a time — stage 1 ✓ DONE v1.36 (2026-10-23); stage 2 queued as v1.38
+### 43. Review page: see every part and work on one at a time — stage 1 ✓ DONE v1.36; stage 2 ✓ DONE v1.40 (2026-10-23)
+
+**Stage 2 shipped v1.40:** Replace on a part's row records a normal recording
+INTO that position (pauses make parts there too); Cancel before Record;
+Undo replacement on the review page that opens; Stop & save from replacing
+mode saves with the replacement in place. Documented limit: a crash
+mid-replacement recovers the new recording as the last part. Harness GY/GZ;
+rig 15.29.
 
 **Stage 1 shipped v1.36:** parts list ("Part N — m:ss", newest marked), play
 one part alone, delete with in-pane confirm (never the last part), Restore

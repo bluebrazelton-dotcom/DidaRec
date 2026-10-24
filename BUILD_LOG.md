@@ -2841,6 +2841,68 @@ badge and unchanged colours when locked) pass on the new palette.
 
 **Owner look:** the preview and the owl were approved on the scratch copy (2026-10-23); the final file was pushed on the owner's standing word (commit and push on a clean run) before a look at the live page — screenshot 07-help-panel.png shows the panel open while recording.
 
+### v1.40 — Replace a part (#43 stage 2) (2026-10-23)
+
+**Replace** on a part's row (review page) closes the review into
+*replacing mode*: a strip names the part ("Replacing Part 2"), the status
+line says what to do, and — since v1.37 keeps the sources — Record is one
+click away. **Cancel replacement** (before Record only) returns to the
+review with nothing changed. The recording is an ordinary recording
+(pauses make parts, Change screen / Webcam / Mic / Full screen all work).
+At the stop the new part(s) take the old part's position and the parts
+after it follow; the old part is soft-deleted with the same flag a deleted
+part uses (swept by the next confirmed save). **Stop & review** opens the
+review with the new part(s) labelled "(replacement)" and a one-time
+**Undo replacement** (old part back in place, new recording soft-deleted;
+the undone chain becomes the pane's baseline). **Stop & save** from
+replacing mode saves the whole video with the replacement in place. Owner
+decisions 2026-10-23: pauses inside a replacement make parts (the v1.38
+rule, no special case); Stop & save from replacing mode is allowed.
+
+**How.** `state.replace = { index, oldPart, before, after, chain }`;
+Replace sets `priorSegments = before` (the ordinary kept footage the next
+recording continues) and every chain built at a stop appends
+`replaceAfterParts()`: the review's `openReviewPane` list, `stitchAndSave`
+(segments, deletions on 'saved', the download-confirm ids, the
+stitch-fallback segments), and `saveStoppedRecording`'s multi-part
+condition. `finalizeRecording` flags the old part before either path and
+clears `state.replace` in its finally. The review page's parts model
+labels `newIds`; `reviewUndoReplacement` is the delete/restore pattern
+(rebuild → flag → commit, full rollback). `cancelReplacement` reopens the
+pane with the snapshot chain. Nothing about chunk bytes, joining or
+saving changed.
+
+**Documented limit.** A crash mid-replacement recovers every part, but the
+new recording comes back as the LAST part (recovery orders parts by when
+they were recorded); same after a cancelled save in replacing mode. The
+guide says so.
+
+**Verification.** Harness: **221 scenarios / 1724 assertions** (GY, GZ
+new: replace a middle part with Cancel then for real, labels, flags,
+Undo; replace the first part with a pause inside (both new parts slot
+in); replace the last part then Stop & save (chain order via the stitch
+call, every part swept); a middle replacement saved from Stop & save
+keeps the order. GT's button count updated for the Replace button; the
+harness gained `ONLY=<prefix>` to run a subset). Rig, Chrome 154: new
+check 15.29 — three parts, Replace Part 2 → strip, status and Cancel;
+Cancel → the same three parts; Replace Part 2 for real with screen 4
+(Cancel hidden while recording) → "Part 2 — 0:05 (replacement)", Undo
+offered; Save as is → file order [1, 4, 3], every frame valid; then
+Replace Part 1 → Undo replacement → the original two parts, saved order
+[1, 2]. Parts 1–3: 65 / 54 / 17 pass, 0 fail. Guide: "Record a part again"
+bullet and the crash limit.
+
+**Owner check PASSED 2026-10-23**, real Chrome, local file: three parts via
+pauses; Replace Part 2 → Cancel (unchanged); Replace for real →
+"(replacement)" label and Undo offered; Undo → original back; Save as is →
+the original three stretches in order. One finding: the brand restyle had
+made Record a washed-out terracotta. **Record red** added (owner request):
+Record, Resume recording and the live dot use `--record` #C62828 (hover
+#D93025) — the one colour outside the brand palette, kept because red =
+record is a convention people already know; white text on it is 5.3:1.
+Attention, paused and kept stay terracotta. Rig 5.1b and 34.3 pass on it;
+screenshots retaken.
+
 ---
 
 ## Known limitations

@@ -1,6 +1,14 @@
 # DidaRec — Next Session, Start Here
 
-**Newest (2026-10-23): v1.39 — brand restyle (#50 DONE).** The app's CSS
+**Newest (2026-10-23): v1.40 — replace a part (#43 stage 2 DONE).** Harness
+**221 / 1724** (prefixes end at GZ; `ONLY=GZ node test.cjs` runs a subset).
+`state.replace` holds a replacement in flight; `replaceAfterParts()` is
+appended by every chain built at a stop (review list, stitch, download
+ids, fallback). The two undos coexist: Undo re-record (cuts, recorder
+idle state) and Undo replacement (review page, once). **#43 is complete.**
+Next: the scripted demo video, then #47 chapter marks.
+
+**Earlier (2026-10-23): v1.39 — brand restyle (#50 DONE).** The app's CSS
 variables keep their old names with brand values (`--green` = Sky,
 `--accent` = Terracotta on dark, `--bg` = Night slate…); fonts self-hosted
 in `fonts/`; owl + favicon in `brand/`. Any new colour must come from
@@ -50,8 +58,7 @@ save, Terracotta-on-dark for Record/live/attention; Roboto Slab
 headings, Roboto body SELF-HOSTED from `fonts/`; the owl mark in the
 header; the brand favicon). Owner approved the preview and the owl
 2026-10-23. Scratch preview: this session's scratchpad `brand_preview/`.
-(5) **#43 stage 2, v1.40** — record a replacement INTO a middle
-position. (6) Scripted demo video (can show Full screen + part
+(5) **DONE v1.40: #43 stage 2** — replace a part. (6) Scripted demo video (can show Full screen + part
 editing), then the owner's blog post. (7) **#47 chapter marks +
 sidecar export** (see REVIEW — queued AFTER #43 so marks ride the
 parts model). (8) Optional Firefox + part-4 rig re-run (not since
