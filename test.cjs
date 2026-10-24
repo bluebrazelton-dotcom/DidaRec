@@ -7014,6 +7014,27 @@ Real cue text
     } finally { u.restore(); }
   });
 
+  // ---------- v1.42: the footer's bug-report link ----------
+  await scenario('HC the Email Blue link is a mailto with the version and the browser in the subject and the three prompts in the body; the browser is named from the user agent (Edge before Chrome, Firefox, unknown = a browser); nothing is sent anywhere', async () => {
+    const d = sandbox.describeBrowser;
+    assert(d('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36 Edg/154.0.0.0') === 'Edge 154 on Windows', 'HC: Edge is named before Chrome');
+    assert(d('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36') === 'Chrome 154 on Windows', 'HC: Chrome on Windows');
+    assert(d('Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0') === 'Firefox 133 on Mac', 'HC: Firefox on Mac');
+    assert(d('') === 'a browser' && d(undefined) === 'a browser', 'HC: an unknown agent is just a browser');
+    documentMock.getElementById('appVersion').textContent = 'v1.42';
+    const ua0 = sandbox.navigator.userAgent;
+    sandbox.navigator.userAgent = 'Mozilla/5.0 (X11; CrOS x86_64) AppleWebKit/537.36 Chrome/150.0.0.0 Safari/537.36';
+    try {
+      const href = sandbox.buildReportLink();
+      assert(href && href.startsWith('mailto:blue.brazelton@gmail.com?subject='), 'HC: a mailto to the help address (got ' + href + ')');
+      const q = href.slice(href.indexOf('?') + 1).split('&').map((kv) => kv.split('=').map(decodeURIComponent));
+      const subject = q.find((x) => x[0] === 'subject')[1], body = q.find((x) => x[0] === 'body')[1];
+      assert(subject === 'DidaRec v1.42 problem — Chrome 150 on ChromeOS', 'HC: subject carries the version and the browser (got ' + subject + ')');
+      assert(/What I did:/.test(body) && /What happened \(what did the page say\?\):/.test(body) && /Browser and computer: Chrome 150 on ChromeOS/.test(body), 'HC: the body has the three prompts (got ' + JSON.stringify(body) + ')');
+      assert(documentMock.getElementById('reportLink').href === href, 'HC: the link itself was updated');
+    } finally { sandbox.navigator.userAgent = ua0; }
+  });
+
   // ---------- REVIEW #34 (v1.30): Webcam and Mic while paused ----------
   const camTrack = () => ({ kind: 'video', readyState: 'live', getSettings: () => ({ width: 320, height: 240 }), addEventListener() {}, stop() { this.readyState = 'ended'; } });
   const startScreenRecWith = async ({ mic, cam }) => {

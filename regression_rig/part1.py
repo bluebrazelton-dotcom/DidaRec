@@ -765,7 +765,31 @@ def s18_misc(r):
             "cancelled re-selection: button reads '%s' (selected style=%s), Record disabled=%s, placeholder shown=%s, Screen toggle lit=%s; banner='%s'" % (u["btnSelect"]["text"], u["btnSelect"]["sel"], u["btnRecord"]["dis"], u["placeholder"], u["screenActive"], u["err"]))
 
 
-ALL = [s1_load, s1_camera, s1_camonly_record, s2_devices, s2_deny, s3_basic, s4_pause, s5_change, s5_stop_nogesture, s34_paused_sources, s42_fullscreen, s5_noaudio, s6_quality, s7_pip, s8_background, s9_resilience, s17_hint, s18_misc]
+def s18_report(r):
+    """v1.42: the footer's Email Blue link (mailto with version + browser prefilled) and the solid Sky 'on' colour
+    of the source toggles (on and off must be told apart by background, not only by text colour). 18.5-18.6."""
+    import urllib.parse as up
+    r.start("report")
+    link = r.ev("() => { const a = document.getElementById('reportLink'); return { href: a.href, text: a.textContent.trim(), vis: getComputedStyle(a).display !== 'none' }; }")
+    q = up.parse_qs(link["href"].split("?", 1)[1]) if "?" in link["href"] else {}
+    subject = (q.get("subject") or [""])[0]; body = (q.get("body") or [""])[0]
+    version = r.ev("document.getElementById('appVersion').textContent.trim()")
+    r.check("18.5", link["href"].startswith("mailto:blue.brazelton@gmail.com?") and link["text"] == "Email Blue" and link["vis"]
+            and subject.startswith("DidaRec %s problem" % version) and ("Chrome" in subject or "Edge" in subject or "Firefox" in subject)
+            and "What I did:" in body and "What happened" in body and "Browser and computer:" in body,
+            "footer link '%s' -> mailto to the help address; subject '%s'; body prompts present=%s" % (link["text"], subject, "What I did:" in body and "Browser and computer:" in body))
+    COL = "id => { const e = document.getElementById(id); const c = getComputedStyle(e); return { bg: c.backgroundColor, fg: c.color, on: e.classList.contains('active') }; }"
+    off = r.ev(COL, "toggleMic")
+    r.page.click("#toggleMic"); r.page.wait_for_function("!!state.heldMicStream")
+    r.page.mouse.move(4, 4); r.wait(300)                 # off the button: the hover shade is a lighter Sky
+    on = r.ev(COL, "toggleMic")
+    r.select_screen(1); r.page.mouse.move(4, 4); r.wait(300)   # Screen lights only once a screen is selected (v1.21.3)
+    screen_on = r.ev(COL, "toggleScreen")
+    r.check("18.6", (not off["on"]) and on["on"] and on["bg"] == "rgb(156, 205, 238)" and off["bg"] != on["bg"] and on["fg"] == "rgb(31, 43, 61)" and screen_on["bg"] == on["bg"],
+            "Mic off: bg %s / text %s; Mic on: bg %s (Sky) / text %s (Night slate); Screen (lit once selected) matches=%s" % (off["bg"], off["fg"], on["bg"], on["fg"], screen_on["bg"] == on["bg"]))
+
+
+ALL = [s1_load, s1_camera, s1_camonly_record, s2_devices, s2_deny, s3_basic, s4_pause, s5_change, s5_stop_nogesture, s34_paused_sources, s42_fullscreen, s5_noaudio, s6_quality, s7_pip, s8_background, s9_resilience, s17_hint, s18_misc, s18_report]
 
 if __name__ == "__main__":
     kind = sys.argv[1]
