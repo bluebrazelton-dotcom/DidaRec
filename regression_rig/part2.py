@@ -538,6 +538,49 @@ def s15_pause_parts(r):
             % (a["paused"], b["rec"], len(k["rows"]), k["rows"], k["total"], pr["duration"], sm["valid"], sm["n"]))
 
 
+def s15_replace(r):
+    """v1.40 (#43 stage 2): Replace a part — Cancel, replace a middle part, Undo replacement, saved order."""
+    r.start("rev15r")
+    mic_on(r)
+    for sid, secs in ((1, 5), (2, 4), (3, 4)):
+        r.select_screen(sid); r.record(secs); review_open(r)
+        if sid != 3:
+            r.page.click("#reviewPane .btn-back-recorder"); r.wait(800)
+    rows0 = r.ev("[...document.querySelectorAll('#reviewPartsList .review-part-label')].map(e => e.textContent)")
+    # Cancel: back with nothing changed
+    r.page.click('button[aria-label="Replace Part 2 with a new recording"]'); r.wait(700)
+    a = r.ui(); strip = r.ev("() => ({ vis: document.getElementById('replaceBanner').classList.contains('visible'), title: document.getElementById('replaceTitle').textContent, cancel: getComputedStyle(document.getElementById('btnCancelReplace')).display !== 'none', status: document.getElementById('statusText').textContent })")
+    r.page.click("#btnCancelReplace")
+    r.page.wait_for_function("document.getElementById('reviewPane').classList.contains('visible') && document.getElementById('reviewVideo').readyState >= 1", timeout=60000); r.wait(500)
+    rows1 = r.ev("[...document.querySelectorAll('#reviewPartsList .review-part-label')].map(e => e.textContent)")
+    # Replace Part 2 for real with screen 4
+    r.page.click('button[aria-label="Replace Part 2 with a new recording"]'); r.wait(700)
+    r.select_screen(4); r.record(4)
+    cancel_while_rec = r.ev("getComputedStyle(document.getElementById('btnCancelReplace')).display")
+    review_open(r)
+    rows2 = r.ev("[...document.querySelectorAll('#reviewPartsList .review-part-label')].map(e => e.textContent)")
+    undo_vis = r.ev("getComputedStyle(document.getElementById('btnUndoReplacement')).display !== 'none'")
+    r.stop_save("15_replace.webm", button="#reviewPane .btn-save-as-is")
+    pr = r.probe("15_replace.webm", step=0.5); sm = summarize(pr)
+    # Undo: replace Part 1 with screen 5, then undo, then save — order unchanged
+    r.select_screen(1); r.record(4); review_open(r); r.page.click("#reviewPane .btn-back-recorder"); r.wait(600)
+    r.select_screen(2); r.record(4); review_open(r)
+    r.page.click('button[aria-label="Replace Part 1 with a new recording"]'); r.wait(700)
+    r.select_screen(5); r.record(4); review_open(r)
+    rows3 = r.ev("[...document.querySelectorAll('#reviewPartsList .review-part-label')].map(e => e.textContent)")
+    r.page.click("#btnUndoReplacement"); r.wait(2500)
+    rows4 = r.ev("[...document.querySelectorAll('#reviewPartsList .review-part-label')].map(e => e.textContent)")
+    r.stop_save("15_replace_undo.webm", button="#reviewPane .btn-save-as-is")
+    pr2 = r.probe("15_replace_undo.webm", step=0.5); sm2 = summarize(pr2)
+    ok = (len(rows0) == 3 and (not a["review"]) and strip["vis"] and strip["title"] == "Replacing Part 2" and strip["cancel"] and "replacement for Part 2" in strip["status"]
+          and rows1 == rows0 and cancel_while_rec == "none" and len(rows2) == 3 and "(replacement)" in rows2[1] and "(replacement)" not in rows2[0] and undo_vis
+          and seq_of(pr) == [1, 4, 3] and sm["valid"] == sm["n"]
+          and "(replacement)" in rows3[0] and len(rows4) == 2 and "(replacement)" not in "".join(rows4) and seq_of(pr2) == [1, 2] and sm2["valid"] == sm2["n"])
+    r.check("15.29", ok,
+            "extra (v1.40, #43 stage 2): three parts %s; Replace Part 2 -> recorder with strip '%s' (Cancel offered=%s, status '%s'); Cancel -> review again with %s; Replace Part 2 for real (Cancel hidden while recording=%s) -> parts %s, Undo offered=%s; Save as is -> file order %s (%d/%d frames valid). Then Replace Part 1 -> %s; Undo replacement -> %s; saved order %s"
+            % (rows0, strip["title"], strip["cancel"], strip["status"], rows1, cancel_while_rec == "none", rows2, undo_vis, seq_of(pr), sm["valid"], sm["n"], rows3, rows4, seq_of(pr2)))
+
+
 def s15_kept(r):
     """v1.29 (owner pass 2026-10-05): after reviewing, kept-but-unsaved footage is offered for saving without a refresh."""
     KEPT = "() => ({ up: document.getElementById('recoveryBanner').classList.contains('visible'), title: document.getElementById('recoveryTitle').textContent, info: document.getElementById('recoveryInfo').textContent, cont: getComputedStyle(document.getElementById('btnRecoveryContinue')).display !== 'none', save: document.getElementById('btnRecoverySave').textContent.trim(), hint: getComputedStyle(document.getElementById('recoveryKeptHint')).display !== 'none' && document.getElementById('recoveryKeptHint').textContent })"
@@ -796,7 +839,7 @@ def s15_parts(r):
     r.check("15.26", lay["sw"] <= lay["cw"] + 1 and lay["rowsFit"], "375px wide: page scrollWidth %d vs clientWidth %d, every part row inside the window=%s (measured, not eyeballed)" % (lay["sw"], lay["cw"], lay["rowsFit"]))
 
 
-ALL = [s15_cut_micoff, s10_crash, s11_continue, s12_cancel, s13_seek, s15_review_a, s15_review_b, s15_review_c, s15_review_d, s12_kept_after_cancel, s15_keep_sources, s15_pause_parts, s15_kept, s15_precision_end, s15_parts]
+ALL = [s15_cut_micoff, s10_crash, s11_continue, s12_cancel, s13_seek, s15_review_a, s15_review_b, s15_review_c, s15_review_d, s12_kept_after_cancel, s15_keep_sources, s15_pause_parts, s15_replace, s15_kept, s15_precision_end, s15_parts]
 
 if __name__ == "__main__":
     kind = sys.argv[1]

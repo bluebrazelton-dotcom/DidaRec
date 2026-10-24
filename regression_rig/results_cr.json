@@ -147,37 +147,37 @@
  "5.4": {
   "status": "PASS",
   "evidence": "picker cancelled: banner='', still paused=True, old screen (id 1) track live, Change screen still offered",
-  "at": "2026-10-17 11:25:13"
+  "at": "2026-10-23 16:45:04"
  },
  "5.5": {
   "status": "PASS",
   "evidence": "capture failed: banner='Couldn't switch screens — your current recording is unaffected. Could not start video source'; still paused=True, recording alive=True, old screen kept",
-  "at": "2026-10-17 11:25:14"
+  "at": "2026-10-23 16:45:05"
  },
  "5.1": {
   "status": "PASS",
   "evidence": "recording: visible=False; paused: visible=True, button order=['Caption editor', 'Resume recording', 'Change screen', 'Stop & save', 'Stop & review']; after Resume: visible=False",
-  "at": "2026-10-17 11:25:18"
+  "at": "2026-10-23 16:45:08"
  },
  "5.1b": {
   "status": "PASS",
-  "evidence": "extra (v1.29, owner pass Y1): Pause / Stop & save / Stop & review positions [left, top] recording=[[400, 842], [732, 842], [866, 842]], paused=[[400, 842], [732, 842], [866, 842]], resumed=[[400, 842], [732, 842], [866, 842]] (must be identical - no jump on Pause); paused button reads 'Resume recording', colour rgb(233, 69, 96) vs Record's rgb(233, 69, 96)",
-  "at": "2026-10-17 11:25:18"
+  "evidence": "extra (v1.29, owner pass Y1): Pause / Stop & save / Stop & review positions [left, top] recording=[[400, 846], [732, 846], [866, 846]], paused=[[400, 846], [732, 846], [866, 846]], resumed=[[400, 846], [732, 846], [866, 846]] (must be identical - no jump on Pause); paused button reads 'Resume recording', colour rgb(198, 40, 40) vs Record's rgb(198, 40, 40)",
+  "at": "2026-10-23 16:45:08"
  },
  "5.3": {
   "status": "PASS",
-  "evidence": "saved file shows the screens in order with no frames from the paused picker hunts: screen sequence [1, 2, 3, 4], 40/40 frames valid, duration 20.0s",
-  "at": "2026-10-17 11:25:41"
+  "evidence": "saved file shows the screens in order with no frames from the paused picker hunts: screen sequence [1, 2, 3, 4], 39/39 frames valid, duration 19.7s",
+  "at": "2026-10-23 16:45:31"
  },
  "5.7": {
   "status": "PASS",
   "evidence": "old screen's track 'ended' after the swap -> recording kept going (recording=True). 'ended' on the CURRENT screen (v1.29) -> recording PAUSED, not stopped (recording=True, paused=True), calm notice 'Screen sharing stopped, so the recording is paused. Choose Change screen to keep going, or Stop & save.'; Resume without a screen refused ('Choose Change screen first — screen sharing has stopped.'); Change screen then Resume -> recording again (True) and the saved file continues onto the new screen (sequence [1, 2, 3, 4]). Simulated track events; the real browser 'Stop sharing' bar was not clicked.",
-  "at": "2026-10-17 11:25:41"
+  "at": "2026-10-23 16:45:31"
  },
  "5.8": {
   "status": "PASS",
-  "evidence": "swap from 1280x720 to an 800x600 source (v1.29: fitted, not stretched): output stays 1280x720; 12 frames from the new source decode inside a centred picture, left edge / width in px = [[160, 960], [160, 960], [160, 960]] (expected about 160 / 960, black bars either side)",
-  "at": "2026-10-17 11:25:41"
+  "evidence": "swap from 1280x720 to an 800x600 source (v1.29: fitted, not stretched): output stays 1280x720; 11 frames from the new source decode inside a centred picture, left edge / width in px = [[159, 962], [160, 960], [160, 960]] (expected about 160 / 960, black bars either side)",
+  "at": "2026-10-23 16:45:31"
  },
  "5.7b": {
   "status": "PASS",
@@ -186,18 +186,18 @@
  },
  "34.3": {
   "status": "PASS",
-  "evidence": "extra (v1.30): padlock badge drawn on Screen/Webcam/Mic - idle [False, False, False], recording [True, True, True], paused [True, False, False]; Webcam/Mic text colour idle vs recording rgb(78, 204, 163)/rgb(78, 204, 163) vs rgb(78, 204, 163)/rgb(78, 204, 163) (unchanged - not greyed); hover note while recording 'Locked while recording — pause to change'; footer version label 'v1.35'",
-  "at": "2026-10-17 11:26:21"
+  "evidence": "extra (v1.30): padlock badge drawn on Screen/Webcam/Mic - idle [False, False, False], recording [True, True, True], paused [True, False, False]; Webcam/Mic text colour idle vs recording rgb(156, 205, 238)/rgb(156, 205, 238) vs rgb(156, 205, 238)/rgb(156, 205, 238) (unchanged - not greyed); hover note while recording 'Locked while recording — pause to change'; footer version label 'v1.40'",
+  "at": "2026-10-23 16:45:45"
  },
  "34.1": {
   "status": "PASS",
-  "evidence": "extra (v1.30, REVIEW #34): Webcam/Mic/Screen buttons locked while recording=[True, True, True], while paused=[False, False, True] (Webcam and Mic unlocked), after Resume=[True, True, True]. Pause 1: webcam off + mic muted (camera held=False, muted=True). Pause 2: both back on (camera held=True, muted=False); canvas size unchanged=True. Saved file 16.4s, 33/33 frames valid: overlay pixels left/right in stretch 1=[[200, 0, 0], [0, 160, 0]] (camera), stretch 2=[[32, 80, 48], [32, 80, 48]] (screen content, no overlay), stretch 3=[[200, 0, 0], [0, 160, 0]] (camera again; pauses at 6s and 11s); audio level per second [0.0961, 0.0956, 0.0954, 0.0948, 0.0949, 0.0949, 0, 0, 0, 0, 0, 0.0952, 0.0951, 0.0938, 0.0948, 0.0941] -> quietest second with mic on 0.0948 / 0.0938, loudest second while muted 0.0000",
-  "at": "2026-10-17 11:26:38"
+  "evidence": "extra (v1.30, REVIEW #34): Webcam/Mic/Screen buttons locked while recording=[True, True, True], while paused=[False, False, True] (Webcam and Mic unlocked), after Resume=[True, True, True]. Pause 1: webcam off + mic muted (camera held=False, muted=True). Pause 2: both back on (camera held=True, muted=False); canvas size unchanged=True. Saved file 16.3s, 32/32 frames valid: overlay pixels left/right in stretch 1=[[200, 0, 0], [0, 160, 0]] (camera), stretch 2=[[32, 80, 48], [32, 80, 48]] (screen content, no overlay), stretch 3=[[200, 0, 0], [0, 160, 0]] (camera again; pauses at 6s and 11s); audio level per second [0.0959, 0.0966, 0.0956, 0.0951, 0.0951, 0.0954, 0, 0, 0, 0, 0, 0.0939, 0.0941, 0.0939, 0.0939, 0.0939] -> quietest second with mic on 0.0951 / 0.0939, loudest second while muted 0.0000",
+  "at": "2026-10-23 16:46:02"
  },
  "34.2": {
   "status": "PASS",
   "evidence": "extra (v1.30): recording started with Mic off -> Mic button locked while paused=True, hover note 'This recording started without the mic, so it can't be added now.'. Recording ended while muted -> Mic is off afterwards (mic on=False, mic still held=False, muted flag=False, button lit=False, button locked=False)",
-  "at": "2026-10-17 11:26:50"
+  "at": "2026-10-23 16:46:14"
  },
  "42.1": {
   "status": "PASS",
