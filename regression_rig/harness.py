@@ -91,7 +91,9 @@ class Rig:
                 pdir, channel=os.environ.get("DIDAREC_CHANNEL", "chrome"), headless=self.headless, accept_downloads=True,
                 args=["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream",
                       "--autoplay-policy=no-user-gesture-required"],
-                viewport={"width": 1400, "height": 1000})
+                viewport={"width": 1280, "height": 1000} if os.environ.get("DIDAREC_VIDEO") else {"width": 1400, "height": 1000},
+                # DIDAREC_VIDEO=<dir>: record the page (demo_video.py)
+                **({"record_video_dir": os.environ["DIDAREC_VIDEO"], "record_video_size": {"width": 1280, "height": 1000}} if os.environ.get("DIDAREC_VIDEO") else {}))
         else:
             self.ctx = self.pw.firefox.launch_persistent_context(
                 pdir, headless=self.headless, accept_downloads=True,
