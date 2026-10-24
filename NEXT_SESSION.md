@@ -11,7 +11,8 @@ idle state) and Undo replacement (review page, once). **#43 is complete.**
 poster, linked at the top of `guide.html` (`#demo`) and from the README;
 made by `regression_rig/demo_video.py` (`python demo_video.py cr`, ffmpeg
 on PATH, browser free; `DIDAREC_VIDEO` in harness.py records the page at
-1280x1000). Remake it whenever the recorder's look or flow changes.
+1280x1000). Remake it whenever the recorder's look or flow changes, and
+`git add -f` the .webm (the repo ignores *.webm).
 Next: #47 chapter marks.
 
 **Earlier (2026-10-23): v1.39 — brand restyle (#50 DONE).** The app's CSS

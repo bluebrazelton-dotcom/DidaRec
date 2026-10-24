@@ -2929,7 +2929,10 @@ page opens, a few seconds before the overlay and its caption clock exist, so
 the script measures that head (ffprobe duration minus scripted time) and
 cuts it off while re-encoding (ffmpeg, libvpx-vp9 crf 33). Remake with
 `python demo_video.py cr` (ffmpeg on PATH, browser free); `DEMO_DEBUG=1`
-prints the app state after every scripted click.
+prints the app state after every scripted click. The repo ignores `*.webm`
+(rig recordings), so the demo file is tracked with `git add -f` - a remake
+needs that too, or the push carries only the poster and captions (it did,
+once, 2026-10-23).
 
 ---
 
