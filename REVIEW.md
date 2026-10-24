@@ -1081,6 +1081,18 @@ timer: verify with the crash scenarios and the 30-minute run. Accepted:
 a resume has a brief start-up gap (invisible inside a pause); short pauses
 make short parts. With this, Stop & review becomes a once-at-the-end step.
 
+### 51. Bug-report link + a clearer "on" colour for the source toggles — ✓ DONE v1.42 (2026-10-23)
+
+Owner asks after v1.41: (1) a bug-report mechanism, "even if it's just an
+email" — footer "Email Blue" mailto with version + browser in the subject
+and three prompts in the body (guide answer updated); (2) the lit state of
+Screen / Webcam / Mic / Full screen was almost indistinguishable from off
+in the brand colours — now a solid Sky fill with Night slate text (the
+brand's on/selected/save colour; no exception needed). Harness HC; rig
+18.5–18.6; guide screenshots retaken. Open from the same conversation: a
+possible brand-standards note covering Record red and any further "on"
+highlights (owner: hold for now).
+
 ### 47. Chapter marks + chapter sidecar export — ✓ DONE v1.41 (2026-10-23)
 
 **Shipped v1.41** as scoped below: Mark chapter button + M key (page focus

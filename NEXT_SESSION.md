@@ -14,7 +14,15 @@ on PATH, browser free; `DIDAREC_VIDEO` in harness.py records the page at
 1280x1000). Remake it whenever the recorder's look or flow changes, and
 `git add -f` the .webm (the repo ignores *.webm).
 
-**Newest (2026-10-23): v1.41 — chapter marks + sidecar export (#47 DONE).**
+**Newest (2026-10-23): v1.42 — bug-report link + solid Sky "on" toggles (#51 DONE).**
+Harness **224 / 1767** (HC). Footer `#reportLink` is built by `buildReportLink()`
+on load (version + browser in the subject). `.toggle-btn.active` = Sky fill,
+Night slate text. Guide screenshots 01–09 retaken. Open: Blue's blog post
+(theirs); Firefox stays an option (not re-run since v1.28; optional part-4
+re-run too); a brand-standards note for Record red + "on" highlights is ON
+HOLD by owner decision; #44 needs a design conversation first.
+
+**Earlier (2026-10-23): v1.41 — chapter marks + sidecar export (#47 DONE).**
 Harness **223 / 1758** (HA, HB). Marks live on the part's session record
 (`marks`); every streamed save calls `noteSaveTimeline` and every save
 caller `captureChapters()` before deleting sessions — a NEW save path must

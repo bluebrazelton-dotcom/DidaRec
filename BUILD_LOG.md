@@ -2984,6 +2984,37 @@ closes a leftover offer, no marks = no offer). Parts 1–3: part1 59 PASS / 2 HU
 
 **Owner check (real Chrome, local file, 2026-10-23): PASSED** — button and M key marks, greyed while paused, mark after Resume, Stop & save, both chapter files saved and the .txt read back at the marked times.
 
+### v1.42 — Bug-report link + a clearer "on" colour (2026-10-23)
+
+Two owner asks after v1.41. **(1) A bug-report path**: the footer gains
+"Something not working? **Email Blue** — say what you did, what happened,
+and which browser you use." The link is a `mailto:` to the help address;
+`buildReportLink()` (on load) fills the subject with the version and the
+browser ("DidaRec v1.42 problem — Chrome 154 on Windows", via
+`describeBrowser(navigator.userAgent)`: Edge before Chrome, Firefox,
+Safari, else "a browser"; OS from the UA) and the body with three prompts
+(What I did / What happened (what did the page say?) / Browser and
+computer). Nothing is sent until the person sends their email; no network,
+no tracking. The guide's "Who can I ask for help?" answer points at the
+link and repeats the three prompts; the GitHub issues option stays.
+**(2) The source toggles' "on" state** (Screen / Webcam / Mic / Full
+screen) was a Light-slate border + Sky text + 8 % tint, nearly the same as
+"off" in the brand palette. Now "on" is a solid Sky fill with Night slate
+text and icon (`.toggle-btn.active`), the brand's "on / selected / save"
+colour and the Save buttons' look — no brand exception needed; hover on a
+lit toggle is the Save buttons' lighter Sky. The padlock badge is
+unchanged. Change Screen keeps its selected tint (owner may revisit).
+
+**Verification.** Harness **224 scenarios / 1767 assertions** (HC: the
+mailto's address, subject = version + browser, body prompts, UA naming).
+Rig, Chrome: new `s18_report` 18.5 (link text/href/subject/body on the
+real page) and 18.6 (computed colours: lit Mic/Screen background
+rgb(156, 205, 238), text rgb(31, 43, 61), off differs); part 1 run in full: 66 PASS / 2 HUMAN (8.1, 8.2) / 1 SKIP (9.2); parts 2–3 not re-run (no toggle or footer code in their path). Guide
+screenshots 01–09 retaken (`guide_shots.py`, `chapter_shot.py`,
+`help_shot.py`) so the pictures show the new "on" look.
+
+**Owner check (real Chrome, local file, 2026-10-23): PASSED** — toggles clearly lit when on; Email Blue opens a message with the version and browser in the subject.
+
 ---
 
 ## Known limitations
