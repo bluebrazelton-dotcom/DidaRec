@@ -403,6 +403,17 @@
     cursor: not-allowed;
   }
 
+  /* v1.41 (REVIEW #47): Mark chapter — the same neutral look as Pause; greyed while paused. */
+  .btn-mark-chapter {
+    background: var(--border);
+    color: var(--text);
+  }
+  .btn-mark-chapter:hover { background: #4A5D7C; }
+  .btn-mark-chapter:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
   .btn-save {
     background: var(--green);
     color: #1F2B3D;
@@ -900,6 +911,18 @@
     </div>
   </div>
 
+  <!-- Chapter marks (v1.41, REVIEW #47): offered after a save when the video has marks. -->
+  <div class="download-confirm" id="chapterOffer">
+    <h3 id="chapterOfferTitle">Chapter marks in this video</h3>
+    <p>Save the chapter list beside your video, then open it to rename the chapters. The plain-text list pastes straight into a YouTube description; the .vtt file is for video players and course sites.</p>
+    <div class="recovery-actions">
+      <button class="primary btn-save" onclick="exportChapters('txt')">Save chapter list (.txt)</button>
+      <button class="primary btn-save" onclick="exportChapters('vtt')">Save chapters file (.vtt)</button>
+      <button class="primary btn-record" onclick="dismissChapterOffer()">Done</button>
+    </div>
+    <p id="chapterOfferStatus" style="display:none; margin: 0.6rem 0 0;"></p>
+  </div>
+
   <!-- Save needs a click (REVIEW #29: Chrome opens the save dialog only from a click) -->
   <div class="download-confirm" id="saveNeedsClick">
     <h3>Recording stopped &mdash; ready to save</h3>
@@ -996,6 +1019,8 @@
     <div class="action-btns">
       <button class="primary btn-caption-editor" id="btnCaptionEditor" onclick="openCaptionEditor()">Caption editor</button>
       <button class="primary btn-pause" id="btnPause" onclick="pauseResume()" style="display:none;">Pause</button>
+      <!-- v1.41 (REVIEW #47): a chapter mark at this moment; also the M key while this page has focus. -->
+      <button class="primary btn-mark-chapter" id="btnMarkChapter" onclick="markChapter()" title="Mark a chapter here (or press M)" style="display:none;">Mark chapter</button>
       <button class="primary btn-change-screen" id="btnChangeScreen" onclick="changeScreenPaused()" style="display:none;">Change screen</button>
       <!-- Invisible stand-in that holds Change screen's slot while recording
            and unpaused, so the row doesn't reflow on Pause (owner pass Y1). -->
@@ -1148,7 +1173,7 @@
 
 <footer>
   <div>Click "Select Screen" to choose which screen, window, or tab to record. Your browser will show a popup — this is a required security step the app cannot bypass.</div>
-  <div style="margin-top: 0.5rem;">DidaRec <span id="appVersion">v1.40</span> by DidaWorks &middot; Open source &middot; MIT License &middot; No account, no server, no watermark, no time limits</div>
+  <div style="margin-top: 0.5rem;">DidaRec <span id="appVersion">v1.41</span> by DidaWorks &middot; Open source &middot; MIT License &middot; No account, no server, no watermark, no time limits</div>
 </footer>
 
 <script>
@@ -1174,6 +1199,8 @@ const state = {
   partMimeType: null,       // the recording's mimeType, reused by every part
   partChunkBase: 0,         // chunks stored by the parts before the current one (for the counter)
   partStartPromise: null,   // a Resume's startRecorderPart() in flight
+  partStartedAt: null,      // v1.41 (#47): Date.now() when the current part's recorder started — chapter marks are offsets from it
+  chapterCount: 0,          // v1.41 (#47): marks in this recording so far (the button's count)
   replace: null,            // v1.40 (#43 stage 2): { index, oldPart, before, after, chain } while recording a replacement for one part
   micMuted: false,          // REVIEW #34: mic muted mid-recording (while paused); sources.mic stays true
   cameraStream: null,
@@ -4080,7 +4107,7 @@ async function scanSegmentsForStitch(segments, onChunk) {
 
   const plan = buildStitchPlanParts(segScans);
   if (plan.bail) return { bail: plan.bail };
-  return { plan, chunkCount };
+  return { plan, chunkCount, timeline: stitchOffsets(segScans.map((x) => x.scan)) }; // timeline: v1.41 chapter marks
 }
 
 // Above this many total bytes across the segments being previewed, the
@@ -4182,7 +4209,8 @@ async function saveSessionStreamedFSA(source, suggestedName) {
     chunkCount++;
     scanner.push(new Uint8Array(data));
   });
-  const plan = scanner.finish() ? buildStreamIndexParts(scanner.result()) : null;
+  const scan = scanner.finish() ? scanner.result() : null;
+  const plan = scan ? buildStreamIndexParts(scan) : null;
 
   const writable = await handle.createWritable();
   try {
@@ -4219,6 +4247,7 @@ async function saveSessionStreamedFSA(source, suggestedName) {
     try { await writable.abort(); } catch (abortErr) { /* swap file is discarded either way */ }
     throw err;
   }
+  noteSaveTimeline([source], [0], scanContentEndMs(scan), handle.name); // v1.41
   updateStatus('idle', 'Saved successfully');
   return 'saved';
 }
@@ -4240,7 +4269,8 @@ async function saveSessionStreamedDownload(source, suggestedName) {
     chunkBlobs.push(new Blob([data]));
     scanner.push(new Uint8Array(data));
   });
-  const plan = scanner.finish() ? buildStreamIndexParts(scanner.result()) : null;
+  const scan = scanner.finish() ? scanner.result() : null;
+  const plan = scan ? buildStreamIndexParts(scan) : null;
 
   let parts;
   if (plan) {
@@ -4261,6 +4291,7 @@ async function saveSessionStreamedDownload(source, suggestedName) {
   } else {
     parts = chunkBlobs;   // un-indexed: the raw recording, byte for byte
   }
+  noteSaveTimeline([source], [0], scanContentEndMs(scan), suggestedName); // v1.41
   return startDownload(new Blob(parts, { type: source.mimeType || 'video/webm' }), suggestedName);
 }
 
@@ -4351,6 +4382,7 @@ async function saveSessionsStreamedStitch(segments, suggestedName) {
       try { await writable.abort(); } catch (abortErr) { /* swap file is discarded either way */ }
       throw err;
     }
+    noteSaveTimeline(segments, passOne.timeline.offsets, passOne.timeline.endMs, handle.name); // v1.41
     updateStatus('idle', 'Saved successfully');
     return 'saved';
   }
@@ -4393,6 +4425,7 @@ async function saveSessionsStreamedStitch(segments, suggestedName) {
     }
   }
   if (plan.cues) parts.push(plan.cues);
+  noteSaveTimeline(segments, passOne.timeline.offsets, passOne.timeline.endMs, suggestedName); // v1.41
   return startDownload(new Blob(parts, { type: segments[0].mimeType || 'video/webm' }), suggestedName);
 }
 
@@ -4609,6 +4642,251 @@ async function changeScreenPaused() {
 // instant it resumes, stops, or was never a screen recording to begin with
 // (camera-only: state.screenStream is never set for the life of that
 // recording, same signal updateRecordButton already relies on).
+// ============================================================
+// Chapter marks (v1.41, REVIEW #47)
+// ============================================================
+// A mark is a moment in the recording. It is stored on its part's session
+// record (marks: [ms, ...], offsets from the part's start), so it survives a
+// crash with the part and rides the parts model — a deleted, replaced or
+// cut-away part takes its marks with it. Marks are mapped onto the saved
+// video's own clock only at save time, with the stitcher's seam offsets
+// (noteSaveTimeline / captureChapters), then offered as two sidecar files.
+
+function syncMarkChapterButton() {
+  const btn = document.getElementById('btnMarkChapter');
+  btn.style.display = state.recording ? '' : 'none';
+  btn.disabled = !state.recording || !!state.paused;
+  btn.textContent = state.chapterCount > 0 ? `Mark chapter (${state.chapterCount})` : 'Mark chapter';
+}
+
+var chapterFlashTimer = null;
+function markChapter() {
+  if (!state.recording || state.paused || !state.sessionId || !state.partStartedAt) return;
+  const ms = Math.max(0, Date.now() - state.partStartedAt);
+  // Where the mark sits in the whole recording so far — the timer's own clock.
+  const atMs = Math.max(0, Date.now() - (state.startTime || Date.now()) - (state.pausedDuration || 0));
+  state.chapterCount++;
+  const n = state.chapterCount;
+  syncMarkChapterButton();
+  updateStatus('recording', `Chapter mark ${n} added at ${formatKeptMinSec(atMs)}`);
+  if (chapterFlashTimer) clearTimeout(chapterFlashTimer);
+  chapterFlashTimer = setTimeout(() => {
+    chapterFlashTimer = null;
+    if (state.recording && !state.paused) updateStatus('recording', 'Recording');
+  }, 2500);
+  addSessionMark(state.sessionId, ms).catch((err) => {
+    console.error('Could not store the chapter mark:', err);
+    state.chapterCount = Math.max(0, state.chapterCount - 1);
+    syncMarkChapterButton();
+    showError("That chapter mark couldn't be saved. The recording itself is fine.");
+  });
+}
+
+// The M key marks a chapter while this page has the keyboard — a web page
+// cannot hear keys while another window is focused, so this is "mark it when
+// you touch the recorder", never a global hotkey (the guide says so).
+function isTypingTarget(t) {
+  if (!t) return false;
+  const tag = String(t.tagName || '').toUpperCase();
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t.isContentEditable === true;
+}
+if (typeof document.addEventListener === 'function') {
+  document.addEventListener('keydown', (e) => {
+    if (!e || (e.key !== 'm' && e.key !== 'M') || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (isTypingTarget(e.target)) return;
+    if (!state.recording || state.paused) return;
+    if ((typeof reviewState !== 'undefined' && reviewState.active) || (typeof captionEditorState !== 'undefined' && captionEditorState.active)) return;
+    markChapter();
+    if (typeof e.preventDefault === 'function') e.preventDefault();
+  });
+}
+
+// Same read-modify-put shape as setSessionDiscarded. Additive: a session
+// without marks has no `marks` field at all.
+async function addSessionMark(sessionId, ms) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('sessions', 'readwrite');
+    const store = tx.objectStore('sessions');
+    const req = store.get(sessionId);
+    req.onsuccess = () => {
+      const session = req.result;
+      if (session) {
+        session.marks = (Array.isArray(session.marks) ? session.marks : []).concat([Math.round(ms)]);
+        store.put(session);
+      }
+    };
+    tx.oncomplete = () => { db.close(); resolve(); };
+    tx.onerror = () => { db.close(); reject(tx.error); };
+  });
+}
+
+// Marks that would still be in the saved video for these segments (a mark past
+// a re-record cut is not). For the button's running count at Record.
+async function countChapterMarks(segments) {
+  let n = 0;
+  try {
+    for (const seg of segments) {
+      const sess = await getSessionRecord(seg.sessionId);
+      if (!sess || !Array.isArray(sess.marks)) continue;
+      const cut = (typeof sess.cutAtMs === 'number' && isFinite(sess.cutAtMs)) ? sess.cutAtMs : null;
+      n += sess.marks.filter((m) => cut === null || m <= cut).length;
+    }
+  } catch (err) { console.error('Could not count the chapter marks:', err); }
+  return n;
+}
+
+// The timeline of the save that just happened: its segments in file order,
+// each one's offset on the saved video's clock and the video's content end.
+// Every streamed save notes it (noteSaveTimeline) right as the file is
+// written; the save's caller then reads it (captureChapters) BEFORE the
+// sessions are deleted. Offsets use the stitcher's own seam formula
+// (scanSegmentsForStitch / computeCutPlan), so a chapter lands where the
+// seek bar shows that moment.
+var lastSaveTimeline = null;
+function noteSaveTimeline(segments, offsets, endMs, name) {
+  lastSaveTimeline = { segments: segments.map((x) => ({ sessionId: x.sessionId })), offsets, endMs, name: name || null };
+}
+function stitchOffsets(scans) {
+  const offsets = new Array(scans.length);
+  let endMs = 0;
+  for (let i = 0; i < scans.length; i++) {
+    offsets[i] = i === 0 ? 0 : offsets[i - 1] + Math.max(scans[i - 1].lastClusterMaxBlockTime, scans[i - 1].maxClusterTs) + SEAM_GAP_MS;
+    endMs = offsets[i] + scanContentEndMs(scans[i]);
+  }
+  return { offsets, endMs };
+}
+function scanContentEndMs(scan) {
+  if (!scan) return Infinity;
+  const a = Number(scan.lastClusterMaxBlockTime), b = Number(scan.maxClusterTs);
+  const v = Math.max(isFinite(a) ? a : 0, isFinite(b) ? b : 0);
+  return v > 0 ? v : Infinity; // an empty or unreadable scan clamps nothing
+}
+
+var pendingChapters = null; // { name, endMs, chapters: [{ ms, title }] } for the offer box, or null
+async function captureChapters() {
+  const tl = lastSaveTimeline;
+  lastSaveTimeline = null;
+  pendingChapters = null;
+  if (!tl) return null;
+  const times = [];
+  try {
+    for (let i = 0; i < tl.segments.length; i++) {
+      const sess = await getSessionRecord(tl.segments[i].sessionId);
+      if (!sess || !Array.isArray(sess.marks)) continue;
+      const cut = (typeof sess.cutAtMs === 'number' && isFinite(sess.cutAtMs)) ? sess.cutAtMs : null;
+      const off = Number(tl.offsets[i]) || 0;
+      for (const m of sess.marks) {
+        if (typeof m !== 'number' || !isFinite(m) || m < 0) continue;
+        if (cut !== null && m > cut) continue;                 // past a re-record cut: that footage is gone
+        const t = off + m;
+        if (isFinite(tl.endMs) && t >= tl.endMs) continue;      // past the part's real content end
+        times.push(t);
+      }
+    }
+  } catch (err) {
+    console.error('Could not read the chapter marks:', err);
+    return null;
+  }
+  if (times.length === 0) return null;
+  times.sort((a, b) => a - b);
+  pendingChapters = { name: tl.name, endMs: tl.endMs, chapters: times.map((ms, i) => ({ ms, title: 'Chapter ' + (i + 1) })) };
+  showChapterOffer();
+  return pendingChapters;
+}
+
+// 00:00 / 04:12 / 1:02:05 — the form a YouTube description reads.
+function chapterClock(ms) {
+  const total = Math.max(0, Math.round(ms / 1000));
+  const h = Math.floor(total / 3600), m = Math.floor((total % 3600) / 60), sec = total % 60;
+  const mm = String(m).padStart(2, '0'), ss = String(sec).padStart(2, '0');
+  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+// A chapter list starts at the beginning: when the first mark comes later than
+// the first second, a "Start" row opens the list.
+function chapterRows(pc) {
+  const rows = pc.chapters.slice();
+  if (rows.length === 0 || rows[0].ms >= 1000) rows.unshift({ ms: 0, title: 'Start' });
+  return rows;
+}
+function chapterListText(pc) {
+  return chapterRows(pc).map((c) => chapterClock(c.ms) + ' ' + c.title).join('\n') + '\n';
+}
+function chapterVTT(pc) {
+  const rows = chapterRows(pc);
+  const endOf = (i) => {
+    if (i + 1 < rows.length) return rows[i + 1].ms;
+    if (isFinite(pc.endMs) && pc.endMs > rows[i].ms) return pc.endMs;
+    return rows[i].ms + 1000;
+  };
+  const out = ['WEBVTT', ''];
+  rows.forEach((c, i) => {
+    out.push(String(i + 1), formatCaptionTimestamp(c.ms / 1000) + ' --> ' + formatCaptionTimestamp(endOf(i) / 1000), c.title, '');
+  });
+  return out.join('\n');
+}
+function chapterFileName(videoName, ext) {
+  const base = String(videoName || `recording-${formatDateForFilename()}.webm`).replace(/\.[^./\\]+$/, '');
+  return base + '.chapters.' + ext;
+}
+
+function showChapterOffer() {
+  const pc = pendingChapters;
+  if (!pc) return;
+  const n = pc.chapters.length;
+  document.getElementById('chapterOfferTitle').textContent = n === 1 ? '1 chapter mark in this video' : `${n} chapter marks in this video`;
+  const st = document.getElementById('chapterOfferStatus');
+  st.textContent = ''; st.style.display = 'none';
+  document.getElementById('chapterOffer').classList.add('visible');
+}
+function dismissChapterOffer() {
+  pendingChapters = null;
+  document.getElementById('chapterOffer').classList.remove('visible');
+}
+// Save the chapter list (.txt, a YouTube-description list) or the chapters
+// file (.vtt). The same picker-or-download fork the captions export uses.
+async function exportChapters(format) {
+  const pc = pendingChapters;
+  if (!pc) return 'none';
+  const ext = format === 'vtt' ? 'vtt' : 'txt';
+  const text = ext === 'vtt' ? chapterVTT(pc) : chapterListText(pc);
+  const mime = ext === 'vtt' ? 'text/vtt' : 'text/plain';
+  const suggestedName = chapterFileName(pc.name, ext);
+  const st = document.getElementById('chapterOfferStatus');
+  const note = (msg) => { st.textContent = msg; st.style.display = ''; };
+  const blob = new Blob([text], { type: mime });
+  if ('showSaveFilePicker' in window) {
+    let handle;
+    try {
+      handle = await window.showSaveFilePicker({
+        suggestedName,
+        types: [{ description: ext === 'vtt' ? 'WebVTT chapters' : 'Chapter list', accept: { [mime]: ['.' + ext] } }],
+      });
+    } catch (err) {
+      if (err && err.name === 'AbortError') { note('Save cancelled — the chapter marks are still here.'); return 'cancelled'; }
+      console.error('Chapter export failed:', err);
+      note("Couldn't open the save window. Try the button again.");
+      return 'error';
+    }
+    try {
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      note(ext === 'vtt'
+        ? 'Chapters file saved. Keep it in the same folder as your video.'
+        : 'Chapter list saved. Open it to rename the chapters, or paste it into a video description.');
+      return 'saved';
+    } catch (err) {
+      console.error('Chapter export failed:', err);
+      note("Couldn't save the chapters file. Try again.");
+      return 'error';
+    }
+  }
+  startDownload(blob, suggestedName);
+  note('The chapters file was sent to the browser as a download.');
+  return 'downloaded';
+}
+
 function updateChangeScreenVisibility() {
   document.getElementById('btnChangeScreen').style.display =
     (state.recording && state.paused && !!state.screenStream) ? '' : 'none';
@@ -4616,6 +4894,7 @@ function updateChangeScreenVisibility() {
   // appear on Pause, so the row is the same width either way.
   document.getElementById('changeScreenSpacer').style.display =
     (state.recording && !state.paused && !!state.screenStream) ? '' : 'none';
+  syncMarkChapterButton(); // v1.41: Mark chapter follows the same pause state
 }
 
 function updateRecordButton() {
@@ -4834,6 +5113,7 @@ async function startRecording() {
   const btnRecord = document.getElementById('btnRecord');
   btnRecord.disabled = true;
   btnRecord.textContent = 'Starting...';
+  dismissChapterOffer(); // v1.41: the last video's chapter offer is over once a new recording starts
   if (backgroundCleanupsRunning > 0) {
     // REVIEW #31
     recordWaitingOnCleanup = true;
@@ -4927,9 +5207,16 @@ async function startRecording() {
     document.getElementById('placeholder').classList.add('hidden');
     btnRecord.style.display = 'none';
     document.getElementById('btnSelectScreen').style.display = 'none';
+    // v1.41: the caption editor can't open while recording (openCaptionEditor
+    // refuses), and the row needs its room for Mark chapter — so it steps out
+    // until the recording ends (resetUI brings it back).
+    document.getElementById('btnCaptionEditor').style.display = 'none';
     document.getElementById('btnStop').style.display = '';
     document.getElementById('btnStopReview').style.display = '';
     document.getElementById('btnPause').style.display = '';
+    // v1.41 (#47): marks already in the kept parts count on from where they left off.
+    state.chapterCount = await countChapterMarks([...state.priorSegments, ...replaceAfterParts()]);
+    syncMarkChapterButton();
     // REVIEW #21 session 2: the one-click "Undo re-record" affordance is
     // session-local to the armed idle state a cut lands in — the tail bytes
     // it could restore stay intact, but the UI shortcut goes away the moment
@@ -5076,6 +5363,7 @@ async function startRecorderPart() {
 
   // Start recording with 1-second timeslice
   recorder.start(1000);
+  state.partStartedAt = Date.now(); // v1.41 (#47): the clock a chapter mark in this part is measured from
   state.mediaRecorder = recorder;
 
   // H/C/F — fresh watchdog state for this recording (STATE HYGIENE: every
@@ -5415,9 +5703,11 @@ async function saveStoppedRecording(sessionMimeType) {
     // Single segment: streamed save. Only delete the session on a CONFIRMED save.
     const result = await saveFile({ kind: 'session', sessionId: state.sessionId, mimeType: sessionMimeType });
     if (result === 'saved') {
+      await captureChapters(); // v1.41: read the marks before the session is deleted
       await deleteSession(state.sessionId);
       await deleteDiscardedSessions(); // sweep any soft-deleted siblings from an earlier review-pane cut
     } else if (result === 'downloaded') {
+      await captureChapters(); // v1.41
       offerDownloadConfirm([state.sessionId], 1);
     } else {
       showError(SAVE_CANCELLED_KEPT);
@@ -5542,6 +5832,7 @@ async function stitchAndSave(currentMimeType) {
     }
 
     if (result === 'saved') {
+      await captureChapters(); // v1.41: read the marks before the parts are deleted
       // Only delete once the stitched file is confirmed on disk.
       for (const seg of state.priorSegments) {
         await deleteSession(seg.sessionId);
@@ -5551,6 +5842,7 @@ async function stitchAndSave(currentMimeType) {
       await deleteDiscardedSessions(); // sweep any soft-deleted siblings from an earlier review-pane cut (and a replaced part)
       state.priorSegments = [];
     } else if (result === 'downloaded') {
+      await captureChapters(); // v1.41
       offerDownloadConfirm([...state.priorSegments.map(s => s.sessionId), state.sessionId, ...replaceAfterParts().map(s => s.sessionId)], 1);
     } else {
       showError(SAVE_CANCELLED_KEPT);
@@ -5935,10 +6227,12 @@ async function recoverRecording() {
       // CONFIRMED save.
       const result = await saveFile({ kind: 'session', sessionId: segments[0].id, mimeType: segments[0].mimeType });
       if (result === 'saved') {
+        await captureChapters(); // v1.41: a recovered video keeps its chapter marks
         await deleteSession(segments[0].id);
         await deleteDiscardedSessions(); // sweep any soft-deleted siblings from an earlier review-pane cut
         recoveryResolved();
       } else if (result === 'downloaded') {
+        await captureChapters(); // v1.41
         offerDownloadConfirm([segments[0].id], 1);
       } else {
         showError(saveCancelledNote());
@@ -5954,12 +6248,14 @@ async function recoverRecording() {
     const result = await saveSessionsStreamedStitch(stitchSegs);
 
     if (result === 'saved') {
+      await captureChapters(); // v1.41
       for (const s of segments) await deleteSession(s.id);
       await deleteDiscardedSessions(); // sweep any soft-deleted siblings from an earlier review-pane cut
       recoveryResolved();
       return;
     }
     if (result === 'downloaded') {
+      await captureChapters(); // v1.41
       offerDownloadConfirm(segments.map(s => s.id), 1);
       return;
     }
@@ -6135,6 +6431,9 @@ function resetUI() {
   document.getElementById('btnPause').style.display = 'none';
   document.getElementById('btnPause').textContent = 'Pause';
   document.getElementById('btnPause').classList.remove('resume');
+  document.getElementById('btnMarkChapter').style.display = 'none'; // v1.41
+  document.getElementById('btnCaptionEditor').style.display = '';   // v1.41: back once idle
+  state.partStartedAt = null;
   document.getElementById('changeScreenSpacer').style.display = 'none';
   document.getElementById('btnChangeScreen').style.display = 'none';
   document.getElementById('btnChangeScreen').disabled = false;
@@ -8066,6 +8365,7 @@ async function reviewSaveAsIs() {
     }
 
     if (result === 'saved') {
+      await captureChapters(); // v1.41: read the marks before the parts are deleted
       for (const seg of segments) await deleteSession(seg.sessionId);
       await deleteDiscardedSessions();
       state.priorSegments = [];
@@ -8074,6 +8374,7 @@ async function reviewSaveAsIs() {
       closeReviewPane();
       resetUI();
     } else if (result === 'downloaded') {
+      await captureChapters(); // v1.41
       offerDownloadConfirm(segments.map(s => s.sessionId), 1);
       releaseSources();
       closeReviewPane();
