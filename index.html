@@ -31,6 +31,11 @@
     --green: #9CCDEE;         /* Sky: on, selected, save */
     --green-dim: #6F84A3;     /* Light slate: Sky borders */
     --yellow: #E0997A;        /* paused / kept: terracotta on dark */
+    /* Record red (owner, 2026-10-23): the one colour outside the brand palette,
+       because red = record is a convention people already know. Parchment/white
+       text on it is 5.3:1. Used for Record, Resume recording and the live dot only. */
+    --record: #C62828;
+    --record-hover: #D93025;
     --radius: 8px;
   }
 
@@ -169,7 +174,7 @@
   }
 
   .status-dot.recording {
-    background: var(--accent);
+    background: var(--record);
     animation: pulse 1.5s ease-in-out infinite;
   }
 
@@ -342,10 +347,10 @@
   }
 
   .btn-record {
-    background: var(--accent);
+    background: var(--record);
     color: white;
   }
-  .btn-record:hover { background: var(--accent-hover); }
+  .btn-record:hover { background: var(--record-hover); }
   .btn-record:disabled {
     opacity: 0.4;
     cursor: not-allowed;
@@ -381,10 +386,10 @@
   }
   /* Paused: resuming is the main action — same red as Record. */
   .btn-pause.resume {
-    background: var(--accent);
+    background: var(--record);
     color: white;
   }
-  .btn-pause.resume:hover { background: var(--accent-hover); }
+  .btn-pause.resume:hover { background: var(--record-hover); }
 
   /* REVIEW #23: paused-only screen swap — same neutral look as its neighbor
      Pause/Resume, since it's part of the same "while paused" control cluster. */
@@ -876,6 +881,16 @@
   </div>
 
   <!-- Stitch fallback (combining segments failed; offer separate files instead) -->
+  <!-- Replacing one part (v1.40, #43 stage 2): shown from the Replace click until the
+       replacement is stopped; Cancel is offered only before Record. -->
+  <div class="download-confirm" id="replaceBanner">
+    <h3 id="replaceTitle">Replacing Part 2</h3>
+    <p>Select a screen if you need to, then click Record. The new recording goes in this part's place; if you pause, the extra parts go there too.</p>
+    <div class="recovery-actions">
+      <button class="primary btn-record" id="btnCancelReplace" onclick="cancelReplacement()">Cancel replacement</button>
+    </div>
+  </div>
+
   <div class="download-confirm" id="stitchFallback">
     <h3>Couldn't join the parts into one video</h3>
     <p>Your video was recorded in parts, and they couldn't be joined. Save each part as its own file instead?</p>
@@ -1103,6 +1118,7 @@
         <h3>Parts of this video</h3>
         <span class="review-parts-total" id="reviewPartsTotal"></span>
         <button class="btn-restore-parts" id="btnRestoreParts" onclick="reviewRestoreParts()" style="display:none;">Restore all parts</button>
+        <button class="btn-restore-parts" id="btnUndoReplacement" onclick="reviewUndoReplacement()" style="display:none;">Undo replacement</button>
       </div>
       <div class="review-parts-list" id="reviewPartsList" role="list"></div>
     </div>
@@ -1132,7 +1148,7 @@
 
 <footer>
   <div>Click "Select Screen" to choose which screen, window, or tab to record. Your browser will show a popup — this is a required security step the app cannot bypass.</div>
-  <div style="margin-top: 0.5rem;">DidaRec <span id="appVersion">v1.39</span> by DidaWorks &middot; Open source &middot; MIT License &middot; No account, no server, no watermark, no time limits</div>
+  <div style="margin-top: 0.5rem;">DidaRec <span id="appVersion">v1.40</span> by DidaWorks &middot; Open source &middot; MIT License &middot; No account, no server, no watermark, no time limits</div>
 </footer>
 
 <script>
@@ -1158,6 +1174,7 @@ const state = {
   partMimeType: null,       // the recording's mimeType, reused by every part
   partChunkBase: 0,         // chunks stored by the parts before the current one (for the counter)
   partStartPromise: null,   // a Resume's startRecorderPart() in flight
+  replace: null,            // v1.40 (#43 stage 2): { index, oldPart, before, after, chain } while recording a replacement for one part
   micMuted: false,          // REVIEW #34: mic muted mid-recording (while paused); sources.mic stays true
   cameraStream: null,
   audioContext: null,
@@ -4922,6 +4939,7 @@ async function startRecording() {
     // The "Recording kept — not saved yet" banner's footage is now part of
     // this recording's chain; it will be saved with it.
     if (recoveryKeptMode) document.getElementById('recoveryBanner').classList.remove('visible');
+    updateReplaceBanner(); // v1.40: the strip stays as a reminder, Cancel goes away
     updateChangeScreenVisibility(); // reserves Change screen's slot from the first frame
     updateToggleUI();
     updateStatus('recording', 'Recording');
@@ -5314,12 +5332,27 @@ async function finalizeRecording() {
       return;
     }
 
+    // v1.40: a replacement just ended — the replaced part leaves the video
+    // (soft-deleted, like a deleted part; a save sweeps it, Undo replacement
+    // brings it back) and the parts after it follow the new recording.
+    const rep = state.replace;
+    if (rep) await setSessionDiscarded(rep.oldPart.sessionId, true);
+
     if (stopMode === 'review') {
       // Stop & review: do NOT save, complete, or delete anything — the
       // session stays completed:false so a crash during review still hits
       // the recovery banner. openReviewPane assembles the scrub preview
-      // from priorSegments + the just-stopped session, in order.
-      await openReviewPane([...state.priorSegments, { sessionId: state.sessionId, mimeType: sessionMimeType }]);
+      // from priorSegments + the just-stopped session (+ a replacement's
+      // trailing parts), in order.
+      const current = { sessionId: state.sessionId, mimeType: sessionMimeType };
+      await openReviewPane([...state.priorSegments, current, ...replaceAfterParts()]);
+      if (rep && reviewState.active) {
+        reviewState.replacement = {
+          index: rep.index, oldPart: rep.oldPart, before: rep.before, after: rep.after,
+          newIds: [...state.priorSegments.slice(rep.before.length).map((s) => s.sessionId), current.sessionId],
+        };
+        renderReviewParts();
+      }
       return;
     }
 
@@ -5350,6 +5383,7 @@ async function finalizeRecording() {
       keepAfter = true;
     }
   } finally {
+    state.replace = null; // a replacement is over once its recording stopped, whatever happened to the save
     // v1.37: Stop & review keeps the screen and webcam, so Back to recorder
     // (and a re-record cut) can go straight to Record.
     cleanupStreams({ keepSources: stopMode === 'review' });
@@ -5365,8 +5399,14 @@ async function finalizeRecording() {
 // between a stop and that click because startRecording refuses to run while a
 // save is pending. Returns true when the save was cancelled, so the caller can
 // offer the video as a kept recording (v1.32).
+// v1.40: the parts that come AFTER a replacement's position (empty unless a
+// replacement is being recorded). Every chain built at a stop appends them.
+function replaceAfterParts() {
+  return state.replace ? state.replace.after : [];
+}
+
 async function saveStoppedRecording(sessionMimeType) {
-  if (state.priorSegments.length > 0) {
+  if (state.priorSegments.length > 0 || replaceAfterParts().length > 0) {
     // Multi-segment: streamed stitch of prior segments + current into one
     // file (Known Limitation #1, closed in v1.13 — this used to buffer
     // every segment; see saveSessionsStreamedStitch).
@@ -5476,15 +5516,20 @@ async function stitchAndSave(currentMimeType) {
     for (const seg of state.priorSegments) {
       if ((await sessionChunkStats(seg.sessionId)).count > 0) priorsWithData.push(seg);
     }
+    // v1.40: a replacement's trailing parts come after the new recording.
+    const afterWithData = [];
+    for (const seg of replaceAfterParts()) {
+      if ((await sessionChunkStats(seg.sessionId)).count > 0) afterWithData.push(seg);
+    }
 
     let result;
-    if (priorsWithData.length === 0) {
-      // Only the current recording has data — stream it directly.
+    if (priorsWithData.length === 0 && afterWithData.length === 0) {
       result = await saveFile({ kind: 'session', sessionId: state.sessionId, mimeType: currentMimeType });
     } else {
       const currentHasData = (await sessionChunkStats(state.sessionId)).count > 0;
       const segments = priorsWithData.slice();
       if (currentHasData) segments.push({ sessionId: state.sessionId, mimeType: currentMimeType });
+      for (const seg of afterWithData) segments.push(seg);
 
       result = segments.length === 1
         ? await saveFile({ kind: 'session', sessionId: segments[0].sessionId, mimeType: segments[0].mimeType })
@@ -5502,11 +5547,11 @@ async function stitchAndSave(currentMimeType) {
         await deleteSession(seg.sessionId);
       }
       await deleteSession(state.sessionId);
-      await deleteDiscardedSessions(); // sweep any soft-deleted siblings from an earlier review-pane cut
+      for (const seg of replaceAfterParts()) await deleteSession(seg.sessionId);
+      await deleteDiscardedSessions(); // sweep any soft-deleted siblings from an earlier review-pane cut (and a replaced part)
       state.priorSegments = [];
     } else if (result === 'downloaded') {
-      // Keep every session until the user confirms the download arrived.
-      offerDownloadConfirm([...state.priorSegments.map(s => s.sessionId), state.sessionId], 1);
+      offerDownloadConfirm([...state.priorSegments.map(s => s.sessionId), state.sessionId, ...replaceAfterParts().map(s => s.sessionId)], 1);
     } else {
       showError(SAVE_CANCELLED_KEPT);
       return true; // cancelled — the caller offers it as a kept recording
@@ -5517,7 +5562,7 @@ async function stitchAndSave(currentMimeType) {
     // caller offer the "Save recording" button instead of separate parts.
     if (isSaveDialogBlocked(err)) throw err;
     console.error('Stitching failed:', err);
-    const segments = [...state.priorSegments, { sessionId: state.sessionId, mimeType: currentMimeType }];
+    const segments = [...state.priorSegments, { sessionId: state.sessionId, mimeType: currentMimeType }, ...replaceAfterParts()];
     offerStitchFallback(segments);
   }
 }
@@ -6104,7 +6149,10 @@ function resetUI() {
   // syncs screen mode, the placeholder text, the toggles and Record).
   refreshIdlePreview();
   // Show segment indicator if continuing a recording
-  if (state.priorSegments.length > 0) {
+  updateReplaceBanner();
+  if (state.replace) {
+    updateStatus('idle', `Recording a replacement for Part ${state.replace.index + 1}. Click Record when you're ready.`);
+  } else if (state.priorSegments.length > 0) {
     updateStatus('idle', KEPT_STATUS);
   } else {
     updateStatus('idle', 'Ready');
@@ -7307,11 +7355,12 @@ function reviewPartsModel() {
   const rows = segs.map((seg, i) => {
     const ms = known ? reviewDurationMs([scans[i]]) : null;
     const name = 'Part ' + (i + 1);
+    const isNew = !!(reviewState.replacement && reviewState.replacement.newIds.includes(seg.sessionId));
     return {
       index: i,
       sessionId: seg.sessionId,
       name,
-      label: ms === null ? name : name + ' — ' + formatKeptMinSec(ms),
+      label: (ms === null ? name : name + ' — ' + formatKeptMinSec(ms)) + (isNew ? ' (replacement)' : ''),
       newest: n > 1 && i === n - 1,
       playing: reviewState.playingPart === i,
       canDelete: n > 1,
@@ -7323,6 +7372,7 @@ function reviewPartsModel() {
     show: n >= 2 || reviewState.removedIds.length > 0,
     totalLabel: totalMs === null ? '' : 'Whole video — ' + formatKeptMinSec(totalMs),
     canRestore: reviewState.removedIds.length > 0,
+    canUndoReplacement: !!reviewState.replacement,
     playingName: reviewState.playingPart != null && rows[reviewState.playingPart] ? rows[reviewState.playingPart].name : null,
     busy: !!(reviewState.partsBusy || reviewState.saving),
   };
@@ -7334,6 +7384,8 @@ function renderReviewParts() {
   document.getElementById('reviewPartsTotal').textContent = model.totalLabel;
   document.getElementById('btnRestoreParts').style.display = model.canRestore ? '' : 'none';
   document.getElementById('btnRestoreParts').disabled = model.busy;
+  document.getElementById('btnUndoReplacement').style.display = model.canUndoReplacement ? '' : 'none';
+  document.getElementById('btnUndoReplacement').disabled = model.busy;
   const dis = model.busy ? ' disabled' : '';
   document.getElementById('reviewPartsList').innerHTML = model.rows.map((r) =>
     `<div class="review-part-row${r.playing ? ' playing' : ''}" role="listitem">` +
@@ -7341,6 +7393,7 @@ function renderReviewParts() {
       (r.newest ? '<span class="review-part-badge">Newest</span>' : '') +
       '<span class="review-part-actions">' +
         `<button class="btn-part" onclick="reviewPlayPart(${r.index})" aria-label="Play ${r.name} on its own"${dis}>${r.playing ? 'Playing' : 'Play'}</button>` +
+        `<button class="btn-part" onclick="reviewReplacePart(${r.index})" aria-label="Replace ${r.name} with a new recording"${dis}>Replace</button>` +
         (r.canDelete ? `<button class="btn-part danger" onclick="requestReviewPartRemove(${r.index})" aria-label="Delete ${r.name}"${dis}>Delete</button>` : '') +
       '</span>' +
     '</div>').join('');
@@ -7387,6 +7440,8 @@ function syncReviewCutControls() {
 function resetReviewPartsState() {
   reviewState.entrySegments = [];
   reviewState.removedIds = [];
+  reviewState.replacement = null; // v1.40: an Undo replacement offer lives only in the pane it opened in
+  document.getElementById('btnUndoReplacement').style.display = 'none';
   reviewState.playingPart = null;
   reviewState.pendingRemoveId = null;
   reviewState.partsBusy = false;
@@ -7479,6 +7534,103 @@ function reviewShowWhole() {
   renderReviewParts();
   syncReviewCutControls();
   onReviewVideoTimeUpdate();
+}
+
+// ============================================================
+// Replace a part (v1.40, REVIEW #43 stage 2)
+//
+// "Replace" on a part's row closes the review and puts the recorder into
+// replacing mode: the parts BEFORE position k become priorSegments (the
+// ordinary "kept footage" the next recording continues), the parts AFTER it
+// are remembered in state.replace.after and appended by every chain built
+// at the stop (review, save, stitch fallback). The recording itself is an
+// ordinary recording — pauses make parts, all of which slot in at k. When
+// it stops, the replaced part is soft-deleted (same flag as a deleted
+// part) and the review page that opens offers one Undo replacement.
+// Documented limit: a crash mid-replacement recovers the new recording as
+// the LAST part (recovery orders parts by when they were recorded).
+// ============================================================
+function reviewReplacePart(index) {
+  if (reviewPartsBusyNote() || reviewInPartMode()) return;
+  const chain = reviewState.segments.slice();
+  const part = chain[index];
+  if (!part) return;
+  state.replace = { index, oldPart: part, before: chain.slice(0, index), after: chain.slice(index + 1), chain };
+  state.priorSegments = chain.slice(0, index);
+  reviewState.undo = null;
+  closeReviewPane();
+  resetUI();
+}
+
+function updateReplaceBanner() {
+  const strip = document.getElementById('replaceBanner');
+  const on = !!state.replace;
+  strip.classList.toggle('visible', on);
+  if (on) {
+    document.getElementById('replaceTitle').textContent = `Replacing Part ${state.replace.index + 1}`;
+    document.getElementById('btnCancelReplace').style.display = state.recording ? 'none' : '';
+  }
+}
+
+// Before Record only: back to the review page with nothing changed.
+async function cancelReplacement() {
+  const rep = state.replace;
+  if (!rep || state.recording) return;
+  state.replace = null;
+  state.priorSegments = [];
+  updateReplaceBanner();
+  showError('');
+  await openReviewPane(rep.chain);
+}
+
+// Undo replacement: the old part comes back where it was and the new
+// recording leaves (soft-deleted, swept by the next save). Same rebuild →
+// flag → commit order as delete and restore; afterwards this chain is the
+// pane's new baseline (Restore all parts returns to it, not to the
+// replacement).
+async function reviewUndoReplacement() {
+  const r = reviewState.replacement;
+  if (!r || reviewState.partsBusy || reviewState.saving) return;
+  const paneChain = reviewState.segments;
+  const chain = [...r.before, r.oldPart, ...r.after];
+  const prev = { scans: reviewState.scans, scansOk: reviewState.scansOk };
+  const samePane = () => reviewState.active && reviewState.segments === paneChain;
+  const flagged = [];
+  let unflaggedOld = false;
+  const putBack = async () => {
+    if (unflaggedOld) { try { await setSessionDiscarded(r.oldPart.sessionId, true); } catch (e) { console.error(e); } }
+    for (const id of flagged) { try { await setSessionDiscarded(id, false); } catch (e) { console.error(e); } }
+  };
+  reviewState.partsBusy = true;
+  renderReviewParts();
+  syncReviewCutControls();
+  reviewSetStatus('Putting the old part back…');
+  try {
+    const blob = await assembleReviewPreview(chain);
+    if (!samePane()) return;
+    await setSessionDiscarded(r.oldPart.sessionId, false); unflaggedOld = true;
+    for (const id of r.newIds) { await setSessionDiscarded(id, true); flagged.push(id); }
+    if (!samePane()) { await putBack(); return; }
+    reviewState.replacement = null;
+    reviewState.entrySegments = chain.slice();
+    reviewState.removedIds = [];
+    commitReviewChain(chain, blob);
+    reviewSetStatus(`Part ${r.index + 1} is back as it was. The replacement recording was removed.` + (reviewState.scansOk ? '' : ' ' + REVIEW_SCAN_UNAVAILABLE));
+  } catch (err) {
+    console.error('Undo replacement failed:', err);
+    if (samePane()) {
+      reviewState.scans = prev.scans;
+      reviewState.scansOk = prev.scansOk;
+      await putBack();
+      reviewSetStatus("Couldn't undo the replacement. Your video is unchanged — try again.");
+    }
+  } finally {
+    if (reviewState.active) {
+      reviewState.partsBusy = false;
+      renderReviewParts();
+      syncReviewCutControls();
+    }
+  }
 }
 
 function showReviewPartConfirm(message, buttonLabel) {

@@ -340,6 +340,7 @@ async function resetState() {
   // v1.29: Stop-sharing pause flag, kept-recording banner mode, paused-row layout bits.
   state.screenLost = false;
   state.micMuted = false; sandbox.pausedCameraBusy = false; // REVIEW #34
+  state.replace = null; documentMock.getElementById('replaceBanner').classList.remove('visible'); // v1.40
   sandbox.setRecoveryBannerMode(false);
   documentMock.getElementById('btnPause').classList.remove('resume');
   documentMock.getElementById('changeScreenSpacer').style.display = 'none';
@@ -440,6 +441,7 @@ async function resetState() {
 let passed = 0, failed = 0;
 function assert(cond, msg) { if (cond) { passed++; } else { failed++; console.log('  ✗ ' + msg); } }
 async function scenario(name, fn) {
+  if (process.env.ONLY && !name.startsWith(process.env.ONLY)) return; // run a subset: ONLY=GZ node test.cjs
   await resetState();
   process.stdout.write('• ' + name + '\n');
   try { await fn(); } catch (e) { failed++; console.log('  ✗ threw: ' + (e && e.stack || e)); }
@@ -6748,6 +6750,121 @@ Real cue text
     await drain();
   });
 
+  // ---------- v1.40 (REVIEW #43 stage 2): replace a part ----------
+  const recordNewPart = async () => {
+    state.sources = { screen: true, camera: false, mic: false };
+    const st = makeEndedCapableTrack('video', 'scr-rp');
+    const screen = makeStream([st]);
+    state.screenStream = screen; S.wireScreenEndedListener(screen);
+    await api.startRecording();
+    await api.addChunk(state.sessionId, 0, new Blob([syntheticWebm()])); state.chunkIndex = 1;
+    return state.sessionId;
+  };
+  const ids_ = () => api.reviewState.segments.map((x) => x.sessionId);
+  // A stop finalizes through several storage round trips; wait for it to land (state.replace clears in finalize's finally).
+  const settle = async () => { for (let i = 0; i < 300 && (state.replace || state.recording || api.reviewState.partsBusy); i++) await drain(); };
+  const flagsOf = async () => { const rows = await readStore('sessions'); const m = {}; for (const r of rows) m[r.id] = r; return m; };
+
+  await scenario('GY replace a middle part: Replace closes the review into replacing mode (strip + Cancel, parts before it kept, parts after it remembered); Cancel returns with nothing changed; recording then Stop & review puts the new part in its place, flags the old one, labels it, and Undo replacement puts everything back', async () => {
+    const u = installUniqueUrls();
+    try {
+      const { ids } = await openParts([syntheticWebm(), nClusterWebm(5), nClusterWebm(12)]);
+      const [A, B, C] = ids;
+      S.reviewReplacePart(1);
+      assert(api.reviewState.active === false && state.replace && state.replace.index === 1 && state.replace.oldPart.sessionId === B, 'GY: replacing mode for Part 2');
+      assert(state.priorSegments.map((x) => x.sessionId).join() === A && state.replace.after.map((x) => x.sessionId).join() === C, 'GY: parts before are kept, parts after remembered');
+      assert(el29('replaceBanner').classList.contains('visible') && /Replacing Part 2/.test(el29('replaceTitle').textContent) && el29('btnCancelReplace').style.display === '', 'GY: the strip names the part and offers Cancel');
+      assert(/replacement for Part 2/.test(statusHistory[statusHistory.length - 1]), 'GY: status says what to do (got ' + statusHistory[statusHistory.length - 1] + ')');
+
+      await S.cancelReplacement();
+      await drain();
+      assert(state.replace === null && state.priorSegments.length === 0 && !el29('replaceBanner').classList.contains('visible'), 'GY: Cancel clears replacing mode');
+      assert(api.reviewState.active === true && ids_().join() === [A, B, C].join(), 'GY: back on the review with the same three parts');
+      const flagsBefore = await flagsOf();
+      assert(!flagsBefore[B].discarded, 'GY: nothing was flagged by a cancelled replacement');
+
+      S.reviewReplacePart(1);
+      const N = await recordNewPart();
+      assert(el29('btnCancelReplace').style.display === 'none' && el29('replaceBanner').classList.contains('visible'), 'GY: while recording the strip stays, Cancel is gone');
+      state.stopMode = 'review';
+      await sandbox.stopRecording();
+      await settle();
+      assert(api.reviewState.active === true && ids_().join() === [A, N, C].join(), 'GY: the new part sits where Part 2 was (got ' + JSON.stringify(ids_()) + ')');
+      assert(state.replace === null && !el29('replaceBanner').classList.contains('visible'), 'GY: replacing mode is over');
+      const flags = await flagsOf();
+      assert(flags[B].discarded === true && !flags[N].discarded, 'GY: the old part is flagged, the new one is not');
+      const m = S.reviewPartsModel();
+      assert(/\(replacement\)$/.test(m.rows[1].label) && !/replacement/.test(m.rows[0].label), 'GY: the new part is labelled (got ' + m.rows.map((r) => r.label).join(' | ') + ')');
+      assert(el29('btnUndoReplacement').style.display === '', 'GY: Undo replacement is offered');
+
+      await S.reviewUndoReplacement();
+      await drain();
+      assert(ids_().join() === [A, B, C].join(), 'GY: Undo put the old part back in place (got ' + JSON.stringify(ids_()) + ')');
+      const flags2 = await flagsOf();
+      assert(!flags2[B].discarded && flags2[N].discarded === true, 'GY: old part un-flagged, replacement flagged');
+      assert(el29('btnUndoReplacement').style.display === 'none' && api.reviewState.replacement === null, 'GY: one undo only');
+      assert(api.reviewState.entrySegments.map((x) => x.sessionId).join() === [A, B, C].join() && api.reviewState.removedIds.length === 0, 'GY: the undone chain is the pane\'s new baseline');
+    } finally { u.restore(); }
+  });
+
+  await scenario('GZ replace the first and the last part; a pause inside a replacement makes two parts that both slot in; Stop & save from replacing mode saves the chain with the replacement in place and sweeps the old part', async () => {
+    const u = installUniqueUrls();
+    let stitchArgs = null;
+    const origStitch = sandbox.saveSessionsStreamedStitch;
+    sandbox.saveSessionsStreamedStitch = async (segs, name) => { stitchArgs = segs.map((x) => x.sessionId); return origStitch(segs, name); };
+    try {
+      // first part, with a pause inside the replacement
+      let { ids } = await openParts([syntheticWebm(), nClusterWebm(5), nClusterWebm(12)]);
+      let [A, B, C] = ids;
+      S.reviewReplacePart(0);
+      assert(state.priorSegments.length === 0 && state.replace.after.map((x) => x.sessionId).join() === [B, C].join(), 'GZ: replacing Part 1 keeps nothing before, remembers both after');
+      const N1 = await recordNewPart();
+      sandbox.pauseResume(); await drain();
+      sandbox.pauseResume(); await drain();
+      const N2 = state.sessionId;
+      await api.addChunk(N2, 0, new Blob([syntheticWebm()])); state.chunkIndex = 1;
+      assert(N2 !== N1 && state.priorSegments.map((x) => x.sessionId).join() === N1, 'GZ precondition: the pause made a second new part');
+      state.stopMode = 'review';
+      await sandbox.stopRecording();
+      await settle();
+      assert(ids_().join() === [N1, N2, B, C].join(), 'GZ: both new parts sit where Part 1 was (got ' + JSON.stringify(ids_()) + ')');
+      const m = S.reviewPartsModel();
+      assert(/replacement/.test(m.rows[0].label) && /replacement/.test(m.rows[1].label) && !/replacement/.test(m.rows[2].label), 'GZ: both new parts are labelled (got ' + m.rows.map((r) => r.label).join(' | ') + ' ; ids ' + JSON.stringify(ids_()) + ' newIds ' + JSON.stringify(api.reviewState.replacement && api.reviewState.replacement.newIds) + ')');
+      assert((await flagsOf())[A].discarded === true, 'GZ: the old first part is flagged');
+      S.closeReviewPane(); S.resetUI();
+
+      // last part, then Stop & save straight from replacing mode
+      await resetState();
+      ({ ids } = await openParts([syntheticWebm(), nClusterWebm(5), nClusterWebm(12)]));
+      [A, B, C] = ids;
+      S.reviewReplacePart(2);
+      assert(state.priorSegments.map((x) => x.sessionId).join() === [A, B].join() && state.replace.after.length === 0, 'GZ: replacing the last part keeps both before, nothing after');
+      const N3 = await recordNewPart();
+      windowMock.showSaveFilePicker = pickerSequence(['ok']);
+      state.stopMode = 'save';
+      await sandbox.stopRecording();
+      await settle();
+      assert(stitchArgs && stitchArgs.join() === [A, B, N3].join(), 'GZ: Stop & save joined the parts with the replacement in place (got ' + JSON.stringify(stitchArgs) + ')');
+      assert(lastWritten.length === 1, 'GZ: one file written');
+      const left = await readStore('sessions');
+      assert(left.length === 0, 'GZ: every part incl. the replaced one is gone after the confirmed save (got ' + left.length + ')');
+      assert(state.replace === null && state.priorSegments.length === 0, 'GZ: clean idle');
+
+      // replacement into a middle position, saved with Stop & save: the trailing part comes after the new one
+      await resetState();
+      stitchArgs = null;
+      ({ ids } = await openParts([syntheticWebm(), nClusterWebm(5), nClusterWebm(12)]));
+      [A, B, C] = ids;
+      S.reviewReplacePart(1);
+      const N4 = await recordNewPart();
+      windowMock.showSaveFilePicker = pickerSequence(['ok']);
+      state.stopMode = 'save';
+      await sandbox.stopRecording();
+      await settle();
+      assert(stitchArgs && stitchArgs.join() === [A, N4, C].join(), 'GZ: a middle replacement saved from Stop & save keeps the order (got ' + JSON.stringify(stitchArgs) + ')');
+    } finally { sandbox.saveSessionsStreamedStitch = origStitch; u.restore(); }
+  });
+
   // ---------- REVIEW #34 (v1.30): Webcam and Mic while paused ----------
   const camTrack = () => ({ kind: 'video', readyState: 'live', getSettings: () => ({ width: 320, height: 240 }), addEventListener() {}, stop() { this.readyState = 'ended'; } });
   const startScreenRecWith = async ({ mic, cam }) => {
@@ -7840,7 +7957,7 @@ Real cue text
         assert(calls === 1 && api.reviewState.saving === true, 'GT: Save as is started and marked itself in flight right away');
         assert(S.reviewPartsModel().busy === true, 'GT: the parts list reports busy while the save runs');
         const html = gk('reviewPartsList').innerHTML;
-        assert((html.match(/ disabled/g) || []).length === 4 , 'GT: every Play and Delete button is rendered disabled (2 rows x 2)');
+        assert((html.match(/ disabled/g) || []).length === 6 , 'GT: every Play, Replace and Delete button is rendered disabled (2 rows x 3)');
         assert(gk('btnRestoreParts').disabled === true, 'GT: Restore all parts is greyed out too');
 
         const segBefore = api.reviewState.segments, tokenBefore = api.reviewState.partToken;
