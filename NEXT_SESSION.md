@@ -1,19 +1,5 @@
 # DidaRec — Next Session, Start Here
 
-**Newest (2026-10-23): v1.40 — replace a part (#43 stage 2 DONE).** Harness
-**221 / 1724** (prefixes end at GZ; `ONLY=GZ node test.cjs` runs a subset).
-`state.replace` holds a replacement in flight; `replaceAfterParts()` is
-appended by every chain built at a stop (review list, stitch, download
-ids, fallback). The two undos coexist: Undo re-record (cuts, recorder
-idle state) and Undo replacement (review page, once). **#43 is complete.**
-
-**Demo video DONE (2026-10-23).** `demo/didarec-demo.webm` + `.vtt` +
-poster, linked at the top of `guide.html` (`#demo`) and from the README;
-made by `regression_rig/demo_video.py` (`python demo_video.py cr`, ffmpeg
-on PATH, browser free; `DIDAREC_VIDEO` in harness.py records the page at
-1280x1000). Remake it whenever the recorder's look or flow changes, and
-`git add -f` the .webm (the repo ignores *.webm).
-
 **Newest (2026-10-23): v1.42 — bug-report link + solid Sky "on" toggles (#51 DONE).**
 Harness **224 / 1767** (HC). Footer `#reportLink` is built by `buildReportLink()`
 on load (version + browser in the subject). `.toggle-btn.active` = Sky fill,
@@ -30,6 +16,20 @@ do both or its chapters are lost silently. Guide section "Mark chapters
 while you record" (`#chapters`, shots 08/09 via `regression_rig/chapter_shot.py`).
 Next: the owner's blog post / announcement; optional Firefox + part-4 rig
 re-run; #44 (design conversation first).
+
+**Demo video DONE (2026-10-23).** `demo/didarec-demo.webm` + `.vtt` +
+poster, linked at the top of `guide.html` (`#demo`) and from the README;
+made by `regression_rig/demo_video.py` (`python demo_video.py cr`, ffmpeg
+on PATH, browser free; `DIDAREC_VIDEO` in harness.py records the page at
+1280x1000). Remake it whenever the recorder's look or flow changes, and
+`git add -f` the .webm (the repo ignores *.webm).
+
+**Earlier (2026-10-23): v1.40 — replace a part (#43 stage 2 DONE).** Harness
+**221 / 1724** (prefixes end at GZ; `ONLY=GZ node test.cjs` runs a subset).
+`state.replace` holds a replacement in flight; `replaceAfterParts()` is
+appended by every chain built at a stop (review list, stitch, download
+ids, fallback). The two undos coexist: Undo re-record (cuts, recorder
+idle state) and Undo replacement (review page, once). **#43 is complete.**
 
 **Earlier (2026-10-23): v1.39 — brand restyle (#50 DONE).** The app's CSS
 variables keep their old names with brand values (`--green` = Sky,
